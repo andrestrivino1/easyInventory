@@ -23,8 +23,11 @@ WORKDIR /var/www
 COPY . /var/www
 RUN rm -rf /var/www/html && ln -s /var/www/public /var/www/html
 
-# Instala Composer (gestor de dependencias de PHP)
+# Instala Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Instala las dependencias de Composer para Laravel
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
 # Permisos para Laravel (opcional pero recomendable)
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
