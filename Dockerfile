@@ -29,9 +29,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Instala las dependencias de Composer para Laravel
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
-# Ejecuta migraciones y seeders después de Composer
-RUN php artisan migrate --seed --force
-
 # Permisos para Laravel (opcional pero recomendable)
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
