@@ -76,9 +76,18 @@ body .form-bg {
     <label for="quantity">Cantidad*</label>
     <input type="number" name="quantity" id="quantity" min="1" value="{{ old('quantity', 1) }}" required>
 
+    <label for="driver_name">Nombre del Conductor*</label>
+    <input type="text" name="driver_name" id="driver_name" value="{{ old('driver_name') }}" required>
+
+    <label for="driver_id">Cédula del Conductor*</label>
+    <input type="text" name="driver_id" id="driver_id" value="{{ old('driver_id') }}" required maxlength="20">
+
+    <label for="vehicle_plate">Placa del Vehículo*</label>
+    <input type="text" name="vehicle_plate" id="vehicle_plate" value="{{ old('vehicle_plate') }}" required maxlength="20">
+
     <label for="note">Notas</label>
     <textarea name="note" id="note" rows="2" placeholder="Opcional">{{ old('note') }}</textarea>
-
+    
     <div class="actions">
       <a href="{{ route('transfer-orders.index') }}" class="btn-cancel">Cancelar</a>
       <button type="submit" class="btn-save">Guardar</button>

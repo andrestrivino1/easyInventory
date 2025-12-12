@@ -10,7 +10,7 @@
           <p>Productos</p>
         </div>
         <div class="icon"><i class="bi bi-bag"></i></div>
-        <a href="/products" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
+        <a href="{{ route('products.index') }}" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
       </div>
     </div>
     <div class="col-lg-3 col-xs-6">
@@ -20,7 +20,7 @@
           <p>Almacenes</p>
         </div>
         <div class="icon"><i class="bi bi-building"></i></div>
-        <a href="/warehouses" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
+        <a href="{{ route('warehouses.index') }}" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
       </div>
     </div>
     <div class="col-lg-3 col-xs-6">
@@ -30,7 +30,7 @@
           <p>Bajo stock</p>
         </div>
         <div class="icon"><i class="bi bi-exclamation-triangle"></i></div>
-        <a href="/products" class="small-box-footer text-dark">Ver detalles <i class="bi bi-arrow-right-circle"></i></a>
+        <a href="{{ route('products.index') }}" class="small-box-footer text-dark">Ver detalles <i class="bi bi-arrow-right-circle"></i></a>
       </div>
     </div>
     <div class="col-lg-3 col-xs-6">
@@ -40,7 +40,7 @@
           <p>Órdenes en tránsito</p>
         </div>
         <div class="icon"><i class="bi bi-arrow-left-right"></i></div>
-        <a href="/transfer-orders" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
+        <a href="{{ route('transfer-orders.index') }}" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>
       </div>
     </div>
   </div>

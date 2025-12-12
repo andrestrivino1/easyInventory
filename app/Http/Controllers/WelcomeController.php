@@ -11,6 +11,9 @@ class WelcomeController extends Controller
     public function index()
     {
         $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
         $isAdmin = $user && $user->rol === 'admin';
         // Productos
         $productos = $isAdmin

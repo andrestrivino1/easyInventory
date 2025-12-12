@@ -57,6 +57,9 @@ class TransferOrderController extends Controller
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
+            'driver_name' => 'required|string|max:100', // nuevo
+            'driver_id' => 'required|string|max:20',    // nuevo
+            'vehicle_plate' => 'required|string|max:20' // nuevo
         ]);
         DB::beginTransaction();
         try {
@@ -75,6 +78,9 @@ class TransferOrderController extends Controller
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
+                'driver_name' => $data['driver_name'], // nuevo
+                'driver_id' => $data['driver_id'],     // nuevo
+                'vehicle_plate' => $data['vehicle_plate'] // nuevo
             ]);
             // Relacionar producto y cantidad
             $transfer->products()->attach($data['product_id'], ['quantity' => $data['quantity']]);

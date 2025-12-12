@@ -180,32 +180,96 @@
                 font-size: 12px;
             }
         }
+        .sidebar-toggle-btn {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: #3c8dbc;
+            border: none;
+            color: #fff;
+            font-size: 25px;
+            padding: 6px 10px;
+            border-radius: 3px;
+            z-index: 3080;
+            height: 39px;
+            width: 43px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 2px 3px 6px -6px #222c;
+        }
         @media (max-width: 991px) {
-            .main-sidebar, .main-footer, .content-area, .main-header { margin-left: 0!important; left:0!important; }
-            .main-sidebar { width: 60vw; min-width:160px; max-width:240px; }
-            .main-header, .main-footer { padding-left: 8vw; }
-            .content-area {padding: 18px 3vw 16px 3vw;}
+            .main-sidebar { left: -240px!important; transition: left 0.3s; }
+            .main-sidebar.active { left:0!important; }
+            .sidebar-toggle-btn { display:block; }
+            .main-header { left: 0 !important; padding-left: 48px !important; z-index: 3075; }
+            .main-header .page-title {
+                font-size: 1.02em;
+                max-width: 70vw;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display: inline-block;
+                vertical-align: middle;
+                text-align: center!important;
+                margin: 12px auto 3px auto !important;
+            }
+            .main-header .user { margin-left: 6px; font-size: 0.98em; }
+            .content-area { padding: 16px 2vw 18px 2vw !important; margin-top: 58px !important; margin-left: 0 !important; min-width: 0; width: 100vw; }
+            .container, .container-fluid { margin: 0 auto; padding: 0 !important; max-width: 100vw; }
+            .small-box { width: 100%; margin-bottom: 16px; }
+            h2, .page-title { text-align: center !important; margin: 12px auto 3px auto !important; }
+        }
+        /* Footer siempre ocupando ancho completo */
+        .main-footer {
+            width: 100vw !important;
+            left: 0 !important;
+            right: 0 !important;
+            position: fixed;
+            bottom: 0;
+            max-width: 100vw !important;
+            min-width: 0;
+        }
+        /* Ajustes de tabla responsiva/móvil - para todas las tablas y celdas */
+        @media (max-width: 991px) {
+            .table-responsive { width: 100%; overflow-x: auto; }
+            .table-responsive table, table.table, .inventory-table, .transfer-table { min-width: 620px; font-size: 15px; }
+            .table tbody tr, .inventory-table tbody tr, .transfer-table tbody tr { white-space: nowrap; }
+            .actions { white-space: nowrap !important; display: flex !important; flex-direction: row !important; gap: 5px; align-items: center; justify-content: flex-start; }
+            .actions form, .actions a, .actions button { display: inline-block !important; margin-bottom: 0 !important; margin-right: 5px !important; }
+        }
+        @media (max-width: 680px) {
+            .table-responsive table, table.table, .inventory-table, .transfer-table { min-width: 570px; font-size: 14px; }
+        }
+        /* Evita que el boton hamburguesa se mueva. Utiliza z-index extra alto. */
+        @media (max-width: 991px) {
+            .sidebar-toggle-btn {top: 11px; left:10px; z-index: 3080; position:fixed;}
         }
         @media (max-width: 600px) {
-            .main-header, .main-footer {padding-left: 6px; padding-right:6px;}
-            .main-sidebar {display:none;}
-            .content-area {margin:0; padding:10px 2px 12px 2px;}
+            .main-sidebar { display: none; }
+            .main-sidebar.active { display: block!important; left: 0!important; }
+            .main-header, .main-footer {padding-left: 4px; padding-right:6px;}
+            .content-area { margin:0; padding:5px 2px 15px 2px;}
+        }
+        @media (max-width: 591px) {
+            .btn { font-size: 0.95em !important; padding: 3px 8px !important; min-width: 72px; }
         }
     </style>
 </head>
 <body>
+    <button id="sidebarToggleBtn" class="sidebar-toggle-btn" type="button" style="display:flex;"><i class="bi bi-list"></i></button>
     <aside class="main-sidebar">
         <div class="sidebar-logo"><i class="bi bi-box"></i> EasyInventory</div>
         <ul class="sidebar-menu">
-            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="/"><i class="bi bi-bar-chart"></i> Dashboard</a></li>
-            <li><a class="nav-link" href="/products"><i class="bi bi-bag"></i> Productos</a></li>
+            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Dashboard</a></li>
+            <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> Productos</a></li>
             @if(Auth::user() && Auth::user()->rol === 'admin')
-              <li><a class="nav-link" href="/warehouses"><i class="bi bi-building"></i> Almacenes</a></li>
+              <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Almacenes</a></li>
             @endif
-            <li><a class="nav-link" href="/transfer-orders"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
-            <li><a class="nav-link" href="/stock-movements"><i class="bi bi-recycle"></i> Movimientos</a></li>
+            <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
+            {{-- <li><a class="nav-link" href="/stock-movements"><i class="bi bi-recycle"></i> Movimientos</a></li> --}} 
             @if(Auth::user() && Auth::user()->rol === 'admin')
-              <li><a class="nav-link" href="/users"><i class="bi bi-person"></i> Usuarios</a></li>
+              <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>
             @endif
         </ul>
     </aside>
@@ -230,5 +294,33 @@
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @yield('scripts')
+    <script>
+        // Sidebar mobile toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            var sidebar = document.querySelector('.main-sidebar');
+            var toggleBtn = document.getElementById('sidebarToggleBtn');
+            toggleBtn && toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+            });
+            document.addEventListener('click', function(e){
+                if(window.innerWidth < 992 && sidebar.classList.contains('active')){
+                    if(!sidebar.contains(e.target) && e.target!==toggleBtn){ sidebar.classList.remove('active'); }
+                }
+            });
+        });
+        // Acomoda tablas en scroll si no son table-responsive y corrige problemas de display
+        document.addEventListener('DOMContentLoaded', function() {
+            if(window.innerWidth < 992) {
+                document.querySelectorAll('table:not(.table-responsive)').forEach(function(tbl) {
+                    if(!tbl.closest('.table-responsive')){
+                        var wrap=document.createElement('div');
+                        wrap.className='table-responsive';
+                        tbl.parentNode.insertBefore(wrap,tbl); wrap.appendChild(tbl);
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

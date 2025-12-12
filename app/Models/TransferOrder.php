@@ -18,6 +18,9 @@ class TransferOrder extends Model
         'status',
         'date',
         'note',
+        'driver_name', // NUEVO
+        'driver_id',   // NUEVO
+        'vehicle_plate'// NUEVO
     ];
 
     protected $casts = [

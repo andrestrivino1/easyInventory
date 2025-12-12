@@ -22,6 +22,9 @@ class CreateTransferOrdersTable extends Migration
             $table->string('status')->default('en_transito');
             $table->timestamp('date')->useCurrent();
             $table->string('note')->nullable();
+            $table->string('driver_name');
+            $table->string('driver_id', 20);
+            $table->string('vehicle_plate', 20);
             $table->timestamps();
             $table->foreign('warehouse_from_id')->references('id')->on('warehouses')->restrictOnDelete();
             $table->foreign('warehouse_to_id')->references('id')->on('warehouses')->restrictOnDelete();

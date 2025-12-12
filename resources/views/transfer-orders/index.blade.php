@@ -52,6 +52,9 @@
                 <th>Destino</th>
                 <th>Estado</th>
                 <th>Fecha</th>
+                <th>Conductor</th>
+                <th>Cédula</th>
+                <th>Placa</th>
                 <th style="min-width:140px;max-width:180px">Acciones</th>
             </tr>
         </thead>
@@ -71,6 +74,9 @@
                     @endif
                 </td>
                 <td>{{ $transfer->date->format('d/m/Y H:i') }}</td>
+                <td>{{ $transfer->driver_name }}</td>
+                <td>{{ $transfer->driver_id }}</td>
+                <td>{{ $transfer->vehicle_plate }}</td>
                 <td class="actions" style="min-width:140px;max-width:180px;white-space:nowrap;">
                     @php $user = Auth::user(); @endphp
                     @if(in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))

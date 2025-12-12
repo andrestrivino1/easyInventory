@@ -17,7 +17,12 @@ use Illuminate\Support\Facades\Auth;
 |
 */
 
-Route::get('/', [App\Http\Controllers\WelcomeController::class, 'index']);
+Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('welcome');
+    }
+    return view('auth.login');
+});
 Route::resource('products', ProductController::class);
 Route::resource('warehouses', WarehouseController::class);
 Route::resource('transfer-orders', TransferOrderController::class);

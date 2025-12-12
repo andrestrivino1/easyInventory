@@ -23,6 +23,7 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('home');
+        // Invoca directamente la lógica de WelcomeController
+        return app(\App\Http\Controllers\WelcomeController::class)->index();
     }
 }
