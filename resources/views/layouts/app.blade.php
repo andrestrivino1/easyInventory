@@ -267,7 +267,8 @@
               <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Almacenes</a></li>
             @endif
             <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
-            <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Drivers</a></li>
+            <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Conductores</a></li>
+            <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> Contenedores</a></li>
             {{-- <li><a class="nav-link" href="/stock-movements"><i class="bi bi-recycle"></i> Movimientos</a></li> --}} 
             @if(Auth::user() && Auth::user()->rol === 'admin')
               <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>

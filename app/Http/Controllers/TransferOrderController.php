@@ -21,9 +21,9 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
         if ($user->rol === 'admin') {
-            $transferOrders = \App\Models\TransferOrder::with(['from', 'to'])->orderByDesc('date')->get();
+            $transferOrders = \App\Models\TransferOrder::with(['from', 'to', 'products.container'])->orderByDesc('date')->get();
         } else {
-            $transferOrders = \App\Models\TransferOrder::with(['from', 'to'])
+            $transferOrders = \App\Models\TransferOrder::with(['from', 'to', 'products.container'])
                 ->where('warehouse_from_id', $user->almacen_id)
                 ->orWhere('warehouse_to_id', $user->almacen_id)
                 ->orderByDesc('date')->get();
@@ -60,17 +60,24 @@ class TransferOrderController extends Controller
             'note' => 'nullable|string|max:255',
             'driver_id' => 'required|exists:drivers,id',
         ]);
+        
+        \Log::info('TRANSFER store - datos validados', $data);
         DB::beginTransaction();
         try {
+            \Log::info('TRANSFER store - antes buscar producto', ['product_id'=>$data['product_id'], 'almacen_id'=>$data['warehouse_from_id']]);
             $product = Product::where('id', $data['product_id'])->where('almacen_id', $data['warehouse_from_id'])->first();
             if (!$product) {
+                \Log::info('TRANSFER store - error producto no existe', ['product_id'=>$data['product_id'], 'almacen_id'=>$data['warehouse_from_id']]);
                 return back()->with('error', 'El producto no existe en ese almacén de origen.')->withInput();
             }
             if ($product->stock < $data['quantity']) {
+                \Log::info('TRANSFER store - error stock insuficiente', ['producto_stock'=>$product->stock, 'quan'=>$data['quantity']]);
                 return back()->with('error', 'Stock insuficiente para realizar la transferencia.')->withInput();
             }
+            \Log::info('TRANSFER store - descuenta stock', ['stock_antes'=>$product->stock, 'resta'=>$data['quantity']]);
             $product->stock -= $data['quantity'];
             $product->save();
+            \Log::info('TRANSFER store - producto actualizado', ['stock_despues'=>$product->stock]);
             $transfer = TransferOrder::create([
                 'warehouse_from_id' => $data['warehouse_from_id'],
                 'warehouse_to_id' => $data['warehouse_to_id'],
@@ -79,12 +86,14 @@ class TransferOrderController extends Controller
                 'note' => $data['note'] ?? null,
                 'driver_id' => $data['driver_id'],
             ]);
-            // Relacionar producto y cantidad
+            \Log::info('TRANSFER store - transferencia creada', ['transfer_id'=>$transfer->id]);
             $transfer->products()->attach($data['product_id'], ['quantity' => $data['quantity']]);
             DB::commit();
+            \Log::info('TRANSFER store - exito', ['transfer_id'=>$transfer->id]);
             return redirect()->route('transfer-orders.index')->with('success', 'Transferencia creada correctamente.');
         } catch (\Throwable $e) {
             DB::rollBack();
+            \Log::error('TRANSFER store - exception', ['msg'=>$e->getMessage(), 'trace'=>$e->getTraceAsString()]);
             return back()->with('error', 'Ocurrió un error al crear la transferencia.')->withInput();
         }
     }

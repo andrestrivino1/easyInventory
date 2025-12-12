@@ -49,6 +49,11 @@ body .form-bg {
   <h2>Nueva transferencia</h2>
   <form action="{{ route('transfer-orders.store') }}" method="POST" autocomplete="off">
     @csrf
+    @if(session('error'))
+      <div class="alert alert-danger" style="margin-bottom:15px; text-align:center;">
+        {{ session('error') }}
+      </div>
+    @endif
     <label for="warehouse_from_id">Almacén origen*</label>
     <select name="warehouse_from_id" id="warehouse_from_id" required>
       <option value="">Seleccione</option>

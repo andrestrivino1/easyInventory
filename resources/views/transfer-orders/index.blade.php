@@ -2,6 +2,11 @@
 
 @section('content')
 <style>
+    .table-responsive-custom {
+        overflow-x: auto;
+        max-width: 100vw;
+        padding-bottom: 6px;
+    }
     .transfer-table {
         width: 100%;
         border-collapse: collapse;
@@ -9,27 +14,34 @@
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        font-size: 14px;
+        table-layout: auto;
+    }
+    .transfer-table th, .transfer-table td {
+        padding: 7px 7px;
+        border-bottom: 1px solid #e6e6e6;
+        word-break: break-word;
+        vertical-align: middle;
     }
     .transfer-table th {
         background: #0066cc;
         color: white;
-        text-align: left;
-        padding: 12px;
-        font-size: 15px;
+        font-size: 14px;
+        letter-spacing:0.1px;
+        white-space: nowrap;
     }
     .transfer-table td {
-        padding: 12px;
-        border-bottom: 1px solid #e6e6e6;
+        font-size: 13.2px;
     }
     .transfer-table tr:hover {
         background: #f1f7ff;
     }
     .actions button, .actions a {
-        padding: 6px 12px;
+        padding: 5px 9px;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 13px;
+        font-size: 12px;
         margin-right: 6px;
         display:inline-block;
         text-decoration:none;
@@ -37,6 +49,18 @@
     .btn-edit {background: #1d7ff0; color: white;}
     .btn-delete {background: #ffb3b3; color: #b30000;}
     .actions button:hover, .actions a:hover { opacity: 0.85; }
+    .transfer-table th:nth-child(6), .transfer-table td:nth-child(6),
+    .transfer-table th:nth-child(7), .transfer-table td:nth-child(7) {
+        min-width: 90px;
+        max-width: 160px;
+    }
+    .transfer-table th:nth-child(8), .transfer-table td:nth-child(8) {
+        min-width: 70px;
+        max-width: 110px;
+    }
+    .transfer-table th, .transfer-table td {
+        max-width: 145px;
+    }
 </style>
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1050px;">
@@ -44,6 +68,7 @@
         <a href="{{ route('transfer-orders.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nueva transferencia</a>
       </div>
       <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold;">Transferencias entre almacenes</h2>
+      <div class="table-responsive-custom">
       <table class="transfer-table">
         <thead>
             <tr>
@@ -52,6 +77,8 @@
                 <th>Destino</th>
                 <th>Estado</th>
                 <th>Fecha</th>
+                <th>Producto</th>
+                <th>Contenedor</th>
                 <th>Conductor</th>
                 <th>Cédula</th>
                 <th>Placa</th>
@@ -74,6 +101,16 @@
                     @endif
                 </td>
                 <td>{{ $transfer->date->format('d/m/Y H:i') }}</td>
+                <td>
+                  @foreach($transfer->products as $prod)
+                    {{ $prod->nombre }} @if(!$loop->last)<br>@endif
+                  @endforeach
+                </td>
+                <td>
+                  @foreach($transfer->products as $prod)
+                    {{ $prod->container->reference ?? '-' }} @if(!$loop->last)<br>@endif
+                  @endforeach
+                </td>
                 <td>{{ $transfer->driver->name ?? '-' }}</td>
                 <td>{{ $transfer->driver->identity ?? '-' }}</td>
                 <td>{{ $transfer->driver->vehicle_plate ?? '-' }}</td>
@@ -87,7 +124,6 @@
                         </form>
                     @endif
                     <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-primary" title="Imprimir" style="margin-right:6px;vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
-                    <a href="{{ route('transfer-orders.export', $transfer) }}" class="btn btn-outline-secondary" title="Exportar PDF" style="vertical-align:middle;" target="_blank"><i class="bi bi-file-earmark-pdf"></i></a>
                     @if($transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
                         <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline;">
                             @csrf
@@ -106,6 +142,7 @@
         @endforelse
         </tbody>
       </table>
+      </div>
     </div>
 </div>
 @endsection

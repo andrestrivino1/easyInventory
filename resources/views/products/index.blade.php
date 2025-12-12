@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <tr>
                 <th>Código</th>
                 <th>Nombre</th>
-                <th>Precio</th>
+                <th>Contenedor</th>
                 <th>Stock (Cajas)</th>
                 <th>Unidades</th>
                 <th>Almacén</th>
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <tr>
     <td>{{ $producto->codigo }}</td>
     <td>{{ $producto->nombre }}</td>
-    <td>${{ number_format($producto->precio, 0, ',', '.') }}</td>
+    <td>{{ $producto->container ? $producto->container->reference : '-' }}</td>
     <td>
         @if($producto->tipo_medida === 'caja')
             {{ $producto->cajas }}

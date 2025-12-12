@@ -28,6 +28,7 @@ Route::resource('warehouses', WarehouseController::class);
 Route::resource('transfer-orders', TransferOrderController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);
 Route::resource('drivers', App\Http\Controllers\DriverController::class);
+Route::resource('containers', App\Http\Controllers\ContainerController::class);
 Auth::routes();
 Route::get('transfer-orders/{transferOrder}/export', [TransferOrderController::class, 'export'])->name('transfer-orders.export');
 Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::class, 'print'])->name('transfer-orders.print');

@@ -103,6 +103,9 @@
     <form action="{{ route('products.update', $product) }}" method="POST" autocomplete="off">
       @csrf
       @method('PUT')
+      @if(session('error'))
+        <div class="alert alert-danger" style="margin-bottom:15px;">{{ session('error') }}</div>
+      @endif
       <label for="almacen_id">Almacén*</label>
       <select name="almacen_id" id="almacen_id" required>
         <option value="">Seleccione un almacén</option>
@@ -115,10 +118,6 @@
       <label for="nombre">Nombre*</label>
       <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del producto" value="{{ old('nombre', $product->nombre) }}" required>
       @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
-      <label for="precio">Precio</label>
-      <input type="number" name="precio" id="precio" value="{{ old('precio', $product->precio) }}">
-      @error('precio') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="tipo_medida">Tipo de stock*</label>
       <select name="tipo_medida" id="tipo_medida" onchange="toggleBoxFields()" required>
@@ -139,6 +138,15 @@
       </div>
       @error('stock') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
+      <label for="container_id">Contenedor (Referencia)*</label>
+      <select name="container_id" id="container_id" required>
+        <option value="">Seleccione</option>
+        @foreach($containers as $cont)
+            <option value="{{ $cont->id }}" {{ old('container_id', $product->container_id) == $cont->id ? 'selected' : '' }}>{{ $cont->reference }}</option>
+        @endforeach
+      </select>
+      @error('container_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
       <label for="estado">Estado</label>
       <select name="estado" id="estado">
           <option value="1" {{ old('estado', $product->estado) == 1 ? 'selected' : '' }}>Activo</option>
@@ -153,7 +161,37 @@
 </div>
 @endsection
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+function toggleStockTypeByWarehouse() {
+    var wh = document.getElementById('almacen_id');
+    var tipoSelect = document.getElementById('tipo_medida');
+    if(!wh || !tipoSelect) return;
+    var buenaventuraOption = null;
+    for(let opt of wh.options) {
+        if(opt.innerText.trim().toLowerCase() === 'buenaventura' && opt.value) buenaventuraOption = opt.value;
+    }
+    tipoSelect.removeEventListener('change', enforceCaja);
+    if (wh.value === buenaventuraOption) {
+        if(tipoSelect.value !== 'caja') {
+            tipoSelect.value = 'caja';
+            Swal.fire({icon:'info',title:'Solo se permiten Cajas en Buenaventura',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
+        }
+        for(let opt of tipoSelect.options) {
+            if(opt.value === 'unidad') { opt.disabled = true; opt.hidden = true; } else { opt.disabled = false; opt.hidden = false; }
+        }
+        tipoSelect.addEventListener('change', enforceCaja);
+    } else {
+        for(let opt of tipoSelect.options) { opt.disabled = false; opt.hidden = false; }
+        tipoSelect.removeEventListener('change', enforceCaja);
+    }
+    toggleBoxFields();
+}
+function enforceCaja(e) {
+    var tipoSelect = document.getElementById('tipo_medida');
+    tipoSelect.value = 'caja';
+    Swal && Swal.fire({icon:'info',title:'Solo se permiten Cajas en Buenaventura',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
+}
 function toggleBoxFields() {
   var tipo = document.getElementById('tipo_medida').value;
   document.getElementById('box-fields').style.display = (tipo === 'caja') ? 'block' : 'none';
@@ -165,18 +203,33 @@ function calculateTotalStock() {
   document.getElementById('total_unidades').innerText = cajas * unidadesPorCaja;
 }
 document.addEventListener('DOMContentLoaded', function() {
+  var wh = document.getElementById('almacen_id');
+  if(wh){
+    wh.addEventListener('change', toggleStockTypeByWarehouse);
+    toggleStockTypeByWarehouse();
+  }
   toggleBoxFields();
   calculateTotalStock();
   var sc = document.getElementById('stock_cajas');
   var upc = document.getElementById('unidades_por_caja');
   if(sc) sc.addEventListener('input', calculateTotalStock);
   if(upc) upc.addEventListener('input', calculateTotalStock);
-
   // Fuerza mostrar tipomedida según dato actual al cargar
   var tipoSelect = document.getElementById('tipo_medida');
   if(tipoSelect) {
     tipoSelect.value = "{{ old('tipo_medida', $product->tipo_medida) }}";
     toggleBoxFields();
+  }
+  // Fuerza tipo de stock = caja para Buenaventura justo antes del submit
+  var form = document.querySelector('form');
+  if(form) {
+    form.addEventListener('submit', function(){
+      var buenaventuraOption = null;
+      for(let opt of wh.options) {
+        if(opt.innerText.trim().toLowerCase() === 'buenaventura' && opt.value) buenaventuraOption = opt.value;
+      }
+      if (wh.value === buenaventuraOption && tipoSelect) tipoSelect.value = 'caja';
+    });
   }
 });
 </script>

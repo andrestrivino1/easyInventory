@@ -58,6 +58,7 @@
         <thead>
             <tr>
                 <th>Producto</th>
+                <th>Contenedor</th>
                 <th>Cajas</th>
                 <th>Unidades</th>
             </tr>
@@ -66,6 +67,7 @@
         @foreach($transferOrder->products as $prod)
             <tr>
                 <td>{{ $prod->nombre }}</td>
+                <td>{{ $prod->container->reference ?? '-' }}</td>
                 <td>
                     @if($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)
                         {{ (int) ($prod->pivot->quantity / $prod->unidades_por_caja) }}

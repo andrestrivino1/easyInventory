@@ -19,6 +19,7 @@ class Product extends Model
         'almacen_id',
         'tipo_medida',
         'unidades_por_caja',
+        'container_id',
     ];
 
     protected static function boot()
@@ -34,6 +35,11 @@ class Product extends Model
     public function almacen()
     {
         return $this->belongsTo(Warehouse::class, 'almacen_id');
+    }
+
+    public function container()
+    {
+        return $this->belongsTo(\App\Models\Container::class);
     }
 
     public function getCajasAttribute()
