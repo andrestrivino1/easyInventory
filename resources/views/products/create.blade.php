@@ -145,8 +145,23 @@
       <input type="number" name="precio" id="precio" value="{{ old('precio', 0) }}">
       @error('precio') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-      <label for="stock">Stock</label>
-      <input type="number" name="stock" id="stock" value="{{ old('stock', 0) }}">
+      <label for="tipo_medida">Tipo de stock*</label>
+      <select name="tipo_medida" id="tipo_medida" onchange="toggleBoxFields()" required>
+        <option value="unidad">Unidades</option>
+        <option value="caja" {{ old('tipo_medida') == 'caja' ? 'selected' : '' }}>Cajas</option>
+      </select>
+      <div id="box-fields" style="display: none;">
+        <label for="stock_cajas">Stock (en cajas)</label>
+        <input type="number" id="stock_cajas" min="1" value="{{ old('stock_cajas', 1) }}" oninput="calculateTotalStock()">
+        <label for="unidades_por_caja">Unidades por caja*</label>
+        <input type="number" name="unidades_por_caja" id="unidades_por_caja" min="1" value="{{ old('unidades_por_caja', 40) }}">
+        <div style="color:#2b3136; font-size:13px; margin-bottom:12px;">Ejemplo: Una caja contiene 40 unidades</div>
+        <div style="color:#0066cc;font-size:14px;margin-bottom:12px;">Stock total en unidades: <span id="total_unidades">0</span></div>
+      </div>
+      <div id="solo-unidades">
+        <label for="stock">Stock</label>
+        <input type="number" name="stock" id="stock" value="{{ old('stock', 0) }}">
+      </div>
       @error('stock') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="estado">Estado</label>
@@ -162,3 +177,23 @@
   </div>
 </div>
 @endsection
+
+<script>
+function toggleBoxFields() {
+  var tipo = document.getElementById('tipo_medida').value;
+  document.getElementById('box-fields').style.display = (tipo === 'caja') ? 'block' : 'none';
+  document.getElementById('solo-unidades').style.display = (tipo === 'caja') ? 'none' : 'block';
+}
+
+function calculateTotalStock() {
+  var cajas = parseInt(document.getElementById('stock_cajas').value) || 0;
+  var unidadesPorCaja = parseInt(document.getElementById('unidades_por_caja').value) || 0;
+  document.getElementById('total_unidades').innerText = cajas * unidadesPorCaja;
+}
+document.addEventListener('DOMContentLoaded', function() {
+  toggleBoxFields();
+  calculateTotalStock();
+  document.getElementById('stock_cajas').addEventListener('input', calculateTotalStock);
+  document.getElementById('unidades_por_caja').addEventListener('input', calculateTotalStock);
+});
+</script>

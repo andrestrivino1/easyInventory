@@ -80,6 +80,17 @@
     <label for="note">Notas</label>
     <input type="text" name="note" id="note" value="{{ old('note', $transferOrder->note) }}" @if($transferOrder->status!=='en_transito') readonly @endif>
 
+    <label for="driver_id">Placa del Vehículo*</label>
+    <select name="driver_id" id="driver_id" required onchange="setConductorFromPlate(this)" @if($transferOrder->status!=='en_transito') disabled @endif>
+      <option value="">Seleccione</option>
+      @foreach($drivers as $driver)
+        <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}" @if(old('driver_id', $transferOrder->driver_id)==$driver->id) selected @endif>{{ $driver->vehicle_plate }} - {{ $driver->name }}</option>
+      @endforeach
+    </select>
+
+    <label for="conductor_show">Conductor</label>
+    <input type="text" id="conductor_show" value="{{ old('conductor_show', $transferOrder->driver ? ($transferOrder->driver->name.' ('.$transferOrder->driver->identity.')') : '') }}" readonly style="background:#e9ecef; pointer-events:none;">
+
     <div class="actions">
       <a href="{{ route('transfer-orders.index') }}" class="btn-cancel">Cancelar</a>
       @if($transferOrder->status==='en_transito')
@@ -90,3 +101,15 @@
 </div>
 </div>
 @endsection
+
+<script>
+function setConductorFromPlate(sel) {
+    let n = sel.options[sel.selectedIndex].getAttribute('data-name');
+    let cid = sel.options[sel.selectedIndex].getAttribute('data-id');
+    document.getElementById('conductor_show').value = (n && cid) ? (n + ' (' + cid + ')') : '';
+}
+window.onload = function() {
+  var sel = document.getElementById('driver_id');
+  if(sel) setConductorFromPlate(sel);
+}
+</script>

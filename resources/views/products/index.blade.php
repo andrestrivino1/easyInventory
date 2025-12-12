@@ -114,7 +114,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Precio</th>
-                <th>Stock</th>
+                <th>Stock (Cajas)</th>
+                <th>Unidades</th>
                 <th>Almacén</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -127,14 +128,15 @@ document.addEventListener('DOMContentLoaded', function() {
     <td>{{ $producto->nombre }}</td>
     <td>${{ number_format($producto->precio, 0, ',', '.') }}</td>
     <td>
-        @if($producto->stock > 0)
-            <span class="badge bg-success">{{ $producto->stock }}</span>
+        @if($producto->tipo_medida === 'caja')
+            {{ $producto->cajas }}
         @else
-            <span class="badge bg-danger">0</span>
+            -
         @endif
     </td>
+    <td>{{ $producto->stock }}</td>
     <td>{{ $producto->almacen->nombre ?? '-' }}</td>
-    <td>{{ ucfirst($producto->estado) }}</td>
+    <td>{{ $producto->estado ? 'Activo' : 'Inactivo' }}</td>
     <td class="actions">
         <form action="{{ route('products.edit', $producto) }}" method="GET" style="display:inline">
             <button type="submit" class="btn-edit" style="margin-right:7px;">Editar</button>

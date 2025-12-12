@@ -51,10 +51,19 @@ class ProductController extends Controller
             'stock' => 'nullable|integer|min:0',
             'estado' => 'nullable|boolean',
             'almacen_id' => 'required|exists:warehouses,id',
+            'tipo_medida' => 'required|in:unidad,caja',
+            'unidades_por_caja' => 'nullable|integer|min:1',
         ]);
         $data['estado'] = $data['estado'] ?? 1;
         $data['precio'] = $data['precio'] ?? 0;
-        $data['stock'] = $data['stock'] ?? 0;
+        if ($data['tipo_medida'] === 'caja') {
+            $cajas = (int)($request->input('stock_cajas') ?? 1);
+            $data['stock'] = $cajas * (int) $data['unidades_por_caja'];
+            $data['unidades_por_caja'] = (int) $data['unidades_por_caja'] ?: 1;
+        } else {
+            $data['unidades_por_caja'] = null;
+            $data['stock'] = $data['stock'] ?? 0;
+        }
         \App\Models\Product::create($data);
         return redirect()->route('products.index')
             ->with('success', 'Producto creado correctamente.');
@@ -100,10 +109,19 @@ class ProductController extends Controller
             'stock'    => 'nullable|integer|min:0',
             'estado'   => 'nullable|boolean',
             'almacen_id' => 'required|exists:warehouses,id',
+            'tipo_medida' => 'required|in:unidad,caja',
+            'unidades_por_caja' => 'nullable|integer|min:1',
         ]);
         $data['estado'] = $data['estado'] ?? 1;
         $data['precio'] = $data['precio'] ?? 0;
-        $data['stock'] = $data['stock'] ?? 0;
+        if ($data['tipo_medida'] === 'caja') {
+            $cajas = (int)($request->input('stock_cajas') ?? 1);
+            $data['stock'] = $cajas * (int) $data['unidades_por_caja'];
+            $data['unidades_por_caja'] = (int) $data['unidades_por_caja'] ?: 1;
+        } else {
+            $data['unidades_por_caja'] = null;
+            $data['stock'] = $data['stock'] ?? 0;
+        }
         $product->update($data);
         return redirect()->route('products.index')->with('success', 'Producto editado correctamente.');
     }

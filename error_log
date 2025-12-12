@@ -1,0 +1,5 @@
+[11-Dec-2025 12:22:36 America/Bogota] PHP Warning:  require(/home/vidriosj/public_html/inventory/vendor/autoload.php): Failed to open stream: No such file or directory in /home/vidriosj/public_html/inventory/index.php on line 34
+[11-Dec-2025 12:22:36 America/Bogota] PHP Fatal error:  Uncaught Error: Failed opening required '/home/vidriosj/public_html/inventory/vendor/autoload.php' (include_path='.:/opt/alt/php81/usr/share/pear:/opt/alt/php81/usr/share/php:/usr/share/pear:/usr/share/php') in /home/vidriosj/public_html/inventory/index.php:34
+Stack trace:
+#0 {main}
+  thrown in /home/vidriosj/public_html/inventory/index.php on line 34

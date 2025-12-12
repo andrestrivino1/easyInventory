@@ -40,7 +40,8 @@ class TransferOrderController extends Controller
     {
         $warehouses = Warehouse::orderBy('nombre')->get();
         $products = Product::orderBy('nombre')->get();
-        return view('transfer-orders.create', compact('warehouses', 'products'));
+        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        return view('transfer-orders.create', compact('warehouses', 'products', 'drivers'));
     }
 
     /**
@@ -57,9 +58,7 @@ class TransferOrderController extends Controller
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
-            'driver_name' => 'required|string|max:100', // nuevo
-            'driver_id' => 'required|string|max:20',    // nuevo
-            'vehicle_plate' => 'required|string|max:20' // nuevo
+            'driver_id' => 'required|exists:drivers,id',
         ]);
         DB::beginTransaction();
         try {
@@ -78,9 +77,7 @@ class TransferOrderController extends Controller
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
-                'driver_name' => $data['driver_name'], // nuevo
-                'driver_id' => $data['driver_id'],     // nuevo
-                'vehicle_plate' => $data['vehicle_plate'] // nuevo
+                'driver_id' => $data['driver_id'],
             ]);
             // Relacionar producto y cantidad
             $transfer->products()->attach($data['product_id'], ['quantity' => $data['quantity']]);
@@ -120,7 +117,8 @@ class TransferOrderController extends Controller
         }
         $warehouses = Warehouse::orderBy('nombre')->get();
         $products = Product::orderBy('nombre')->get();
-        return view('transfer-orders.edit', compact('transferOrder', 'warehouses', 'products'));
+        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        return view('transfer-orders.edit', compact('transferOrder', 'warehouses', 'products', 'drivers'));
     }
 
     /**
@@ -145,6 +143,7 @@ class TransferOrderController extends Controller
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
+            'driver_id' => 'required|exists:drivers,id',
         ]);
         DB::beginTransaction();
         try {
@@ -163,6 +162,7 @@ class TransferOrderController extends Controller
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
+                'driver_id' => $data['driver_id'],
             ]);
             // Relacionar producto y cantidad
             $transferOrder->products()->sync([$data['product_id'] => ['quantity' => $data['quantity']]]);
@@ -189,8 +189,24 @@ class TransferOrderController extends Controller
         if ($transferOrder->status !== 'en_transito') {
             return redirect()->route('transfer-orders.index')->with('error', 'Solo se pueden eliminar transferencias en tránsito.');
         }
-        $transferOrder->delete();
-        return redirect()->route('transfer-orders.index')->with('success','Transferencia eliminada correctamente.');
+        DB::beginTransaction();
+        try {
+            // Regresar el stock al almacén de origen
+            foreach ($transferOrder->products as $product) {
+                $prod = \App\Models\Product::where('id', $product->id)
+                        ->where('almacen_id', $transferOrder->warehouse_from_id)->first();
+                if ($prod) {
+                    $prod->stock += $product->pivot->quantity;
+                    $prod->save();
+                }
+            }
+            $transferOrder->delete();
+            DB::commit();
+            return redirect()->route('transfer-orders.index')->with('success','Transferencia eliminada y stock restaurado correctamente.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->route('transfer-orders.index')->with('error','Ocurrió un error al eliminar la transferencia.');
+        }
     }
 
     public function export(TransferOrder $transferOrder)

@@ -23,6 +23,9 @@
     </style>
 </head>
 <body>
+    <div style="width:100%;text-align:center;margin-top:14px;margin-bottom:18px;">
+        <img src="{{ public_path('logo.png') }}" style="max-width:180px;max-height:80px;">
+    </div>
     <div class="no-print" style="text-align:right;margin-top:18px;">
         <a href="{{ route('transfer-orders.export', $transferOrder) }}" target="_blank" style="background:#178aff;color:white;padding:7px 15px;border-radius:5px;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:24px;"><i class="bi bi-file-earmark-pdf" style="margin-right:4px;"></i>Descargar PDF</a>
         <button onclick="window.print()" style="background:#6c757d;color:white;padding:7px 16px;font-size:14px;font-weight:500;border:none;border-radius:5px;margin-left:6px;">Imprimir</button>
@@ -55,17 +58,39 @@
         <thead>
             <tr>
                 <th>Producto</th>
-                <th>Cantidad</th>
+                <th>Cajas</th>
+                <th>Unidades</th>
             </tr>
         </thead>
         <tbody>
         @foreach($transferOrder->products as $prod)
             <tr>
                 <td>{{ $prod->nombre }}</td>
+                <td>
+                    @if($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)
+                        {{ (int) ($prod->pivot->quantity / $prod->unidades_por_caja) }}
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ $prod->pivot->quantity }}</td>
             </tr>
         @endforeach
         </tbody>
+    </table>
+    <table style="margin-bottom:15px;">
+        <tr>
+            <td class="label">Conductor:</td>
+            <td>{{ $transferOrder->driver->name ?? '-' }}</td>
+            <td class="label">Cédula:</td>
+            <td>{{ $transferOrder->driver->identity ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Placa Vehículo:</td>
+            <td>{{ $transferOrder->driver->vehicle_plate ?? '-' }}</td>
+            <td class="label">Teléfono:</td>
+            <td>{{ $transferOrder->driver->phone ?? '-' }}</td>
+        </tr>
     </table>
     @if($transferOrder->note)
     <div style="margin-top:8px;"><span class="label">Notas:</span> {{ $transferOrder->note }}</div>
@@ -73,9 +98,26 @@
     <div class="footer">
         Generado por EasyInventory - {{ now()->format('d/m/Y H:i') }}
     </div>
-    <div class="firma">
-        _______________________________<br>
-        Responsable del traslado/recepción
-    </div>
+    <table style="width:100%;margin-top:45px;text-align:center;border:0;">
+        <tr>
+            <td style="border:none;">
+                <div class="firma">
+                    _______________________________<br>
+                    Patio de despacho
+                </div>
+            </td>
+            <td style="border:none;">
+                <div class="firma">
+                    _______________________________<br>
+                    Firma conductor
+                </div>
+            </td>
+            <td style="border:none;">
+                <div class="firma">
+                    _______________________________<br>
+                    Firma recibido</div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

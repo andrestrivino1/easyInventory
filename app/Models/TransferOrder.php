@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Warehouse;
 use App\Models\Product;
+use App\Models\Driver;
 
 class TransferOrder extends Model
 {
@@ -18,9 +19,7 @@ class TransferOrder extends Model
         'status',
         'date',
         'note',
-        'driver_name', // NUEVO
-        'driver_id',   // NUEVO
-        'vehicle_plate'// NUEVO
+        'driver_id',
     ];
 
     protected $casts = [
@@ -52,5 +51,10 @@ class TransferOrder extends Model
     {
         return $this->belongsToMany(Product::class, 'transfer_order_products')
            ->withPivot('quantity')->withTimestamps();
+    }
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class);
     }
 }

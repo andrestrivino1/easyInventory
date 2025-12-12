@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     if (Auth::check()) {
-        return redirect()->route('welcome');
+        return redirect()->route('home');
     }
     return view('auth.login');
 });
@@ -27,6 +27,7 @@ Route::resource('products', ProductController::class);
 Route::resource('warehouses', WarehouseController::class);
 Route::resource('transfer-orders', TransferOrderController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);
+Route::resource('drivers', App\Http\Controllers\DriverController::class);
 Auth::routes();
 Route::get('transfer-orders/{transferOrder}/export', [TransferOrderController::class, 'export'])->name('transfer-orders.export');
 Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::class, 'print'])->name('transfer-orders.print');

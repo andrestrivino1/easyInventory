@@ -17,6 +17,8 @@ class Product extends Model
         'stock',
         'estado',
         'almacen_id',
+        'tipo_medida',
+        'unidades_por_caja',
     ];
 
     protected static function boot()
@@ -32,5 +34,13 @@ class Product extends Model
     public function almacen()
     {
         return $this->belongsTo(Warehouse::class, 'almacen_id');
+    }
+
+    public function getCajasAttribute()
+    {
+        if ($this->tipo_medida === 'caja' && $this->unidades_por_caja > 0) {
+            return (int) ($this->stock / $this->unidades_por_caja);
+        }
+        return null;
     }
 }

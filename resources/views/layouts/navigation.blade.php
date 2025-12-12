@@ -15,6 +15,11 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('drivers.index') }}">
+                            <i class="bi bi-truck"></i> Drivers
+                        </a>
+                    </li>
                 </div>
             </div>
 

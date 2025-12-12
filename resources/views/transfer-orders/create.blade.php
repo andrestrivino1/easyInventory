@@ -76,14 +76,16 @@ body .form-bg {
     <label for="quantity">Cantidad*</label>
     <input type="number" name="quantity" id="quantity" min="1" value="{{ old('quantity', 1) }}" required>
 
-    <label for="driver_name">Nombre del Conductor*</label>
-    <input type="text" name="driver_name" id="driver_name" value="{{ old('driver_name') }}" required>
+    <label for="driver_id">Placa del Vehículo*</label>
+    <select name="driver_id" id="driver_id" required onchange="setConductorFromPlate(this)">
+      <option value="">Seleccione</option>
+      @foreach($drivers as $driver)
+        <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}">{{ $driver->vehicle_plate }} - {{ $driver->name }}</option>
+      @endforeach
+    </select>
 
-    <label for="driver_id">Cédula del Conductor*</label>
-    <input type="text" name="driver_id" id="driver_id" value="{{ old('driver_id') }}" required maxlength="20">
-
-    <label for="vehicle_plate">Placa del Vehículo*</label>
-    <input type="text" name="vehicle_plate" id="vehicle_plate" value="{{ old('vehicle_plate') }}" required maxlength="20">
+    <label for="conductor_show">Conductor</label>
+    <input type="text" id="conductor_show" value="" readonly style="background:#e9ecef; pointer-events:none;">
 
     <label for="note">Notas</label>
     <textarea name="note" id="note" rows="2" placeholder="Opcional">{{ old('note') }}</textarea>
@@ -96,3 +98,21 @@ body .form-bg {
 </div>
 </div>
 @endsection
+
+<script>
+function setConductorFromPlate(sel) {
+    let n = sel.options[sel.selectedIndex].getAttribute('data-name');
+    let cid = sel.options[sel.selectedIndex].getAttribute('data-id');
+    document.getElementById('conductor_show').value = (n && cid) ? (n + ' (' + cid + ')') : '';
+}
+
+function setPlateFromDriver(sel) {
+    let plate = sel.options[sel.selectedIndex].getAttribute('data-plate');
+    document.getElementById('vehicle_plate').value = plate || '';
+}
+</script>
+
+window.onload = function() {
+  var sel = document.getElementById('driver_id');
+  if(sel) setConductorFromPlate(sel);
+}
