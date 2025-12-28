@@ -10,9 +10,13 @@ class Container extends Model
     public $timestamps = false;
     protected $fillable = [
         'reference',
-        'product_name',
-        'boxes',
-        'sheets_per_box',
         'note'
     ];
+
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'container_product')
+            ->withPivot('boxes', 'sheets_per_box')
+            ->withTimestamps();
+    }
 }

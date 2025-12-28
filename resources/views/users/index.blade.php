@@ -12,7 +12,9 @@
 </style>
 <div class="container-fluid" style="padding-top:32px;min-height:88vh;">
     <div class="mx-auto" style="max-width:1050px;">
+    @if(auth()->user()->rol === 'admin')
     <div class="d-flex justify-content-end align-items-center mb-3"><a href="{{ route('users.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-person-plus me-2"></i>Nuevo usuario</a></div>
+    @endif
     <h2 class="mb-4 text-center" style="color:#333;font-weight:bold">Gestión de Usuarios</h2>
     <table class="table-users">
         <thead>

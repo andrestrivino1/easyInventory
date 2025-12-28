@@ -13,22 +13,25 @@ class Product extends Model
     protected $fillable = [
         'codigo',
         'nombre',
+        'medidas',
         'precio',
         'stock',
         'estado',
         'almacen_id',
         'tipo_medida',
         'unidades_por_caja',
-        'container_id',
     ];
 
     protected static function boot()
     {
         parent::boot();
         static::creating(function ($model) {
-            $last = self::orderByDesc('id')->first();
-            $next = $last ? ((int)substr($last->codigo, 4)) + 1 : 1;
-            $model->codigo = 'PRD-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+            // Solo generar código si no se proporciona uno
+            if (empty($model->codigo)) {
+                $last = self::orderByDesc('id')->first();
+                $next = $last ? ((int)substr($last->codigo, 4)) + 1 : 1;
+                $model->codigo = 'PRD-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+            }
         });
     }
 
@@ -37,9 +40,11 @@ class Product extends Model
         return $this->belongsTo(Warehouse::class, 'almacen_id');
     }
 
-    public function container()
+    public function containers()
     {
-        return $this->belongsTo(\App\Models\Container::class);
+        return $this->belongsToMany(Container::class, 'container_product')
+            ->withPivot('boxes', 'sheets_per_box')
+            ->withTimestamps();
     }
 
     public function getCajasAttribute()

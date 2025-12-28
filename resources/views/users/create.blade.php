@@ -55,7 +55,9 @@
         <div class="form-group">
           <label for="rol">Rol *</label>
           <select id="rol" name="rol" required>
-              <option value="usuario" {{ old('rol')=='usuario' ? 'selected':'' }}>Usuario</option>
+              <option value="clientes" {{ old('rol')=='clientes' ? 'selected':'' }}>Clientes</option>
+              <option value="secretaria" {{ old('rol')=='secretaria' ? 'selected':'' }}>Secretaria</option>
+              <option value="funcionario" {{ old('rol')=='funcionario' ? 'selected':'' }}>Funcionario</option>
               <option value="admin" {{ old('rol')=='admin' ? 'selected':'' }}>Administrador</option>
           </select>
           @error('rol')<div class="invalid-feedback">{{ $message }}</div>@enderror

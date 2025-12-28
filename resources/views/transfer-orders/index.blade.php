@@ -18,10 +18,12 @@
         table-layout: auto;
     }
     .transfer-table th, .transfer-table td {
-        padding: 7px 7px;
-        border-bottom: 1px solid #e6e6e6;
+        padding: 12px;
         word-break: break-word;
-        vertical-align: middle;
+        vertical-align: top;
+    }
+    .transfer-table tbody tr:not(:last-child) td {
+        border-bottom: 1px solid #e6e6e6;
     }
     .transfer-table th {
         background: #0066cc;
@@ -36,37 +38,51 @@
     .transfer-table tr:hover {
         background: #f1f7ff;
     }
-    .actions button, .actions a {
-        padding: 5px 9px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        margin-right: 6px;
-        display:inline-block;
-        text-decoration:none;
-    }
+.actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.actions button, .actions a {
+    padding: 5px 9px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    display:inline-block;
+    text-decoration:none;
+    white-space: nowrap;
+}
+.actions form {
+    display: inline-block;
+    margin: 0;
+}
     .btn-edit {background: #1d7ff0; color: white;}
     .btn-delete {background: #ffb3b3; color: #b30000;}
     .actions button:hover, .actions a:hover { opacity: 0.85; }
-    .transfer-table th:nth-child(6), .transfer-table td:nth-child(6),
-    .transfer-table th:nth-child(7), .transfer-table td:nth-child(7) {
-        min-width: 90px;
-        max-width: 160px;
-    }
-    .transfer-table th:nth-child(8), .transfer-table td:nth-child(8) {
-        min-width: 70px;
-        max-width: 110px;
-    }
-    .transfer-table th, .transfer-table td {
-        max-width: 145px;
-    }
+    .transfer-table th:nth-child(1) { min-width: 100px; } /* No. Orden */
+    .transfer-table th:nth-child(2), .transfer-table th:nth-child(3) { min-width: 120px; } /* Origen, Destino */
+    .transfer-table th:nth-child(4) { min-width: 100px; } /* Estado */
+    .transfer-table th:nth-child(5) { min-width: 120px; } /* Fecha */
+    .transfer-table th:nth-child(6) { min-width: 200px; } /* Producto */
+    .transfer-table th:nth-child(7) { min-width: 150px; } /* Contenedor */
+    .transfer-table th:nth-child(8) { min-width: 100px; } /* Conductor */
+    .transfer-table th:nth-child(9), .transfer-table th:nth-child(10) { min-width: 100px; } /* Cédula, Placa */
+    .transfer-table th:nth-child(11) { min-width: 180px; } /* Acciones */
 </style>
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
-    <div class="mx-auto" style="max-width:1050px;">
+    <div class="mx-auto" style="max-width:1400px;">
+      @php
+          $user = Auth::user();
+          $canCreateTransfer = $user && $user->rol !== 'funcionario';
+      @endphp
+      @if($canCreateTransfer)
       <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
         <a href="{{ route('transfer-orders.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nueva transferencia</a>
       </div>
+      @endif
       <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold;">Transferencias entre almacenes</h2>
       <div class="table-responsive-custom">
       <table class="transfer-table">
@@ -100,41 +116,63 @@
                       <span style="background:#d1d5db;color:#333;border-radius:5px;padding:3px 10px;font-size:13px;">{{ ucfirst($transfer->status) }}</span>
                     @endif
                 </td>
-                <td>{{ $transfer->date->format('d/m/Y H:i') }}</td>
+                <td>{{ $transfer->date->setTimezone(config('app.timezone'))->format('d/m/Y H:i') }}</td>
                 <td>
                   @foreach($transfer->products as $prod)
-                    {{ $prod->nombre }} @if(!$loop->last)<br>@endif
+                    <div style="font-size: 13px; margin-bottom: 4px;">
+                      <strong>{{ $prod->nombre }}</strong>
+                      <span style="color: #666;">({{ $prod->pivot->quantity }} {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})</span>
+                    </div>
                   @endforeach
                 </td>
                 <td>
                   @foreach($transfer->products as $prod)
-                    {{ $prod->container->reference ?? '-' }} @if(!$loop->last)<br>@endif
+                    <div style="font-size: 13px; margin-bottom: 4px;">
+                      @php
+                        $containerId = $prod->pivot->container_id ?? null;
+                        $container = null;
+                        if ($containerId) {
+                            if (isset($containers) && $containers->has($containerId)) {
+                                $container = $containers->get($containerId);
+                            } else {
+                                $container = \App\Models\Container::find($containerId);
+                            }
+                        }
+                      @endphp
+                      @if($container)
+                        <strong>{{ $container->reference }}</strong>
+                      @else
+                        <span style="color: #999; font-style: italic;">-</span>
+                      @endif
+                    </div>
                   @endforeach
                 </td>
                 <td>{{ $transfer->driver->name ?? '-' }}</td>
                 <td>{{ $transfer->driver->identity ?? '-' }}</td>
                 <td>{{ $transfer->driver->vehicle_plate ?? '-' }}</td>
-                <td class="actions" style="min-width:140px;max-width:180px;white-space:nowrap;">
+                <td class="actions" style="white-space:nowrap;">
                     @php $user = Auth::user(); @endphp
-                    @if(in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
-                        <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit" style="margin-right:8px;">Editar</a>
-                        <form action="{{ route('transfer-orders.destroy', $transfer) }}" method="POST" style="display:inline;">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="btn-delete" style="margin-right:8px;">Eliminar</button>
-                        </form>
-                    @endif
-                    <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-primary" title="Imprimir" style="margin-right:6px;vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
-                    @if($transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
-                        <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline;">
-                            @csrf
-                            <button type="submit" class="btn btn-success" style="margin-left:8px;">Confirmar recibido</button>
-                        </form>
-                    @endif
+                    <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                        @if($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
+                            <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit">Editar</a>
+                            <form action="{{ route('transfer-orders.destroy', $transfer) }}" method="POST" style="display:inline; margin:0;">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="btn-delete">Eliminar</button>
+                            </form>
+                        @endif
+                        <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-secondary" title="Imprimir" style="padding: 5px 9px; vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
+                        @if($user->rol !== 'funcionario' && $transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
+                            <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline; margin:0;">
+                                @csrf
+                                <button type="submit" class="btn btn-success" style="padding: 5px 9px; font-size: 12px;">Confirmar recibido</button>
+                            </form>
+                        @endif
+                    </div>
                 </td>
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="text-center text-muted py-5">
+                <td colspan="11" class="text-center text-muted py-5">
                   <i class="bi bi-arrow-left-right text-secondary" style="font-size:2.2em;"></i><br>
                   <div class="mt-2">No existen transferencias registradas.</div>
                 </td>

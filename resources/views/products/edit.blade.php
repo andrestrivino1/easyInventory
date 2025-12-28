@@ -119,33 +119,23 @@
       <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del producto" value="{{ old('nombre', $product->nombre) }}" required>
       @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-      <label for="tipo_medida">Tipo de stock*</label>
-      <select name="tipo_medida" id="tipo_medida" onchange="toggleBoxFields()" required>
+      <label for="medidas">Medidas</label>
+      <input type="text" name="medidas" id="medidas" class="@error('medidas') is-invalid @enderror" placeholder="Ej: 100cm x 50cm x 2cm" value="{{ old('medidas', $product->medidas) }}">
+      @error('medidas') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
+      <label for="tipo_medida">Tipo de medida*</label>
+      <select name="tipo_medida" id="tipo_medida" required>
         <option value="unidad" {{ (old('tipo_medida', $product->tipo_medida)==='unidad') ? 'selected' : '' }}>Unidades</option>
         <option value="caja" {{ (old('tipo_medida', $product->tipo_medida)==='caja') ? 'selected' : '' }}>Cajas</option>
       </select>
-      <div id="box-fields" style="display: none;">
-        <label for="stock_cajas">Stock (en cajas)</label>
-        <input type="number" id="stock_cajas" name="stock_cajas" min="1" value="{{ old('stock_cajas', $product->tipo_medida=='caja' ? ceil($product->stock / $product->unidades_por_caja) : 1) }}" oninput="calculateTotalStock()">
-        <label for="unidades_por_caja">Unidades por caja*</label>
-        <input type="number" name="unidades_por_caja" id="unidades_por_caja" min="1" value="{{ old('unidades_por_caja', $product->unidades_por_caja ?? 40) }}">
-        <div style="color:#2b3136; font-size:13px; margin-bottom:12px;">Ejemplo: Una caja contiene 40 unidades</div>
-        <div style="color:#0066cc;font-size:14px;margin-bottom:12px;">Stock total en unidades: <span id="total_unidades">0</span></div>
-      </div>
-      <div id="solo-unidades">
-        <label for="stock">Stock</label>
-        <input type="number" name="stock" id="stock" value="{{ old('stock', $product->tipo_medida==='unidad' ? $product->stock : '') }}">
-      </div>
-      @error('stock') <div class="invalid-feedback">{{ $message }}</div> @enderror
+      @error('tipo_medida') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-      <label for="container_id">Contenedor (Referencia)*</label>
-      <select name="container_id" id="container_id" required>
-        <option value="">Seleccione</option>
-        @foreach($containers as $cont)
-            <option value="{{ $cont->id }}" {{ old('container_id', $product->container_id) == $cont->id ? 'selected' : '' }}>{{ $cont->reference }}</option>
-        @endforeach
-      </select>
-      @error('container_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+      <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
+        <strong>Nota:</strong> El stock y las unidades por caja se gestionan desde los contenedores asociados.
+        @if($product->containers->count() > 0)
+          <br><strong>Contenedores asociados:</strong> {{ $product->containers->pluck('reference')->join(', ') }}
+        @endif
+      </div>
 
       <label for="estado">Estado</label>
       <select name="estado" id="estado">
@@ -161,75 +151,30 @@
 </div>
 @endsection
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function toggleStockTypeByWarehouse() {
+document.addEventListener('DOMContentLoaded', function() {
     var wh = document.getElementById('almacen_id');
     var tipoSelect = document.getElementById('tipo_medida');
-    if(!wh || !tipoSelect) return;
+  if(wh && tipoSelect){
+    wh.addEventListener('change', function() {
     var buenaventuraOption = null;
     for(let opt of wh.options) {
         if(opt.innerText.trim().toLowerCase() === 'buenaventura' && opt.value) buenaventuraOption = opt.value;
     }
-    tipoSelect.removeEventListener('change', enforceCaja);
     if (wh.value === buenaventuraOption) {
         if(tipoSelect.value !== 'caja') {
             tipoSelect.value = 'caja';
+          if(typeof Swal !== 'undefined') {
             Swal.fire({icon:'info',title:'Solo se permiten Cajas en Buenaventura',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
         }
-        for(let opt of tipoSelect.options) {
-            if(opt.value === 'unidad') { opt.disabled = true; opt.hidden = true; } else { opt.disabled = false; opt.hidden = false; }
         }
-        tipoSelect.addEventListener('change', enforceCaja);
+        tipoSelect.options[0].disabled = true;
     } else {
-        for(let opt of tipoSelect.options) { opt.disabled = false; opt.hidden = false; }
-        tipoSelect.removeEventListener('change', enforceCaja);
-    }
-    toggleBoxFields();
-}
-function enforceCaja(e) {
-    var tipoSelect = document.getElementById('tipo_medida');
-    tipoSelect.value = 'caja';
-    Swal && Swal.fire({icon:'info',title:'Solo se permiten Cajas en Buenaventura',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
-}
-function toggleBoxFields() {
-  var tipo = document.getElementById('tipo_medida').value;
-  document.getElementById('box-fields').style.display = (tipo === 'caja') ? 'block' : 'none';
-  document.getElementById('solo-unidades').style.display = (tipo === 'caja') ? 'none' : 'block';
-}
-function calculateTotalStock() {
-  var cajas = parseInt(document.getElementById('stock_cajas').value) || 0;
-  var unidadesPorCaja = parseInt(document.getElementById('unidades_por_caja').value) || 0;
-  document.getElementById('total_unidades').innerText = cajas * unidadesPorCaja;
-}
-document.addEventListener('DOMContentLoaded', function() {
-  var wh = document.getElementById('almacen_id');
-  if(wh){
-    wh.addEventListener('change', toggleStockTypeByWarehouse);
-    toggleStockTypeByWarehouse();
-  }
-  toggleBoxFields();
-  calculateTotalStock();
-  var sc = document.getElementById('stock_cajas');
-  var upc = document.getElementById('unidades_por_caja');
-  if(sc) sc.addEventListener('input', calculateTotalStock);
-  if(upc) upc.addEventListener('input', calculateTotalStock);
-  // Fuerza mostrar tipomedida según dato actual al cargar
-  var tipoSelect = document.getElementById('tipo_medida');
-  if(tipoSelect) {
-    tipoSelect.value = "{{ old('tipo_medida', $product->tipo_medida) }}";
-    toggleBoxFields();
-  }
-  // Fuerza tipo de stock = caja para Buenaventura justo antes del submit
-  var form = document.querySelector('form');
-  if(form) {
-    form.addEventListener('submit', function(){
-      var buenaventuraOption = null;
-      for(let opt of wh.options) {
-        if(opt.innerText.trim().toLowerCase() === 'buenaventura' && opt.value) buenaventuraOption = opt.value;
+        tipoSelect.options[0].disabled = false;
       }
-      if (wh.value === buenaventuraOption && tipoSelect) tipoSelect.value = 'caja';
     });
+    // Ejecutar al cargar
+    wh.dispatchEvent(new Event('change'));
   }
 });
 </script>

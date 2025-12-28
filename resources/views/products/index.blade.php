@@ -19,6 +19,8 @@
     }
     .inventory-table td {
         padding: 12px;
+    }
+    .inventory-table tbody tr:not(:last-child) td {
         border-bottom: 1px solid #e6e6e6;
     }
     .inventory-table tr:hover {
@@ -104,21 +106,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 @endif
+      @if(isset($canCreateProducts) && $canCreateProducts)
       <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
         <a href="{{ route('products.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nuevo Producto</a>
       </div>
+      @endif
       <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold">Inventario de Productos</h2>
       <table class="inventory-table">
         <thead>
             <tr>
                 <th>Código</th>
                 <th>Nombre</th>
+                <th>Medidas</th>
                 <th>Contenedor</th>
-                <th>Stock (Cajas)</th>
-                <th>Unidades</th>
+                <th>Cajas</th>
+                <th>Laminas</th>
                 <th>Almacén</th>
                 <th>Estado</th>
+                @if(isset($canCreateProducts) && $canCreateProducts)
                 <th>Acciones</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -126,7 +133,28 @@ document.addEventListener('DOMContentLoaded', function() {
 <tr>
     <td>{{ $producto->codigo }}</td>
     <td>{{ $producto->nombre }}</td>
-    <td>{{ $producto->container ? $producto->container->reference : '-' }}</td>
+    <td>{{ $producto->medidas ?? '-' }}</td>
+    <td>
+        @php
+            // Contenedores directos del producto (solo para Buenaventura)
+            $directContainers = $producto->containers;
+            // Contenedores de origen desde transferencias recibidas
+            $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($producto->id) 
+                ? $productosContenedoresOrigen->get($producto->id) 
+                : collect();
+            // Combinar ambos (sin duplicados)
+            $allContainers = $directContainers->merge($transferContainers)->unique('id');
+        @endphp
+        @if($allContainers->count() > 0)
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                @foreach($allContainers as $container)
+                    <span style="font-size: 13px;">{{ $container->reference }}</span>
+                @endforeach
+            </div>
+        @else
+            <span style="color: #999; font-style: italic;">-</span>
+        @endif
+    </td>
     <td>
         @if($producto->tipo_medida === 'caja')
             {{ $producto->cajas }}
@@ -137,15 +165,25 @@ document.addEventListener('DOMContentLoaded', function() {
     <td>{{ $producto->stock }}</td>
     <td>{{ $producto->almacen->nombre ?? '-' }}</td>
     <td>{{ $producto->estado ? 'Activo' : 'Inactivo' }}</td>
+    @if(isset($canCreateProducts) && $canCreateProducts)
     <td class="actions">
-        <form action="{{ route('products.edit', $producto) }}" method="GET" style="display:inline">
-            <button type="submit" class="btn-edit" style="margin-right:7px;">Editar</button>
-        </form>
-        <form action="{{ route('products.destroy', $producto) }}" method="POST" style="display:inline">
-            @csrf @method('DELETE')
-            <button type="submit" class="btn-delete">Eliminar</button>
-        </form>
+        @if(isset($ID_BUENAVENTURA) && $producto->almacen_id == $ID_BUENAVENTURA)
+            <form action="{{ route('products.edit', $producto) }}" method="GET" style="display:inline">
+                <button type="submit" class="btn-edit" style="margin-right:7px;">Editar</button>
+            </form>
+        @endif
+        @if(isset($productosConTransferencias) && $productosConTransferencias->get($producto->id))
+            <span style="color: #999; font-size: 12px; font-style: italic;" title="Este producto tiene historial de transferencias recibidas. Solo puede desactivarse, no eliminarse.">
+                <i class="bi bi-info-circle"></i> Desactivar
+            </span>
+        @elseif(isset($ID_BUENAVENTURA) && $producto->almacen_id == $ID_BUENAVENTURA)
+            <form action="{{ route('products.destroy', $producto) }}" method="POST" style="display:inline">
+                @csrf @method('DELETE')
+                <button type="submit" class="btn-delete">Eliminar</button>
+            </form>
+        @endif
     </td>
+    @endif
 </tr>
 @endforeach
         </tbody>

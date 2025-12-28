@@ -33,6 +33,14 @@ Auth::routes();
 Route::get('transfer-orders/{transferOrder}/export', [TransferOrderController::class, 'export'])->name('transfer-orders.export');
 Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::class, 'print'])->name('transfer-orders.print');
 Route::post('transfer-orders/{transferOrder}/confirm', [TransferOrderController::class, 'confirmReceived'])->name('transfer-orders.confirm');
+Route::get('containers/{container}/export', [App\Http\Controllers\ContainerController::class, 'export'])->name('containers.export');
+Route::get('containers/{container}/print', [App\Http\Controllers\ContainerController::class, 'print'])->name('containers.print');
+Route::get('stock', [App\Http\Controllers\StockController::class, 'index'])->name('stock.index');
+Route::get('stock/export-pdf', [App\Http\Controllers\StockController::class, 'exportPdf'])->name('stock.export-pdf');
+Route::get('stock/export-excel', [App\Http\Controllers\StockController::class, 'exportExcel'])->name('stock.export-excel');
+Route::get('traceability', [App\Http\Controllers\TraceabilityController::class, 'index'])->name('traceability.index');
+Route::get('traceability/export-pdf', [App\Http\Controllers\TraceabilityController::class, 'exportPdf'])->name('traceability.export-pdf');
+Route::get('traceability/export-excel', [App\Http\Controllers\TraceabilityController::class, 'exportExcel'])->name('traceability.export-excel');
 
 Auth::routes();
 

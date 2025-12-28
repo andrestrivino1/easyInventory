@@ -17,7 +17,7 @@ class AddUserFieldsToUsersTable extends Migration
             $table->string('nombre_completo')->after('name');
             $table->string('telefono')->nullable()->after('email');
             $table->unsignedBigInteger('almacen_id')->nullable()->after('telefono');
-            $table->string('rol')->default('usuario')->after('almacen_id');
+            $table->string('rol')->default('clientes')->after('almacen_id');
             $table->foreign('almacen_id')->references('id')->on('warehouses')->nullOnDelete();
         });
     }

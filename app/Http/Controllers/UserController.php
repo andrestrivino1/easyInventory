@@ -37,6 +37,10 @@ class UserController extends Controller
      */
     public function create()
     {
+        // Solo admin puede crear usuarios
+        if (auth()->user()->rol !== 'admin') {
+            return redirect()->route('users.index')->with('error', 'Solo los administradores pueden crear usuarios.');
+        }
         $almacenes = Warehouse::orderBy('nombre')->get();
         return view('users.create', ['almacenes' => $almacenes]);
     }
@@ -49,13 +53,17 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        // Solo admin puede crear usuarios
+        if (auth()->user()->rol !== 'admin') {
+            return redirect()->route('users.index')->with('error', 'Solo los administradores pueden crear usuarios.');
+        }
         $data = $request->validate([
             'nombre_completo' => 'required|string|max:100',
             'name' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'telefono' => 'nullable|string|max:20',
             'almacen_id' => 'required|exists:warehouses,id',
-            'rol' => 'required|in:admin,usuario',
+            'rol' => 'required|in:admin,secretaria,clientes,funcionario',
             'password' => 'required|string|min:6|confirmed',
         ]);
         $data['password'] = Hash::make($data['password']);
@@ -103,7 +111,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,'.$usuario->id,
             'telefono' => 'nullable|string|max:20',
             'almacen_id' => 'required|exists:warehouses,id',
-            'rol' => 'required|in:admin,usuario',
+            'rol' => 'required|in:admin,secretaria,clientes,funcionario',
             'password' => 'nullable|string|min:6|confirmed',
         ]);
         if ($data['password']) {
@@ -122,6 +130,7 @@ class UserController extends Controller
      */
     public function destroy($id)
     {
+        // Solo admin puede eliminar usuarios
         if(auth()->user()->rol !== 'admin') {
             return back()->with('error','Solo los administradores pueden eliminar usuarios.');
         }

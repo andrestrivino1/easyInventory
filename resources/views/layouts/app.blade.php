@@ -261,16 +261,27 @@
     <aside class="main-sidebar">
         <div class="sidebar-logo"><i class="bi bi-box"></i> EasyInventory</div>
         <ul class="sidebar-menu">
+            @php
+                $user = Auth::user();
+                $ID_BUENAVENTURA = 1;
+                $isBuenaventura = $user && ($user->rol === 'admin' || $user->almacen_id == $ID_BUENAVENTURA);
+                $isFuncionario = $user && $user->rol === 'funcionario';
+            @endphp
             <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Dashboard</a></li>
             <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> Productos</a></li>
-            @if(Auth::user() && Auth::user()->rol === 'admin')
+            @if($user && $user->rol === 'admin')
               <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Almacenes</a></li>
             @endif
             <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
+            @if($isBuenaventura || $isFuncionario)
+            @if(!$isFuncionario)
             <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Conductores</a></li>
+            @endif
             <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> Contenedores</a></li>
-            {{-- <li><a class="nav-link" href="/stock-movements"><i class="bi bi-recycle"></i> Movimientos</a></li> --}} 
-            @if(Auth::user() && Auth::user()->rol === 'admin')
+            @endif
+            <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> Stock</a></li>
+            <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Trazabilidad</a></li> 
+            @if($user && $user->rol === 'admin')
               <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>
             @endif
         </ul>
