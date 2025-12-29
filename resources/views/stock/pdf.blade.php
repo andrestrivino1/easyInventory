@@ -40,8 +40,9 @@
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Almacén</th>
+                <th>Medidas</th>
+                <th>Cajas</th>
                 <th>Láminas</th>
-                <th>Tipo Medida</th>
                 <th>Estado</th>
             </tr>
         </thead>
@@ -51,8 +52,15 @@
                 <td>{{ $product->codigo }}</td>
                 <td>{{ $product->nombre }}</td>
                 <td>{{ $product->almacen->nombre ?? '-' }}</td>
+                <td>{{ $product->medidas ?? '-' }}</td>
+                <td>
+                    @if($product->tipo_medida === 'caja' && $product->cajas !== null)
+                        {{ number_format($product->cajas, 0) }}
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ number_format($product->stock, 0) }}</td>
-                <td>{{ ucfirst($product->tipo_medida) }}</td>
                 <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
             </tr>
             @endforeach

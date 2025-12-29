@@ -194,20 +194,23 @@ class StockController extends Controller
                     <th>Código</th>
                     <th>Nombre</th>
                     <th>Almacén</th>
+                    <th>Medidas</th>
+                    <th>Cajas</th>
                     <th>Láminas</th>
-                    <th>Tipo Medida</th>
                     <th>Estado</th>
                 </tr>
             </thead>
             <tbody>';
         
         foreach ($products as $product) {
+            $cajas = ($product->tipo_medida === 'caja' && $product->cajas !== null) ? number_format($product->cajas, 0) : '-';
             $html .= '<tr>
                 <td>' . htmlspecialchars($product->codigo) . '</td>
                 <td>' . htmlspecialchars($product->nombre) . '</td>
                 <td>' . htmlspecialchars($product->almacen->nombre ?? '-') . '</td>
+                <td>' . htmlspecialchars($product->medidas ?? '-') . '</td>
+                <td>' . $cajas . '</td>
                 <td>' . number_format($product->stock, 0) . '</td>
-                <td>' . htmlspecialchars(ucfirst($product->tipo_medida)) . '</td>
                 <td>' . ($product->estado ? 'Activo' : 'Inactivo') . '</td>
             </tr>';
         }

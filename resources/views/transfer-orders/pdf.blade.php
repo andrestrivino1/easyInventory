@@ -60,6 +60,7 @@
         <thead>
             <tr>
                 <th>Producto</th>
+                <th>Medidas</th>
                 <th>Contenedor</th>
                 <th>Cajas</th>
                 <th>Unidades</th>
@@ -93,6 +94,7 @@
             @endphp
             <tr>
                 <td>{{ $prod->nombre }}</td>
+                <td>{{ $prod->medidas ?? '-' }}</td>
                 <td>{{ $container ? $container->reference : '-' }}</td>
                 <td>
                     @if($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)

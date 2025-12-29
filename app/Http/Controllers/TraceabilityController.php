@@ -91,7 +91,7 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas y entradas desde transferencias
-        $transferOrders = TransferOrder::with(['from', 'to', 'products'])->get();
+        $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])->get();
         foreach ($transferOrders as $transfer) {
             foreach ($transfer->products as $product) {
                 // Filtrar por producto si está seleccionado
@@ -131,6 +131,9 @@ class TraceabilityController extends Controller
                                 'destination_warehouse' => $transfer->to->nombre ?? '-',
                                 'pivot_quantity' => $product->pivot->quantity,
                                 'boxes' => $product->tipo_medida === 'caja' ? $product->pivot->quantity : null,
+                                'driver_name' => $transfer->driver->name ?? null,
+                                'driver_identity' => $transfer->driver->identity ?? null,
+                                'driver_vehicle_plate' => $transfer->driver->vehicle_plate ?? null,
                             ]);
                         }
                     }
@@ -161,6 +164,9 @@ class TraceabilityController extends Controller
                                     'destination_warehouse' => $transfer->from->nombre ?? '-', // Origen de la transferencia
                                     'pivot_quantity' => $product->pivot->quantity,
                                     'boxes' => $product->tipo_medida === 'caja' ? $product->pivot->quantity : null,
+                                    'driver_name' => $transfer->driver->name ?? null,
+                                    'driver_identity' => $transfer->driver->identity ?? null,
+                                    'driver_vehicle_plate' => $transfer->driver->vehicle_plate ?? null,
                                 ]);
                             }
                         }
@@ -273,7 +279,7 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas y entradas desde transferencias
-        $transferOrders = TransferOrder::with(['from', 'to', 'products'])->get();
+        $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])->get();
         foreach ($transferOrders as $transfer) {
             foreach ($transfer->products as $product) {
                 if ($selectedProductId && $product->id != $selectedProductId) continue;
@@ -307,6 +313,9 @@ class TraceabilityController extends Controller
                                 'destination_warehouse' => $transfer->to->nombre ?? '-',
                                 'pivot_quantity' => $product->pivot->quantity,
                                 'boxes' => $product->tipo_medida === 'caja' ? $product->pivot->quantity : null,
+                                'driver_name' => $transfer->driver->name ?? null,
+                                'driver_identity' => $transfer->driver->identity ?? null,
+                                'driver_vehicle_plate' => $transfer->driver->vehicle_plate ?? null,
                             ]);
                         }
                     }
@@ -335,6 +344,9 @@ class TraceabilityController extends Controller
                                     'destination_warehouse' => $transfer->from->nombre ?? '-',
                                     'pivot_quantity' => $product->pivot->quantity,
                                     'boxes' => $product->tipo_medida === 'caja' ? $product->pivot->quantity : null,
+                                    'driver_name' => $transfer->driver->name ?? null,
+                                    'driver_identity' => $transfer->driver->identity ?? null,
+                                    'driver_vehicle_plate' => $transfer->driver->vehicle_plate ?? null,
                                 ]);
                             }
                         }
@@ -361,6 +373,13 @@ class TraceabilityController extends Controller
         
         $isExport = true;
         $pdf = Pdf::loadView('traceability.pdf', compact('movements', 'selectedProductId', 'selectedWarehouseId', 'dateFrom', 'dateTo', 'warehouses', 'products', 'isExport'));
+        
+        // Configurar orientación landscape y tamaño de papel
+        $pdf->setPaper('a4', 'landscape');
+        $pdf->setOption('margin-top', 10);
+        $pdf->setOption('margin-bottom', 10);
+        $pdf->setOption('margin-left', 8);
+        $pdf->setOption('margin-right', 8);
         
         $productName = $selectedProductId 
             ? $products->where('id', $selectedProductId)->first()->nombre ?? 'Todos' 
@@ -440,6 +459,9 @@ class TraceabilityController extends Controller
                 <th>Referencia</th>
                 <th>Tipo Referencia</th>
                 <th>Destino</th>
+                <th>Conductor</th>
+                <th>Cédula</th>
+                <th>Placa</th>
                 <th>Observación</th>
             </tr>
         </thead>
@@ -461,6 +483,9 @@ class TraceabilityController extends Controller
                 <td>' . htmlspecialchars($movement['reference']) . '</td>
                 <td>' . htmlspecialchars($movement['reference_type']) . '</td>
                 <td>' . htmlspecialchars($movement['destination_warehouse'] ?? '-') . '</td>
+                <td>' . htmlspecialchars($movement['driver_name'] ?? '-') . '</td>
+                <td>' . htmlspecialchars($movement['driver_identity'] ?? '-') . '</td>
+                <td>' . htmlspecialchars($movement['driver_vehicle_plate'] ?? '-') . '</td>
                 <td>' . htmlspecialchars($movement['note'] ?? '-') . '</td>
             </tr>';
         }

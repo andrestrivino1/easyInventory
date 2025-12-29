@@ -130,8 +130,9 @@
                         <th>Código</th>
                         <th>Nombre</th>
                         <th>Almacén</th>
+                        <th>Medidas</th>
+                        <th>Cajas</th>
                         <th>Laminas</th>
-                        <th>Tipo Medida</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
@@ -141,13 +142,20 @@
                         <td>{{ $product->codigo }}</td>
                         <td><strong>{{ $product->nombre }}</strong></td>
                         <td>{{ $product->almacen->nombre ?? '-' }}</td>
+                        <td>{{ $product->medidas ?? '-' }}</td>
+                        <td>
+                            @if($product->tipo_medida === 'caja' && $product->cajas !== null)
+                                <strong>{{ number_format($product->cajas, 0) }}</strong>
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td><strong>{{ number_format($product->stock, 0) }}</strong></td>
-                        <td>{{ ucfirst($product->tipo_medida) }}</td>
                         <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
+                        <td colspan="7" class="text-center text-muted py-4">
                             <i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br>
                             <div class="mt-2">No hay productos registrados.</div>
                         </td>

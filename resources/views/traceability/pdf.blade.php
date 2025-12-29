@@ -4,18 +4,32 @@
     <meta charset="UTF-8">
     <title>Trazabilidad de Productos</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #232323; margin: 0 32px; }
-        .title { font-size: 20px; font-weight: bold; margin-top: 25px; margin-bottom: 8px; text-align: center; }
-        .subtitle { color: #007bff; font-size: 12px; margin-bottom: 18px; text-align: center; }
-        table {border-collapse: collapse;width:100%;margin-bottom:25px; page-break-inside: auto;}
-        th, td {border: 1px solid #ccc;padding: 5px;text-align: left;font-size:10px;}
-        th {background: #edf5ff; font-weight: bold;}
+        body { font-family: Arial, sans-serif; font-size: 9px; color: #232323; margin: 0 15px; }
+        .title { font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 6px; text-align: center; }
+        .subtitle { color: #007bff; font-size: 10px; margin-bottom: 12px; text-align: center; }
+        table {border-collapse: collapse;width:100%;margin-bottom:20px; page-break-inside: auto; font-size: 8px;}
+        th, td {border: 1px solid #ccc;padding: 3px;text-align: left;font-size:8px; word-wrap: break-word;}
+        th {background: #edf5ff; font-weight: bold; font-size: 8px;}
         tr { page-break-inside: avoid; page-break-after: auto; }
-        .badge-entrada { background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; }
-        .badge-salida { background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; }
+        .badge-entrada { background: #28a745; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7px; }
+        .badge-salida { background: #dc3545; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7px; }
         .quantity-positive { color: #28a745; font-weight: bold; }
         .quantity-negative { color: #dc3545; font-weight: bold; }
-        .footer {margin-top:35px; text-align:right; font-size:13px;color:#777;}
+        .footer {margin-top:30px; text-align:right; font-size:10px;color:#777;}
+        .col-fecha { width: 8%; }
+        .col-tipo { width: 5%; }
+        .col-producto { width: 12%; }
+        .col-codigo { width: 7%; }
+        .col-cajas { width: 5%; }
+        .col-cantidad { width: 6%; }
+        .col-almacen { width: 8%; }
+        .col-referencia { width: 7%; }
+        .col-tipo-ref { width: 6%; }
+        .col-destino { width: 8%; }
+        .col-conductor { width: 8%; }
+        .col-cedula { width: 7%; }
+        .col-placa { width: 6%; }
+        .col-observacion { width: 8%; }
         @media print {
             body { margin:0; }
             .no-print { display: none !important; }
@@ -48,47 +62,53 @@
     <table>
         <thead>
             <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Producto</th>
-                <th>Código</th>
-                <th>Cajas</th>
-                <th>Cantidad</th>
-                <th>Almacén</th>
-                <th>Referencia</th>
-                <th>Tipo Ref.</th>
-                <th>Destino</th>
-                <th>Observación</th>
+                <th class="col-fecha">Fecha</th>
+                <th class="col-tipo">Tipo</th>
+                <th class="col-producto">Producto</th>
+                <th class="col-codigo">Código</th>
+                <th class="col-cajas">Cajas</th>
+                <th class="col-cantidad">Cantidad</th>
+                <th class="col-almacen">Almacén</th>
+                <th class="col-referencia">Referencia</th>
+                <th class="col-tipo-ref">Tipo Ref.</th>
+                <th class="col-destino">Destino</th>
+                <th class="col-conductor">Conductor</th>
+                <th class="col-cedula">Cédula</th>
+                <th class="col-placa">Placa</th>
+                <th class="col-observacion">Observación</th>
             </tr>
         </thead>
         <tbody>
             @foreach($movements as $movement)
             <tr>
-                <td>{{ $movement['date']->format('d/m/Y H:i') }}</td>
-                <td>
+                <td class="col-fecha">{{ $movement['date']->format('d/m/Y H:i') }}</td>
+                <td class="col-tipo" style="text-align: center;">
                     @if($movement['type'] === 'entrada')
                         <span class="badge-entrada">{{ $movement['type_label'] }}</span>
                     @else
                         <span class="badge-salida">{{ $movement['type_label'] }}</span>
                     @endif
                 </td>
-                <td>{{ $movement['product_name'] }}</td>
-                <td>{{ $movement['product_code'] }}</td>
-                <td style="text-align: center;">
+                <td class="col-producto">{{ $movement['product_name'] }}</td>
+                <td class="col-codigo">{{ $movement['product_code'] }}</td>
+                <td class="col-cajas" style="text-align: center;">
                     @if(isset($movement['boxes']) && $movement['boxes'] !== null)
                         {{ number_format($movement['boxes'], 0) }}
                     @else
                         -
                     @endif
                 </td>
-                <td class="{{ $movement['quantity'] > 0 ? 'quantity-positive' : 'quantity-negative' }}">
+                <td class="col-cantidad {{ $movement['quantity'] > 0 ? 'quantity-positive' : 'quantity-negative' }}" style="text-align: center;">
                     {{ $movement['quantity'] > 0 ? '+' : '' }}{{ number_format($movement['quantity'], 0) }}
                 </td>
-                <td>{{ $movement['warehouse_name'] }}</td>
-                <td>{{ $movement['reference'] }}</td>
-                <td>{{ $movement['reference_type'] }}</td>
-                <td>{{ $movement['destination_warehouse'] ?? '-' }}</td>
-                <td>{{ $movement['note'] ?? '-' }}</td>
+                <td class="col-almacen">{{ $movement['warehouse_name'] }}</td>
+                <td class="col-referencia">{{ $movement['reference'] }}</td>
+                <td class="col-tipo-ref">{{ $movement['reference_type'] }}</td>
+                <td class="col-destino">{{ $movement['destination_warehouse'] ?? '-' }}</td>
+                <td class="col-conductor">{{ $movement['driver_name'] ?? '-' }}</td>
+                <td class="col-cedula">{{ $movement['driver_identity'] ?? '-' }}</td>
+                <td class="col-placa">{{ $movement['driver_vehicle_plate'] ?? '-' }}</td>
+                <td class="col-observacion">{{ $movement['note'] ?? '-' }}</td>
             </tr>
             @endforeach
         </tbody>
