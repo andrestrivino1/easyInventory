@@ -7,8 +7,10 @@ use App\Models\Warehouse;
 use App\Models\Product;
 use App\Models\Container;
 use App\Models\TransferOrder;
+use App\Models\Salida;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
@@ -17,12 +19,12 @@ class StockController extends Controller
         $user = Auth::user();
         $warehouses = Warehouse::orderBy('nombre')->get();
         $selectedWarehouseId = $request->get('warehouse_id');
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su almacén
-        // Funcionario solo ve Buenaventura
+        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
+        // Funcionario solo ve Pablo Rojas
         if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_BUENAVENTURA;
+            $selectedWarehouseId = $ID_PABLO_ROJAS;
         } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
         }
@@ -37,17 +39,17 @@ class StockController extends Controller
             $products = Product::with(['almacen', 'containers'])->orderBy('nombre')->get();
         }
         
-        // Obtener contenedores (solo Buenaventura tiene contenedores)
+        // Obtener contenedores (solo Pablo Rojas tiene contenedores)
         if ($selectedWarehouseId) {
-            // Si se selecciona Buenaventura, mostrar sus contenedores
-            if ($selectedWarehouseId == $ID_BUENAVENTURA) {
+            // Si se selecciona Pablo Rojas, mostrar sus contenedores
+            if ($selectedWarehouseId == $ID_PABLO_ROJAS) {
                 $containers = Container::with('products')->orderByDesc('id')->get();
             } else {
-                // Si se selecciona otro almacén, no mostrar contenedores
+                // Si se selecciona otra bodega, no mostrar contenedores
                 $containers = collect();
             }
         } else {
-            // Si no hay filtro, mostrar todos los contenedores (solo Buenaventura tiene)
+            // Si no hay filtro, mostrar todos los contenedores (solo Pablo Rojas tiene)
             $containers = Container::with('products')->orderByDesc('id')->get();
         }
         
@@ -72,7 +74,19 @@ class StockController extends Controller
         // Obtener contenedores de origen desde transferencias recibidas para cada producto
         $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products);
         
-        return view('stock.index', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'ID_BUENAVENTURA', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen'));
+        // Obtener salidas
+        if ($selectedWarehouseId) {
+            $salidas = Salida::with(['warehouse', 'products'])
+                ->where('warehouse_id', $selectedWarehouseId)
+                ->orderByDesc('fecha')
+                ->get();
+        } else {
+            $salidas = Salida::with(['warehouse', 'products'])
+                ->orderByDesc('fecha')
+                ->get();
+        }
+        
+        return view('stock.index', compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen'));
     }
 
     private function getStockData(Request $request)
@@ -80,12 +94,12 @@ class StockController extends Controller
         $user = Auth::user();
         $warehouses = Warehouse::orderBy('nombre')->get();
         $selectedWarehouseId = $request->get('warehouse_id');
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su almacén
-        // Funcionario solo ve Buenaventura
+        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
+        // Funcionario solo ve Pablo Rojas
         if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_BUENAVENTURA;
+            $selectedWarehouseId = $ID_PABLO_ROJAS;
         } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
         }
@@ -102,7 +116,7 @@ class StockController extends Controller
         
         // Obtener contenedores
         if ($selectedWarehouseId) {
-            if ($selectedWarehouseId == $ID_BUENAVENTURA) {
+            if ($selectedWarehouseId == $ID_PABLO_ROJAS) {
                 $containers = Container::with('products')->orderByDesc('id')->get();
             } else {
                 $containers = collect();
@@ -126,13 +140,32 @@ class StockController extends Controller
                 ->get();
         }
         
-        // Calcular cantidades por contenedor para cada producto
+        // Refrescar los productos ANTES de calcular las cantidades para obtener los valores actualizados de la base de datos
+        foreach ($products as $product) {
+            $product->refresh();
+            // Recargar relaciones para asegurar que estén actualizadas
+            $product->load('almacen', 'containers');
+        }
+        
+        // Calcular cantidades por contenedor para cada producto (después de refrescar)
         $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products);
         
         // Obtener contenedores de origen desde transferencias recibidas para cada producto
         $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products);
         
-        return compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'ID_BUENAVENTURA', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen');
+        // Obtener salidas
+        if ($selectedWarehouseId) {
+            $salidas = Salida::with(['warehouse', 'products'])
+                ->where('warehouse_id', $selectedWarehouseId)
+                ->orderByDesc('fecha')
+                ->get();
+        } else {
+            $salidas = Salida::with(['warehouse', 'products'])
+                ->orderByDesc('fecha')
+                ->get();
+        }
+        
+        return compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen');
     }
     
     /**
@@ -162,57 +195,70 @@ class StockController extends Controller
             $cantidadesPorContenedor = collect();
             
             // 1. Obtener contenedores relacionados directamente (tabla container_product)
-            foreach ($producto->containers as $container) {
-                $containerId = $container->id;
-                $boxes = $container->pivot->boxes ?? 0;
-                $sheetsPerBox = $container->pivot->sheets_per_box ?? 0;
-                $laminas = $boxes * $sheetsPerBox;
-                
-                $cantidadesPorContenedor[$containerId] = [
-                    'container_reference' => $container->reference,
-                    'cajas' => $boxes,
-                    'laminas' => $laminas,
-                ];
+            // Leer directamente de la base de datos para obtener los valores actualizados
+            $containerProductData = DB::table('container_product')
+                ->where('product_id', $producto->id)
+                ->get();
+            
+            foreach ($containerProductData as $cp) {
+                $containerId = $cp->container_id;
+                $container = $allContainers->get($containerId);
+                if ($container) {
+                    $boxes = $cp->boxes ?? 0;
+                    $sheetsPerBox = $cp->sheets_per_box ?? 0;
+                    $laminas = $boxes * $sheetsPerBox;
+                    
+                    $cantidadesPorContenedor[$containerId] = [
+                        'container_reference' => $container->reference,
+                        'cajas' => $boxes,
+                        'laminas' => $laminas,
+                    ];
+                }
             }
             
-            // 2. Obtener cantidades de transferencias recibidas
-            $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
-                if ($transfer->warehouse_to_id != $producto->almacen_id) {
-                    return false;
-                }
-                // Buscar por nombre del producto (ya que el ID puede ser diferente)
-                return $transfer->products->contains(function($p) use ($producto) {
-                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
-                });
-            });
-            
-            foreach ($receivedTransfers as $transfer) {
-                // Buscar el producto en la transferencia por nombre y código
-                $productInTransfer = $transfer->products->first(function($p) use ($producto) {
-                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+            // 2. Obtener cantidades de transferencias recibidas (solo para bodegas que NO son Pablo Rojas)
+            // Para Pablo Rojas, solo mostramos las cajas que quedan en el contenedor (ya descontadas)
+            // Para otras bodegas, mostramos las cantidades recibidas por transferencia
+            $ID_PABLO_ROJAS = 1;
+            if ($producto->almacen_id != $ID_PABLO_ROJAS) {
+                $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
+                    if ($transfer->warehouse_to_id != $producto->almacen_id) {
+                        return false;
+                    }
+                    // Buscar por nombre del producto (ya que el ID puede ser diferente)
+                    return $transfer->products->contains(function($p) use ($producto) {
+                        return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                    });
                 });
                 
-                if ($productInTransfer && $productInTransfer->pivot->container_id) {
-                    $containerId = $productInTransfer->pivot->container_id;
-                    $quantity = $productInTransfer->pivot->quantity;
+                foreach ($receivedTransfers as $transfer) {
+                    // Buscar el producto en la transferencia por nombre y código
+                    $productInTransfer = $transfer->products->first(function($p) use ($producto) {
+                        return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                    });
                     
-                    // Calcular láminas si es tipo caja
-                    $laminas = $quantity;
-                    if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                        $laminas = $quantity * $producto->unidades_por_caja;
-                    }
-                    
-                    // Agregar o sumar a las cantidades existentes del contenedor
-                    if ($cantidadesPorContenedor->has($containerId)) {
-                        $cantidadesPorContenedor[$containerId]['cajas'] += $quantity;
-                        $cantidadesPorContenedor[$containerId]['laminas'] += $laminas;
-                    } else {
-                        $container = $allContainers->get($containerId);
-                        $cantidadesPorContenedor[$containerId] = [
-                            'container_reference' => $container ? $container->reference : 'N/A',
-                            'cajas' => $quantity,
-                            'laminas' => $laminas,
-                        ];
+                    if ($productInTransfer && $productInTransfer->pivot->container_id) {
+                        $containerId = $productInTransfer->pivot->container_id;
+                        $quantity = $productInTransfer->pivot->quantity;
+                        
+                        // Calcular láminas si es tipo caja
+                        $laminas = $quantity;
+                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                            $laminas = $quantity * $producto->unidades_por_caja;
+                        }
+                        
+                        // Agregar o sumar a las cantidades existentes del contenedor
+                        if ($cantidadesPorContenedor->has($containerId)) {
+                            $cantidadesPorContenedor[$containerId]['cajas'] += $quantity;
+                            $cantidadesPorContenedor[$containerId]['laminas'] += $laminas;
+                        } else {
+                            $container = $allContainers->get($containerId);
+                            $cantidadesPorContenedor[$containerId] = [
+                                'container_reference' => $container ? $container->reference : 'N/A',
+                                'cajas' => $quantity,
+                                'laminas' => $laminas,
+                            ];
+                        }
                     }
                 }
             }
@@ -287,7 +333,7 @@ class StockController extends Controller
         extract($data);
         
         $isExport = true;
-        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'ID_BUENAVENTURA', 'isExport'));
+        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'isExport'));
         
         $warehouseName = $selectedWarehouseId 
             ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
@@ -371,7 +417,7 @@ class StockController extends Controller
         </table>';
         
         // Sección de Contenedores
-        if ($selectedWarehouseId == $ID_BUENAVENTURA || !$selectedWarehouseId) {
+        if ($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId) {
             $html .= '<div class="section-title">SECCIÓN: CONTENEDORES</div>
             <table>
                 <thead>

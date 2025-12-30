@@ -41,7 +41,7 @@ class WarehouseController extends Controller
         ]);
         \App\Models\Warehouse::create($data);
         return redirect()->route('warehouses.index')
-            ->with('success', 'Almacén creado correctamente.');
+            ->with('success', 'Bodega creada correctamente.');
     }
 
     /**
@@ -82,7 +82,7 @@ class WarehouseController extends Controller
             'direccion' => 'nullable|string|max:255',
         ]);
         $warehouse->update($data);
-        return redirect()->route('warehouses.index')->with('success', 'Almacén editado correctamente.');
+        return redirect()->route('warehouses.index')->with('success', 'Bodega editada correctamente.');
     }
 
     /**
@@ -96,7 +96,7 @@ class WarehouseController extends Controller
         $warehouse = \App\Models\Warehouse::findOrFail($id);
         // Prevenir eliminación si hay productos asociados
         if ($warehouse->products()->count() > 0) {
-            return redirect()->route('warehouses.index')->with('error', 'No puedes eliminar el almacén porque tiene productos asociados.');
+            return redirect()->route('warehouses.index')->with('error', 'No puedes eliminar la bodega porque tiene productos asociados.');
         }
         $warehouse->delete();
         return redirect()->route('warehouses.index')->with('success', 'Almacén eliminado correctamente.');

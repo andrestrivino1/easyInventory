@@ -26,12 +26,15 @@ Route::get('/', function () {
 Route::resource('products', ProductController::class);
 Route::resource('warehouses', WarehouseController::class);
 Route::resource('transfer-orders', TransferOrderController::class);
+Route::resource('salidas', App\Http\Controllers\SalidaController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);
 Route::resource('drivers', App\Http\Controllers\DriverController::class);
 Route::resource('containers', App\Http\Controllers\ContainerController::class);
 Auth::routes();
 Route::get('transfer-orders/{transferOrder}/export', [TransferOrderController::class, 'export'])->name('transfer-orders.export');
 Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::class, 'print'])->name('transfer-orders.print');
+Route::get('salidas/{salida}/export', [App\Http\Controllers\SalidaController::class, 'export'])->name('salidas.export');
+Route::get('salidas/{salida}/print', [App\Http\Controllers\SalidaController::class, 'print'])->name('salidas.print');
 Route::post('transfer-orders/{transferOrder}/confirm', [TransferOrderController::class, 'confirmReceived'])->name('transfer-orders.confirm');
 Route::get('containers/{container}/export', [App\Http\Controllers\ContainerController::class, 'export'])->name('containers.export');
 Route::get('containers/{container}/print', [App\Http\Controllers\ContainerController::class, 'print'])->name('containers.print');

@@ -21,9 +21,9 @@
         <div class="form-group"><label for="name">Nombre de usuario *</label><input type="text" id="name" name="name" value="{{ old('name', $usuario->name) }}" required></div>
         <div class="form-group"><label for="email">Correo *</label><input type="email" id="email" name="email" value="{{ old('email', $usuario->email) }}" required></div>
         <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono" value="{{ old('telefono', $usuario->telefono) }}"></div>
-        <div class="form-group"><label for="almacen_id">Almacén *</label>
+        <div class="form-group"><label for="almacen_id">Bodega *</label>
             <select id="almacen_id" name="almacen_id" required>
-                <option value="">Seleccione almacén</option>
+                <option value="">Seleccione bodega</option>
                 @foreach ($almacenes as $almacen)
                     <option value="{{ $almacen->id }}" {{ old('almacen_id', $usuario->almacen_id)==$almacen->id ? 'selected':'' }}>{{ $almacen->nombre }}</option>
                 @endforeach

@@ -16,8 +16,8 @@
     <div class="col-lg-3 col-xs-6">
       <div class="small-box" style="background:#00a65a;color:#fff;">
         <div class="inner">
-          <h3>{{ $totalAlmacenes }}</h3>
-          <p>Almacenes</p>
+          <h3>{{ $totalBodegas }}</h3>
+          <p>Bodegas</p>
         </div>
         <div class="icon"><i class="bi bi-building"></i></div>
         <a href="{{ route('warehouses.index') }}" class="small-box-footer">Más info <i class="bi bi-arrow-right-circle"></i></a>

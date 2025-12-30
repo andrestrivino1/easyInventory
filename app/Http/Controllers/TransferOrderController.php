@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Warehouse;
 use App\Models\Product;
 use App\Models\TransferOrder;
-use App\Models\Container;
-use Illuminate\Support\Facades\DB;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Warehouse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TransferOrderController extends Controller
 {
@@ -21,58 +19,33 @@ class TransferOrderController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
-        if (in_array($user->rol, ['admin', 'secretaria'])) {
-            $transferOrders = \App\Models\TransferOrder::with([
-                'from', 
-                'to', 
-                'products' => function($query) {
-                    $query->withPivot('quantity', 'container_id');
-                }, 
-                'driver'
-            ])->orderByDesc('date')->get();
-        } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve transferencias relacionadas con Buenaventura
-            $transferOrders = \App\Models\TransferOrder::with([
-                'from', 
-                'to', 
-                'products' => function($query) {
-                    $query->withPivot('quantity', 'container_id');
-                }, 
-                'driver'
-            ])
-                ->where('warehouse_from_id', $ID_BUENAVENTURA)
-                ->orWhere('warehouse_to_id', $ID_BUENAVENTURA)
-                ->orderByDesc('date')->get();
+        // Si el usuario no es admin ni secretaria, filtrar por su bodega
+        if (!in_array($user->rol, ['admin', 'secretaria'])) {
+            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+                ->where(function($query) use ($user, $ID_PABLO_ROJAS) {
+                    // Ver transferencias desde su bodega o hacia su bodega
+                    // Si es funcionario, solo ver Pablo Rojas
+                    if ($user->rol === 'funcionario') {
+                        $query->where('warehouse_from_id', $ID_PABLO_ROJAS)
+                              ->orWhere('warehouse_to_id', $ID_PABLO_ROJAS);
+                    } else {
+                        $query->where('warehouse_from_id', $user->almacen_id)
+                              ->orWhere('warehouse_to_id', $user->almacen_id);
+                    }
+                })
+                ->orderByDesc('date')
+                ->get();
         } else {
-            $transferOrders = \App\Models\TransferOrder::with([
-                'from', 
-                'to', 
-                'products' => function($query) {
-                    $query->withPivot('quantity', 'container_id');
-                }, 
-                'driver'
-            ])
-                ->where('warehouse_from_id', $user->almacen_id)
-                ->orWhere('warehouse_to_id', $user->almacen_id)
-                ->orderByDesc('date')->get();
+            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+                ->orderByDesc('date')
+                ->get();
         }
         
-        // Cargar contenedores de forma eficiente
-        $containerIds = collect();
-        foreach ($transferOrders as $transfer) {
-            foreach ($transfer->products as $product) {
-                if ($product->pivot->container_id) {
-                    $containerIds->push($product->pivot->container_id);
-                }
-            }
-        }
-        $containers = $containerIds->isNotEmpty() 
-            ? Container::whereIn('id', $containerIds->unique())->get()->keyBy('id')
-            : collect();
+        $canCreateTransfer = in_array($user->rol, ['admin', 'secretaria']) || $user->almacen_id == $ID_PABLO_ROJAS;
         
-        return view('transfer-orders.index', compact('transferOrders', 'containers'));
+        return view('transfer-orders.index', compact('transferOrders', 'canCreateTransfer'));
     }
 
     /**
@@ -83,10 +56,11 @@ class TransferOrderController extends Controller
     public function create()
     {
         $user = Auth::user();
+        $ID_PABLO_ROJAS = 1;
         
-        // Funcionario solo lectura
-        if ($user->rol === 'funcionario') {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
+        // Solo admin, secretaria o usuarios de Pablo Rojas pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'secretaria']) && $user->almacen_id != $ID_PABLO_ROJAS) {
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo la bodega principal puede crear transferencias.');
         }
         
         $warehouses = Warehouse::orderBy('nombre')->get();
@@ -103,9 +77,19 @@ class TransferOrderController extends Controller
      */
     public function store(Request $request)
     {
+        $user = Auth::user();
+        $ID_PABLO_ROJAS = 1;
+        
+        // Solo admin, secretaria o usuarios de Pablo Rojas pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'secretaria']) && $user->almacen_id != $ID_PABLO_ROJAS) {
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo la bodega principal puede crear transferencias.');
+        }
+        
         $data = $request->validate([
             'warehouse_from_id' => 'required|different:warehouse_to_id|exists:warehouses,id',
             'warehouse_to_id' => 'required|exists:warehouses,id',
+            'salida' => 'required|string|max:255',
+            'destino' => 'required|string|max:255',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.container_id' => 'required|exists:containers,id',
@@ -114,54 +98,77 @@ class TransferOrderController extends Controller
             'driver_id' => 'required|exists:drivers,id',
         ]);
         
-        \Log::info('TRANSFER store - datos validados', $data);
         DB::beginTransaction();
         try {
-            $ID_BUENAVENTURA = 1;
+            // Validar y preparar productos
             $productsToAttach = [];
-            
-            // Validar cada producto
-            foreach ($data['products'] as $productData) {
-                $product = Product::where('id', $productData['product_id'])->where('almacen_id', $data['warehouse_from_id'])->first();
+            foreach ($data['products'] as $index => $productData) {
+                // Obtener producto de la bodega de origen
+                $product = Product::where('id', $productData['product_id'])
+                    ->where('almacen_id', $data['warehouse_from_id'])
+                    ->lockForUpdate()
+                    ->first();
+                
                 if (!$product) {
-                    return back()->with('error', "El producto seleccionado no existe en el almacén de origen.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe en la bodega de origen.")->withInput();
                 }
                 
-                // Validar que el producto esté en el contenedor seleccionado
+                // Validar contenedor
                 $container = \App\Models\Container::find($productData['container_id']);
                 if (!$container) {
-                    return back()->with('error', "El contenedor seleccionado no existe.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
                 }
                 
+                // Validar que el producto esté en el contenedor
                 $productInContainer = $container->products()->where('products.id', $productData['product_id'])->first();
                 if (!$productInContainer) {
-                    return back()->with('error', "El producto '{$product->nombre}' no está asociado al contenedor '{$container->reference}'.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado.")->withInput();
                 }
                 
-                // Validar que desde Buenaventura solo se despachen Cajas
-                if ($data['warehouse_from_id'] == $ID_BUENAVENTURA && $product->tipo_medida !== 'caja') {
-                    return back()->with('error', "Desde el almacén de Buenaventura solo se pueden despachar productos medidos en Cajas. El producto '{$product->nombre}' es tipo Unidad.")->withInput();
+                // Validar que desde Pablo Rojas solo se despachen Cajas
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS && $product->tipo_medida !== 'caja') {
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas.")->withInput();
                 }
                 
-                // Calcular unidades a descontar según el tipo de medida
+                // Calcular unidades a descontar
                 $unidadesADescontar = $productData['quantity'];
                 if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
                     $unidadesADescontar = $productData['quantity'] * $product->unidades_por_caja;
                 }
                 
-                // Validar stock
+                // Validar stock del producto
                 if ($product->stock < $unidadesADescontar) {
-                    if ($product->tipo_medida === 'caja') {
-                        $cajasDisponibles = floor($product->stock / $product->unidades_por_caja);
-                        return back()->with('error', "Stock insuficiente para '{$product->nombre}'. Solo hay {$cajasDisponibles} cajas disponibles (stock: {$product->stock} unidades).")->withInput();
-                    } else {
-                        return back()->with('error', "Stock insuficiente para '{$product->nombre}'. Stock disponible: {$product->stock} unidades.")->withInput();
+                    DB::rollBack();
+                    $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
+                        ? floor($product->stock / $product->unidades_por_caja) 
+                        : 0;
+                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$product->stock} unidades).")->withInput();
+                }
+                
+                // Si es desde Pablo Rojas, validar cajas en contenedor
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                    $pivot = DB::table('container_product')
+                        ->where('container_id', $productData['container_id'])
+                        ->where('product_id', $productData['product_id'])
+                        ->lockForUpdate()
+                        ->first();
+                    
+                    if (!$pivot) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor.")->withInput();
+                    }
+                    
+                    if ($pivot->boxes < $productData['quantity']) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
                     }
                 }
                 
-                // Preparar para descontar stock y asociar
                 $productsToAttach[] = [
-                    'product' => $product,
                     'product_id' => $productData['product_id'],
                     'container_id' => $productData['container_id'],
                     'quantity' => $productData['quantity'],
@@ -169,10 +176,19 @@ class TransferOrderController extends Controller
                 ];
             }
             
+            // Validar conductor
+            $driver = \App\Models\Driver::find($data['driver_id']);
+            if (!$driver) {
+                DB::rollBack();
+                return back()->with('error', "El conductor seleccionado no existe.")->withInput();
+            }
+            
             // Crear la transferencia
             $transfer = TransferOrder::create([
                 'warehouse_from_id' => $data['warehouse_from_id'],
                 'warehouse_to_id' => $data['warehouse_to_id'],
+                'salida' => $data['salida'],
+                'destino' => $data['destino'],
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
@@ -180,40 +196,67 @@ class TransferOrderController extends Controller
             ]);
             
             // Descontar stock y asociar productos
-            foreach ($productsToAttach as $item) {
-                $item['product']->stock -= $item['unidades_a_descontar'];
-                $item['product']->save();
+            foreach ($productsToAttach as $index => $item) {
+                // PASO 1: Descontar del contenedor (solo si es desde Pablo Rojas)
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                    $rowsAffected = DB::table('container_product')
+                        ->where('container_id', $item['container_id'])
+                        ->where('product_id', $item['product_id'])
+                        ->decrement('boxes', $item['quantity']);
+                    
+                    if ($rowsAffected === 0) {
+                        DB::rollBack();
+                        return back()->with('error', "Error al descontar del contenedor para el producto #" . ($index + 1))->withInput();
+                    }
+                    
+                    \Log::info('TRANSFER store - Descontado del contenedor', [
+                        'container_id' => $item['container_id'],
+                        'product_id' => $item['product_id'],
+                        'cajas_descontadas' => $item['quantity'],
+                        'rows_affected' => $rowsAffected
+                    ]);
+                }
                 
-                // Asegurar que container_id se guarde correctamente
-                $pivotData = [
-                    'quantity' => $item['quantity'],
-                    'container_id' => $item['container_id']
-                ];
+                // PASO 2: Descontar del stock del producto
+                $rowsAffected = DB::table('products')
+                    ->where('id', $item['product_id'])
+                    ->decrement('stock', $item['unidades_a_descontar']);
                 
-                \Log::info('Attaching product to transfer', [
-                    'transfer_id' => $transfer->id,
+                if ($rowsAffected === 0) {
+                    DB::rollBack();
+                    return back()->with('error', "Error al descontar del stock para el producto #" . ($index + 1))->withInput();
+                }
+                
+                \Log::info('TRANSFER store - Descontado del producto', [
                     'product_id' => $item['product_id'],
-                    'container_id' => $item['container_id'],
-                    'quantity' => $item['quantity']
+                    'unidades_descontadas' => $item['unidades_a_descontar'],
+                    'rows_affected' => $rowsAffected
                 ]);
                 
-                $transfer->products()->attach($item['product_id'], $pivotData);
-            }
-            
-            // Guardar preferencia de mostrar firmas en sesión
-            if ($request->has('show_signatures')) {
-                session(["transfer_signatures_{$transfer->id}" => true]);
-            } else {
-                session()->forget("transfer_signatures_{$transfer->id}");
+                // Asociar producto a la transferencia
+                $transfer->products()->attach($item['product_id'], [
+                    'quantity' => $item['quantity'],
+                    'container_id' => $item['container_id']
+                ]);
             }
             
             DB::commit();
-            \Log::info('TRANSFER store - exito', ['transfer_id'=>$transfer->id]);
+            \Log::info('TRANSFER store - Transferencia creada exitosamente', ['transfer_id' => $transfer->id]);
+            
             return redirect()->route('transfer-orders.index')->with('success', 'Transferencia creada correctamente.');
-        } catch (\Throwable $e) {
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            \Log::error('TRANSFER store - exception', ['msg'=>$e->getMessage(), 'trace'=>$e->getTraceAsString()]);
-            return back()->with('error', 'Ocurrió un error al crear la transferencia.')->withInput();
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('TRANSFER store - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', "Error al crear la transferencia: " . $e->getMessage())->withInput();
         }
     }
 
@@ -265,9 +308,12 @@ class TransferOrderController extends Controller
         if ($transferOrder->status !== 'en_transito') {
             return redirect()->route('transfer-orders.index')->with('error', 'Solo se pueden editar transferencias en tránsito.');
         }
+        
         $data = $request->validate([
             'warehouse_from_id' => 'required|different:warehouse_to_id|exists:warehouses,id',
             'warehouse_to_id' => 'required|exists:warehouses,id',
+            'salida' => 'required|string|max:255',
+            'destino' => 'required|string|max:255',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.container_id' => 'required|exists:containers,id',
@@ -275,15 +321,17 @@ class TransferOrderController extends Controller
             'note' => 'nullable|string|max:255',
             'driver_id' => 'required|exists:drivers,id',
         ]);
+        
         DB::beginTransaction();
         try {
-            $ID_BUENAVENTURA = 1;
+            $ID_PABLO_ROJAS = 1;
             $almacenOrigenAnterior = $transferOrder->warehouse_from_id;
             
             // Restaurar stock de productos anteriores
             foreach ($transferOrder->products as $oldProduct) {
                 $prodAnterior = Product::where('id', $oldProduct->id)
                     ->where('almacen_id', $almacenOrigenAnterior)
+                    ->lockForUpdate()
                     ->first();
                 
                 if ($prodAnterior) {
@@ -291,33 +339,52 @@ class TransferOrderController extends Controller
                     if ($prodAnterior->tipo_medida === 'caja' && $prodAnterior->unidades_por_caja > 0) {
                         $unidadesARestaurar = $oldProduct->pivot->quantity * $prodAnterior->unidades_por_caja;
                     }
-                    $prodAnterior->stock += $unidadesARestaurar;
-                    $prodAnterior->save();
+                    
+                    DB::table('products')
+                        ->where('id', $prodAnterior->id)
+                        ->increment('stock', $unidadesARestaurar);
+                    
+                    // Si es desde Pablo Rojas, restaurar también las cajas del contenedor
+                    if ($almacenOrigenAnterior == $ID_PABLO_ROJAS && $oldProduct->pivot->container_id) {
+                        DB::table('container_product')
+                            ->where('container_id', $oldProduct->pivot->container_id)
+                            ->where('product_id', $oldProduct->id)
+                            ->increment('boxes', $oldProduct->pivot->quantity);
+                    }
                 }
             }
             
             // Validar y preparar nuevos productos
             $productsToAttach = [];
-            foreach ($data['products'] as $productData) {
-                $product = Product::where('id', $productData['product_id'])->where('almacen_id', $data['warehouse_from_id'])->first();
+            foreach ($data['products'] as $index => $productData) {
+                $product = Product::where('id', $productData['product_id'])
+                    ->where('almacen_id', $data['warehouse_from_id'])
+                    ->lockForUpdate()
+                    ->first();
+                
                 if (!$product) {
-                    return back()->with('error', "El producto seleccionado no existe en el almacén de origen.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe en la bodega de origen.")->withInput();
                 }
                 
-                // Validar que el producto esté en el contenedor seleccionado
+                // Validar contenedor
                 $container = \App\Models\Container::find($productData['container_id']);
                 if (!$container) {
-                    return back()->with('error', "El contenedor seleccionado no existe.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
                 }
                 
+                // Validar que el producto esté en el contenedor
                 $productInContainer = $container->products()->where('products.id', $productData['product_id'])->first();
                 if (!$productInContainer) {
-                    return back()->with('error', "El producto '{$product->nombre}' no está asociado al contenedor '{$container->reference}'.")->withInput();
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado.")->withInput();
                 }
                 
-                // Validar que desde Buenaventura solo se despachen Cajas
-                if ($data['warehouse_from_id'] == $ID_BUENAVENTURA && $product->tipo_medida !== 'caja') {
-                    return back()->with('error', "Desde el almacén de Buenaventura solo se pueden despachar productos medidos en Cajas. El producto '{$product->nombre}' es tipo Unidad.")->withInput();
+                // Validar que desde Pablo Rojas solo se despachen Cajas
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS && $product->tipo_medida !== 'caja') {
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas.")->withInput();
                 }
                 
                 // Calcular unidades a descontar
@@ -328,16 +395,29 @@ class TransferOrderController extends Controller
                 
                 // Validar stock
                 if ($product->stock < $unidadesADescontar) {
-                    if ($product->tipo_medida === 'caja') {
-                        $cajasDisponibles = floor($product->stock / $product->unidades_por_caja);
-                        return back()->with('error', "Stock insuficiente para '{$product->nombre}'. Solo hay {$cajasDisponibles} cajas disponibles (stock: {$product->stock} unidades).")->withInput();
-                    } else {
-                        return back()->with('error', "Stock insuficiente para '{$product->nombre}'. Stock disponible: {$product->stock} unidades.")->withInput();
+                    DB::rollBack();
+                    $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
+                        ? floor($product->stock / $product->unidades_por_caja) 
+                        : 0;
+                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas.")->withInput();
+                }
+                
+                // Si es desde Pablo Rojas, validar cajas en contenedor
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                    $pivot = DB::table('container_product')
+                        ->where('container_id', $productData['container_id'])
+                        ->where('product_id', $productData['product_id'])
+                        ->lockForUpdate()
+                        ->first();
+                    
+                    if (!$pivot || $pivot->boxes < $productData['quantity']) {
+                        DB::rollBack();
+                        $cajasDisponibles = $pivot ? $pivot->boxes : 0;
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$cajasDisponibles} cajas.")->withInput();
                     }
                 }
                 
                 $productsToAttach[] = [
-                    'product' => $product,
                     'product_id' => $productData['product_id'],
                     'container_id' => $productData['container_id'],
                     'quantity' => $productData['quantity'],
@@ -345,41 +425,61 @@ class TransferOrderController extends Controller
                 ];
             }
             
+            // Validar conductor
+            $driver = \App\Models\Driver::find($data['driver_id']);
+            if (!$driver) {
+                DB::rollBack();
+                return back()->with('error', "El conductor seleccionado no existe.")->withInput();
+            }
+            
             // Actualizar la transferencia
             $transferOrder->update([
                 'warehouse_from_id' => $data['warehouse_from_id'],
                 'warehouse_to_id' => $data['warehouse_to_id'],
-                'status' => 'en_transito',
-                'date' => now(),
+                'salida' => $data['salida'],
+                'destino' => $data['destino'],
                 'note' => $data['note'] ?? null,
                 'driver_id' => $data['driver_id'],
             ]);
             
             // Descontar stock y asociar productos
             $syncData = [];
-            foreach ($productsToAttach as $item) {
-                $item['product']->stock -= $item['unidades_a_descontar'];
-                $item['product']->save();
+            foreach ($productsToAttach as $index => $item) {
+                // PASO 1: Descontar del contenedor (solo si es desde Pablo Rojas)
+                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                    DB::table('container_product')
+                        ->where('container_id', $item['container_id'])
+                        ->where('product_id', $item['product_id'])
+                        ->decrement('boxes', $item['quantity']);
+                }
+                
+                // PASO 2: Descontar del stock del producto
+                DB::table('products')
+                    ->where('id', $item['product_id'])
+                    ->decrement('stock', $item['unidades_a_descontar']);
+                
                 $syncData[$item['product_id']] = [
                     'quantity' => $item['quantity'],
                     'container_id' => $item['container_id']
                 ];
             }
-            $transferOrder->products()->sync($syncData);
             
-            // Guardar preferencia de mostrar firmas en sesión
-            if ($request->has('show_signatures')) {
-                session(["transfer_signatures_{$transferOrder->id}" => true]);
-            } else {
-                session()->forget("transfer_signatures_{$transferOrder->id}");
-            }
+            $transferOrder->products()->sync($syncData);
             
             DB::commit();
             return redirect()->route('transfer-orders.index')->with('success', 'Transferencia actualizada correctamente.');
-        } catch (\Throwable $e) {
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            \Log::error('TRANSFER update - exception', ['msg'=>$e->getMessage(), 'trace'=>$e->getTraceAsString()]);
-            return back()->with('error', 'Ocurrió un error al actualizar la transferencia.')->withInput();
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('TRANSFER update - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return back()->with('error', "Error al actualizar la transferencia: " . $e->getMessage())->withInput();
         }
     }
 
@@ -398,120 +498,138 @@ class TransferOrderController extends Controller
         if ($transferOrder->status !== 'en_transito') {
             return redirect()->route('transfer-orders.index')->with('error', 'Solo se pueden eliminar transferencias en tránsito.');
         }
+        
         DB::beginTransaction();
         try {
-            // Regresar el stock al almacén de origen
+            $ID_PABLO_ROJAS = 1;
+            
+            // Restaurar stock de productos
             foreach ($transferOrder->products as $product) {
-                $prod = \App\Models\Product::where('id', $product->id)
-                        ->where('almacen_id', $transferOrder->warehouse_from_id)->first();
+                $prod = Product::where('id', $product->id)
+                    ->where('almacen_id', $transferOrder->warehouse_from_id)
+                    ->lockForUpdate()
+                    ->first();
+                
                 if ($prod) {
                     $unidadesARestaurar = $product->pivot->quantity;
                     if ($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
                         $unidadesARestaurar = $product->pivot->quantity * $prod->unidades_por_caja;
                     }
-                    $prod->stock += $unidadesARestaurar;
-                    $prod->save();
+                    
+                    DB::table('products')
+                        ->where('id', $prod->id)
+                        ->increment('stock', $unidadesARestaurar);
+                    
+                    // Si es desde Pablo Rojas, restaurar también las cajas del contenedor
+                    if ($transferOrder->warehouse_from_id == $ID_PABLO_ROJAS && $product->pivot->container_id) {
+                        DB::table('container_product')
+                            ->where('container_id', $product->pivot->container_id)
+                            ->where('product_id', $product->id)
+                            ->increment('boxes', $product->pivot->quantity);
+                    }
                 }
             }
+            
             $transferOrder->delete();
+            
             DB::commit();
-            return redirect()->route('transfer-orders.index')->with('success','Transferencia eliminada y stock restaurado correctamente.');
-        } catch (\Throwable $e) {
+            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia eliminada correctamente.');
+            
+        } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('transfer-orders.index')->with('error','Ocurrió un error al eliminar la transferencia.');
+            \Log::error('TRANSFER destroy - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return back()->with('error', "Error al eliminar la transferencia: " . $e->getMessage());
         }
     }
 
-    public function export(TransferOrder $transferOrder, Request $request)
-    {
-        $transferOrder->load(['from', 'to', 'products']);
-        // Cargar contenedores para optimizar consultas
-        $containerIds = $transferOrder->products->pluck('pivot.container_id')->filter()->unique();
-        $containers = \App\Models\Container::whereIn('id', $containerIds)->get()->keyBy('id');
-        $isExport = true;
-        // Verificar sesión para mostrar firmas
-        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
-        $pdf = Pdf::loadView('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers', 'showSignatures'));
-        $filename = 'Orden-Transferencia-' . $transferOrder->order_number . '.pdf';
-        return $pdf->download($filename);
-    }
-
-    public function print(TransferOrder $transferOrder, Request $request)
-    {
-        $transferOrder->load(['from', 'to', 'products']);
-        // Cargar contenedores para optimizar consultas
-        $containerIds = $transferOrder->products->pluck('pivot.container_id')->filter()->unique();
-        $containers = \App\Models\Container::whereIn('id', $containerIds)->get()->keyBy('id');
-        $isExport = false; // Indicar que es para visualizar en navegador
-        // Verificar sesión para mostrar firmas
-        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
-        return view('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers', 'showSignatures'));
-    }
-
+    /**
+     * Confirmar recepción de transferencia
+     */
     public function confirmReceived(TransferOrder $transferOrder)
     {
-        // Verificar usuario correcto
         $user = Auth::user();
+        $ID_PABLO_ROJAS = 1;
         
-        // Funcionario solo lectura
-        if ($user->rol === 'funcionario') {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
-        }
-        if (!$user || $user->almacen_id != $transferOrder->warehouse_to_id) {
-            return back()->with('error', 'No puedes confirmar esta transferencia.');
-        }
+        // Solo se puede confirmar si la transferencia está en tránsito
         if ($transferOrder->status !== 'en_transito') {
-            return back()->with('error', 'La transferencia ya fue recibida o no está activa.');
+            return redirect()->route('transfer-orders.index')->with('error', 'Esta transferencia ya fue procesada.');
         }
         
-        if ($transferOrder->products->isEmpty()) {
-            return back()->with('error', 'No se encontraron productos asociados a la transferencia.');
+        // Solo se puede confirmar en la bodega destino
+        if ($user->rol !== 'admin' && $user->almacen_id != $transferOrder->warehouse_to_id) {
+            return redirect()->route('transfer-orders.index')->with('error', 'Solo se puede confirmar la recepción en la bodega destino.');
         }
         
         DB::beginTransaction();
         try {
-            // Procesar todos los productos de la transferencia
-            foreach ($transferOrder->products as $productPivot) {
-                // Buscar producto en el almacén destino
-                $product = \App\Models\Product::where('id', $productPivot->id)
+            foreach ($transferOrder->products as $product) {
+                // Buscar si ya existe un producto con el mismo código en la bodega destino
+                $existingProduct = Product::where('codigo', $product->codigo)
                     ->where('almacen_id', $transferOrder->warehouse_to_id)
                     ->first();
                 
-                // Calcular unidades a agregar según el tipo de medida
-                $unidadesAAgregar = $productPivot->pivot->quantity;
-                if ($productPivot->tipo_medida === 'caja' && $productPivot->unidades_por_caja > 0) {
-                    // Si es caja, multiplicar cantidad de cajas por unidades por caja
-                    $unidadesAAgregar = $productPivot->pivot->quantity * $productPivot->unidades_por_caja;
-                }
-                
-                if ($product) {
-                    // Si el producto existe en el almacén destino, actualizar stock
-                    $product->stock += $unidadesAAgregar;
-                    $product->save();
+                if ($existingProduct) {
+                    // Si existe, actualizar el stock
+                    $quantity = $product->pivot->quantity;
+                    if ($existingProduct->tipo_medida === 'caja' && $existingProduct->unidades_por_caja > 0) {
+                        $quantity = $product->pivot->quantity * $existingProduct->unidades_por_caja;
+                    }
+                    
+                    DB::table('products')
+                        ->where('id', $existingProduct->id)
+                        ->increment('stock', $quantity);
                 } else {
-                    // Si no existe, crear el producto en el almacén destino
-                    $product = \App\Models\Product::create([
-                        'nombre' => $productPivot->nombre,
-                        'codigo' => $productPivot->codigo,
-                        'precio' => $productPivot->precio ?? 0,
-                        'stock' => $unidadesAAgregar,
-                        'estado' => $productPivot->estado,
+                    // Si no existe, crear un nuevo producto
+                    $newProduct = Product::create([
+                        'codigo' => $product->codigo,
+                        'nombre' => $product->nombre,
+                        'medidas' => $product->medidas,
+                        'tipo_medida' => $product->tipo_medida,
+                        'unidades_por_caja' => $product->unidades_por_caja,
+                        'stock' => $product->pivot->quantity * ($product->unidades_por_caja ?? 1),
                         'almacen_id' => $transferOrder->warehouse_to_id,
-                        'tipo_medida' => $productPivot->tipo_medida,
-                        'unidades_por_caja' => $productPivot->unidades_por_caja,
-                        'medidas' => $productPivot->medidas,
+                        'estado' => true,
+                        'precio' => $product->precio ?? 0,
                     ]);
                 }
             }
             
-            $transferOrder->status = 'recibido';
-            $transferOrder->save();
+            $transferOrder->update(['status' => 'recibido']);
             
             DB::commit();
-            return back()->with('success', 'Transferencia recibida y stock actualizado correctamente.');
-        } catch (\Throwable $e) {
+            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia confirmada correctamente.');
+            
+        } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Ocurrió un error al confirmar la transferencia: ' . $e->getMessage());
+            \Log::error('TRANSFER confirmReceived - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return back()->with('error', "Error al confirmar la transferencia: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Exportar transferencia a PDF
+     */
+    public function export(TransferOrder $transferOrder)
+    {
+        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
+        $pdf = \PDF::loadView('transfer-orders.pdf', compact('transferOrder', 'showSignatures'));
+        return $pdf->download("transferencia_{$transferOrder->id}.pdf");
+    }
+
+    /**
+     * Imprimir transferencia
+     */
+    public function print(TransferOrder $transferOrder)
+    {
+        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
+        return view('transfer-orders.pdf', compact('transferOrder', 'showSignatures'));
     }
 }

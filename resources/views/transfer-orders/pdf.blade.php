@@ -37,10 +37,16 @@
 
     <table style="margin-bottom:15px;">
         <tr>
-            <td class="label">Origen:</td>
+            <td class="label">Bodega Origen:</td>
             <td>{{ $transferOrder->from->nombre }}</td>
-            <td class="label">Destino:</td>
+            <td class="label">Bodega Destino:</td>
             <td>{{ $transferOrder->to->nombre }}</td>
+        </tr>
+        <tr>
+            <td class="label">Salida (Ciudad):</td>
+            <td>{{ $transferOrder->salida ?? '-' }}</td>
+            <td class="label">Destino (Ciudad):</td>
+            <td>{{ $transferOrder->destino ?? '-' }}</td>
         </tr>
         <tr>
             <td class="label">Estado:</td>

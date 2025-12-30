@@ -99,11 +99,11 @@
 </style>
 <div class="form-bg">
   <div class="form-container">
-    <h2>Nuevo almacén</h2>
+    <h2>Nueva bodega</h2>
     <form action="{{ route('warehouses.store') }}" method="POST" autocomplete="off">
       @csrf
       <label for="nombre">Nombre*</label>
-      <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del almacén" value="{{ old('nombre') }}" required>
+      <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre de la bodega" value="{{ old('nombre') }}" required>
       @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="direccion">Dirección</label>

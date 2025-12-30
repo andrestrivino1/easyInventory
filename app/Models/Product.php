@@ -28,9 +28,9 @@ class Product extends Model
         static::creating(function ($model) {
             // Solo generar código si no se proporciona uno
             if (empty($model->codigo)) {
-                $last = self::orderByDesc('id')->first();
-                $next = $last ? ((int)substr($last->codigo, 4)) + 1 : 1;
-                $model->codigo = 'PRD-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+            $last = self::orderByDesc('id')->first();
+            $next = $last ? ((int)substr($last->codigo, 4)) + 1 : 1;
+            $model->codigo = 'PRD-' . str_pad($next, 6, '0', STR_PAD_LEFT);
             }
         });
     }

@@ -144,9 +144,9 @@
                     @endphp
                     @if($isAdmin && !$isFuncionario)
                     <div class="filter-group">
-                        <label for="warehouse_id">Almacén:</label>
+                        <label for="warehouse_id">Bodega:</label>
                         <select name="warehouse_id" id="warehouse_id">
-                            <option value="">Todos los almacenes</option>
+                            <option value="">Todos los bodegas</option>
                             @foreach($warehouses as $warehouse)
                                 <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
                                     {{ $warehouse->nombre }}
@@ -156,8 +156,8 @@
                     </div>
                     @else
                     <div class="filter-group">
-                        <label>Almacén:</label>
-                        <span style="font-weight: 500; color: #333; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; display: inline-block;">{{ $isFuncionario ? 'Buenaventura' : ($user->almacen->nombre ?? 'N/A') }}</span>
+                        <label>Bodega:</label>
+                        <span style="font-weight: 500; color: #333; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; display: inline-block;">{{ $isFuncionario ? 'Pablo Rojas' : ($user->almacen->nombre ?? 'N/A') }}</span>
                         <input type="hidden" name="warehouse_id" value="{{ $isFuncionario ? 1 : $user->almacen_id }}">
                     </div>
                     @endif
@@ -188,18 +188,27 @@
             </div>
         </div>
 
+        <!-- Campo de búsqueda -->
+        <div class="mb-3" style="max-width: 400px; margin: 0 auto 20px; text-align: center;">
+          <div style="position: relative; width: 100%;">
+            <input type="text" id="search-traceability" class="form-control" placeholder="Buscar en trazabilidad..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
+            <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
+          </div>
+        </div>
+
         <!-- Tabla de movimientos -->
         <div class="table-responsive-custom">
-            <table class="traceability-table">
+            <table class="traceability-table" id="traceability-table">
                 <thead>
                     <tr>
                         <th>Fecha</th>
                         <th>Tipo</th>
                         <th>Producto</th>
                         <th>Código</th>
+                        <th>Medidas</th>
                         <th>Cajas</th>
                         <th>Laminas</th>
-                        <th>Almacén</th>
+                        <th>Bodega</th>
                         <th>Referencia</th>
                         <th>Tipo Referencia</th>
                         <th>Destino</th>
@@ -219,6 +228,7 @@
                         </td>
                         <td><strong>{{ $movement['product_name'] }}</strong></td>
                         <td>{{ $movement['product_code'] }}</td>
+                        <td>{{ $movement['product_medidas'] ?? '-' }}</td>
                         <td style="text-align: center;">
                             @if(isset($movement['boxes']) && $movement['boxes'] !== null)
                                 {{ number_format($movement['boxes'], 0) }}
@@ -237,7 +247,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-4">
+                        <td colspan="12" class="text-center text-muted py-4">
                             <i class="bi bi-search text-secondary" style="font-size:2.2em;"></i><br>
                             <div class="mt-2">No se encontraron movimientos con los filtros seleccionados.</div>
                         </td>
@@ -267,4 +277,21 @@
     </div>
 </div>
 @endsection
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-traceability');
+    const table = document.getElementById('traceability-table');
+    if (searchInput && table) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
 

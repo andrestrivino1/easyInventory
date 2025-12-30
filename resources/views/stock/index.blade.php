@@ -85,9 +85,9 @@
                 @endphp
                 @if($isAdmin && !$isFuncionario)
                 <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
-                    <label for="warehouse_id">Filtrar por Almacén:</label>
+                    <label for="warehouse_id">Filtrar por Bodega:</label>
                     <select name="warehouse_id" id="warehouse_id" onchange="this.form.submit()">
-                        <option value="">Todos los almacenes</option>
+                        <option value="">Todos los bodegas</option>
                         @foreach($warehouses as $warehouse)
                             <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
                                 {{ $warehouse->nombre }}
@@ -97,8 +97,8 @@
                 </form>
                 @else
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <label>Almacén:</label>
-                    <span style="font-weight: 500; color: #333;">{{ $isFuncionario ? 'Buenaventura' : ($user->almacen->nombre ?? 'N/A') }}</span>
+                    <label>Bodega:</label>
+                    <span style="font-weight: 500; color: #333;">{{ $isFuncionario ? 'Pablo Rojas' : ($user->almacen->nombre ?? 'N/A') }}</span>
                 </div>
                 @endif
                 @if($canExport)
@@ -123,13 +123,20 @@
                 </span>
             @endif
         </div>
+        <!-- Búsqueda de productos -->
+        <div class="mb-3" style="max-width: 400px;">
+            <div style="position: relative;">
+                <input type="text" id="search-products-stock" class="form-control" placeholder="Buscar productos..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0;">
+                <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px;"></i>
+            </div>
+        </div>
         <div class="table-responsive-custom">
-            <table class="stock-table">
+            <table class="stock-table" id="products-stock-table">
                 <thead>
                     <tr>
                         <th>Código</th>
                         <th>Nombre</th>
-                        <th>Almacén</th>
+                        <th>Bodega</th>
                         <th>Medidas</th>
                         <th>Contenedor</th>
                         <th>Cajas</th>
@@ -139,30 +146,52 @@
                 </thead>
                 <tbody>
                     @forelse($products as $product)
-                    <tr>
+                    @php
+                        // Asegurar que el producto tenga los datos más recientes
+                        $product->refresh();
+                        // Calcular cajas para verificar bajo stock
+                        $cajasReales = null;
+                        $bajoStock = false;
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $cajasReales = floor($product->stock / $product->unidades_por_caja);
+                            $bajoStock = $cajasReales <= 5 && $cajasReales >= 0; // Bajo stock si tiene 5 o menos cajas
+                        }
+                    @endphp
+                    <tr @if($bajoStock) style="background-color: #fff3cd; border-left: 4px solid #ffc107;" @endif>
                         <td>{{ $product->codigo }}</td>
                         <td><strong>{{ $product->nombre }}</strong></td>
                         <td>{{ $product->almacen->nombre ?? '-' }}</td>
                         <td>{{ $product->medidas ?? '-' }}</td>
                         <td>
                             @php
-                                // Contenedores directos del producto
-                                $directContainers = $product->containers;
-                                // Contenedores de origen desde transferencias recibidas
-                                $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($product->id) 
-                                    ? $productosContenedoresOrigen->get($product->id) 
+                                $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id) 
+                                    ? $productosCantidadesPorContenedor->get($product->id) 
                                     : collect();
-                                // Combinar ambos (sin duplicados)
-                                $allContainers = $directContainers->merge($transferContainers)->unique('id');
                             @endphp
-                            @if($allContainers->count() > 0)
+                            @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                                {{-- Si hay múltiples contenedores, mostrar cada uno en una línea --}}
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    @foreach($allContainers as $container)
-                                        <span style="font-size: 13px;">{{ $container->reference }}</span>
+                                    @foreach($cantidadesPorContenedor as $containerData)
+                                        <span style="font-size: 13px;">{{ $containerData['container_reference'] }}</span>
                                     @endforeach
                                 </div>
                             @else
-                                <span style="color: #999; font-style: italic;">-</span>
+                                {{-- Si hay un solo contenedor o no hay desglose, mostrar el contenedor normal --}}
+                                @php
+                                    // Contenedores directos del producto
+                                    $directContainers = $product->containers;
+                                    // Contenedores de origen desde transferencias recibidas
+                                    $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($product->id) 
+                                        ? $productosContenedoresOrigen->get($product->id) 
+                                        : collect();
+                                    // Combinar ambos (sin duplicados)
+                                    $allContainers = $directContainers->merge($transferContainers)->unique('id');
+                                @endphp
+                                @if($allContainers->count() > 0)
+                                    <span style="font-size: 13px;">{{ $allContainers->first()->reference }}</span>
+                                @else
+                                    <span style="color: #999; font-style: italic;">-</span>
+                                @endif
                             @endif
                         </td>
                         <td>
@@ -170,32 +199,44 @@
                                 $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id) 
                                     ? $productosCantidadesPorContenedor->get($product->id) 
                                     : collect();
+                                // Reutilizar el cálculo de cajas ya hecho arriba
                             @endphp
-                            @if($cantidadesPorContenedor->isNotEmpty())
-                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
-                                    @foreach($cantidadesPorContenedor as $containerData)
-                                        <div>
-                                            {{ number_format($containerData['cajas'], 0) }} cajas
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @elseif($product->tipo_medida === 'caja' && $product->cajas !== null)
-                                <strong>{{ number_format($product->cajas, 0) }}</strong>
+                            @if($product->tipo_medida === 'caja' && $cajasReales !== null)
+                                @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                                    {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        @foreach($cantidadesPorContenedor as $containerData)
+                                            <div style="font-size: 13px;">
+                                                {{ number_format($containerData['cajas'], 0) }} cajas
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    {{-- Si hay un solo contenedor o no hay desglose, mostrar el total --}}
+                                    <strong @if($bajoStock) style="color: #d32f2f; font-weight: bold;" @endif>{{ number_format($cajasReales, 0) }} cajas</strong>
+                                    @if($bajoStock)
+                                        <span style="color: #d32f2f; font-size: 11px; margin-left: 5px;" title="Bajo stock: 5 o menos cajas">⚠️</span>
+                                    @endif
+                                @endif
                             @else
                                 -
                             @endif
                         </td>
                         <td>
-                            @if($cantidadesPorContenedor->isNotEmpty())
-                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
+                            {{-- Para Pablo Rojas: mostrar stock real y cantidades por contenedor como referencia --}}
+                            {{-- Para otras bodegas: solo mostrar stock real (ya descontado por salidas) --}}
+                            @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                                {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
                                     @foreach($cantidadesPorContenedor as $containerData)
-                                        <div>
+                                        <div style="font-size: 13px;">
                                             {{ number_format($containerData['laminas'], 0) }} láminas
                                         </div>
                                     @endforeach
                                 </div>
                             @else
-                                <strong>{{ number_format($product->stock, 0) }}</strong>
+                                {{-- Si hay un solo contenedor o no hay desglose, mostrar el total --}}
+                                <strong>{{ number_format($product->stock, 0) }} láminas</strong>
                             @endif
                         </td>
                         <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
@@ -213,7 +254,7 @@
         </div>
 
         <!-- Sección de Contenedores -->
-        @if($selectedWarehouseId == $ID_BUENAVENTURA || !$selectedWarehouseId)
+        @if($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId)
         <div class="section-title">
             <i class="bi bi-box me-2"></i>Contenedores
             @if($selectedWarehouseId)
@@ -222,8 +263,15 @@
                 </span>
             @endif
         </div>
+        <!-- Búsqueda de contenedores -->
+        <div class="mb-3" style="max-width: 400px;">
+            <div style="position: relative;">
+                <input type="text" id="search-containers" class="form-control" placeholder="Buscar contenedores..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0;">
+                <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px;"></i>
+            </div>
+        </div>
         <div class="table-responsive-custom">
-            <table class="stock-table">
+            <table class="stock-table" id="containers-table">
                 <thead>
                     <tr>
                         <th>Referencia</th>
@@ -285,8 +333,15 @@
                 </span>
             @endif
         </div>
+        <!-- Búsqueda de transferencias -->
+        <div class="mb-3" style="max-width: 400px;">
+            <div style="position: relative;">
+                <input type="text" id="search-transfers" class="form-control" placeholder="Buscar transferencias..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0;">
+                <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px;"></i>
+            </div>
+        </div>
         <div class="table-responsive-custom">
-            <table class="stock-table">
+            <table class="stock-table" id="transfers-table">
                 <thead>
                     <tr>
                         <th>No. Orden</th>
@@ -335,7 +390,124 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Sección de Salidas -->
+        <div class="section-title">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Salidas
+            @if($selectedWarehouseId)
+                <span style="font-size: 14px; font-weight: normal; color: #666;">
+                    - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
+                </span>
+            @endif
+        </div>
+        <!-- Búsqueda de salidas -->
+        <div class="mb-3" style="max-width: 400px;">
+            <div style="position: relative;">
+                <input type="text" id="search-salidas" class="form-control" placeholder="Buscar salidas..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0;">
+                <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px;"></i>
+            </div>
+        </div>
+        <div class="table-responsive-custom">
+            <table class="stock-table" id="salidas-table">
+                <thead>
+                    <tr>
+                        <th>No. Salida</th>
+                        <th>Bodega</th>
+                        <th>Fecha</th>
+                        <th>A nombre de</th>
+                        <th>NIT/Cédula</th>
+                        <th>Productos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($salidas as $salida)
+                    <tr>
+                        <td>{{ $salida->salida_number }}</td>
+                        <td>{{ $salida->warehouse->nombre ?? '-' }}</td>
+                        <td>{{ $salida->fecha->format('d/m/Y') }}</td>
+                        <td>{{ $salida->a_nombre_de }}</td>
+                        <td>{{ $salida->nit_cedula }}</td>
+                        <td>
+                            @foreach($salida->products as $prod)
+                                <div style="font-size: 13px; margin-bottom: 4px;">
+                                    <strong>{{ $prod->nombre }}</strong>
+                                    <span style="color: #666;">({{ $prod->pivot->quantity }} láminas)</span>
+                                </div>
+                            @endforeach
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="bi bi-box-arrow-up-right text-secondary" style="font-size:2.2em;"></i><br>
+                            <div class="mt-2">No hay salidas registradas.</div>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 @endsection
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Búsqueda en tabla de productos
+    const searchProducts = document.getElementById('search-products-stock');
+    const productsTable = document.getElementById('products-stock-table');
+    if (searchProducts && productsTable) {
+        searchProducts.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = productsTable.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+    
+    // Búsqueda en tabla de contenedores
+    const searchContainers = document.getElementById('search-containers');
+    const containersTable = document.getElementById('containers-table');
+    if (searchContainers && containersTable) {
+        searchContainers.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = containersTable.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+    
+    // Búsqueda en tabla de transferencias
+    const searchTransfers = document.getElementById('search-transfers');
+    const transfersTable = document.getElementById('transfers-table');
+    if (searchTransfers && transfersTable) {
+        searchTransfers.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = transfersTable.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+    
+    // Búsqueda en tabla de salidas
+    const searchSalidas = document.getElementById('search-salidas');
+    const salidasTable = document.getElementById('salidas-table');
+    if (searchSalidas && salidasTable) {
+        searchSalidas.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = salidasTable.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
 

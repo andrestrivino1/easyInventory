@@ -38,4 +38,27 @@ class Handler extends ExceptionHandler
             //
         });
     }
+    
+    /**
+     * Render an exception into an HTTP response.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Throwable  $exception
+     * @return \Symfony\Component\HttpFoundation\Response
+     *
+     * @throws \Throwable
+     */
+    public function render($request, Throwable $exception)
+    {
+        // Manejar errores 403 (Forbidden) - redirigir al login si la sesión expiró
+        if ($exception instanceof \Illuminate\Auth\AuthenticationException || 
+            ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $exception->getStatusCode() == 403)) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Sesión expirada. Por favor, inicia sesión nuevamente.'], 401);
+            }
+            return redirect()->route('login')->with('error', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+        }
+        
+        return parent::render($request, $exception);
+    }
 }

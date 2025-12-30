@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Easy Inventory | Dashboard</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
@@ -263,17 +264,18 @@
         <ul class="sidebar-menu">
             @php
                 $user = Auth::user();
-                $ID_BUENAVENTURA = 1;
-                $isBuenaventura = $user && ($user->rol === 'admin' || $user->almacen_id == $ID_BUENAVENTURA);
+                $ID_PABLO_ROJAS = 1;
+                $isPabloRojas = $user && ($user->rol === 'admin' || $user->almacen_id == $ID_PABLO_ROJAS);
                 $isFuncionario = $user && $user->rol === 'funcionario';
             @endphp
-            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Dashboard</a></li>
+            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Movimientos</a></li>
             <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> Productos</a></li>
             @if($user && $user->rol === 'admin')
-              <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Almacenes</a></li>
+              <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Bodegas</a></li>
             @endif
             <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
-            @if($isBuenaventura || $isFuncionario)
+            <li><a class="nav-link" href="{{ route('salidas.index') }}"><i class="bi bi-box-arrow-right"></i> Salidas</a></li>
+            @if($isPabloRojas || $isFuncionario)
             @if(!$isFuncionario)
             <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Conductores</a></li>
             @endif
@@ -332,6 +334,131 @@
                         tbl.parentNode.insertBefore(wrap,tbl); wrap.appendChild(tbl);
                     }
                 });
+            }
+        });
+        
+        // Función global para hacer logout
+        function doLogout() {
+            // Crear un formulario para hacer POST al logout
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route("logout") }}';
+            
+            // Agregar token CSRF
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = '_token';
+                csrfInput.value = csrfToken.getAttribute('content');
+                form.appendChild(csrfInput);
+            } else {
+                // Si no hay meta tag, buscar el token en el formulario de logout existente
+                const existingForm = document.querySelector('form[action*="logout"]');
+                if (existingForm) {
+                    const existingToken = existingForm.querySelector('input[name="_token"]');
+                    if (existingToken) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = '_token';
+                        csrfInput.value = existingToken.value;
+                        form.appendChild(csrfInput);
+                    }
+                }
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        // Detección de inactividad y logout automático después de 30 minutos
+        (function() {
+            let inactivityTimer;
+            const INACTIVITY_TIME = 30 * 60 * 1000; // 30 minutos en milisegundos
+            
+            function resetTimer() {
+                // Crear un formulario para hacer POST al logout
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route("logout") }}';
+                
+                // Agregar token CSRF
+                const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                if (csrfToken) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = '_token';
+                    csrfInput.value = csrfToken.getAttribute('content');
+                    form.appendChild(csrfInput);
+                } else {
+                    // Si no hay meta tag, buscar el token en el formulario de logout existente
+                    const existingForm = document.querySelector('form[action*="logout"]');
+                    if (existingForm) {
+                        const existingToken = existingForm.querySelector('input[name="_token"]');
+                        if (existingToken) {
+                            const csrfInput = document.createElement('input');
+                            csrfInput.type = 'hidden';
+                            csrfInput.name = '_token';
+                            csrfInput.value = existingToken.value;
+                            form.appendChild(csrfInput);
+                        }
+                    }
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+            
+            function resetTimer() {
+                clearTimeout(inactivityTimer);
+                inactivityTimer = setTimeout(function() {
+                    // Hacer logout automático después de 30 minutos de inactividad
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sesión expirada',
+                        text: 'Tu sesión ha expirado por inactividad. Serás redirigido al login.',
+                        confirmButtonText: 'Aceptar',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showCancelButton: false
+                    }).then(function() {
+                        doLogout();
+                    });
+                }, INACTIVITY_TIME);
+            }
+            
+            // Eventos que indican actividad del usuario
+            const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            events.forEach(function(event) {
+                document.addEventListener(event, resetTimer, true);
+            });
+            
+            // Iniciar el timer cuando se carga la página
+            resetTimer();
+        })();
+        
+        // Interceptar errores 403 y redirigir al login
+        document.addEventListener('DOMContentLoaded', function() {
+            // Interceptar respuestas AJAX con error 403
+            if (window.fetch) {
+                const originalFetch = window.fetch;
+                window.fetch = function(...args) {
+                    return originalFetch.apply(this, args).then(function(response) {
+                        if (response.status === 403) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Sesión expirada',
+                                text: 'Tu sesión ha expirado. Serás redirigido al login.',
+                                confirmButtonText: 'Aceptar',
+                                allowOutsideClick: false,
+                                allowEscapeKey: false
+                            }).then(function() {
+                                doLogout();
+                            });
+                        }
+                        return response;
+                    });
+                };
             }
         });
     </script>

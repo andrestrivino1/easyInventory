@@ -27,9 +27,9 @@
     <div class="title">Inventario de Stock</div>
     <div class="subtitle">Fecha: {{ date('d/m/Y H:i') }}</div>
     @if($selectedWarehouseId)
-        <div class="subtitle">Almacén: {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}</div>
+        <div class="subtitle">Bodega: {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}</div>
     @else
-        <div class="subtitle">Almacén: Todos los almacenes</div>
+        <div class="subtitle">Bodega: Todos los bodegas</div>
     @endif
 
     <!-- Sección de Productos -->
@@ -39,7 +39,7 @@
             <tr>
                 <th>Código</th>
                 <th>Nombre</th>
-                <th>Almacén</th>
+                <th>Bodega</th>
                 <th>Medidas</th>
                 <th>Cajas</th>
                 <th>Láminas</th>
@@ -68,7 +68,7 @@
     </table>
 
     <!-- Sección de Contenedores -->
-    @if($selectedWarehouseId == $ID_BUENAVENTURA || !$selectedWarehouseId)
+    @if($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId)
     <div class="section-title">CONTENEDORES</div>
     <table>
         <thead>

@@ -16,20 +16,21 @@
         .quantity-positive { color: #28a745; font-weight: bold; }
         .quantity-negative { color: #dc3545; font-weight: bold; }
         .footer {margin-top:30px; text-align:right; font-size:10px;color:#777;}
-        .col-fecha { width: 8%; }
-        .col-tipo { width: 5%; }
-        .col-producto { width: 12%; }
-        .col-codigo { width: 7%; }
-        .col-cajas { width: 5%; }
-        .col-cantidad { width: 6%; }
-        .col-almacen { width: 8%; }
-        .col-referencia { width: 7%; }
-        .col-tipo-ref { width: 6%; }
-        .col-destino { width: 8%; }
-        .col-conductor { width: 8%; }
-        .col-cedula { width: 7%; }
-        .col-placa { width: 6%; }
-        .col-observacion { width: 8%; }
+        .col-fecha { width: 7%; }
+        .col-tipo { width: 4%; }
+        .col-producto { width: 10%; }
+        .col-codigo { width: 6%; }
+        .col-medidas { width: 5%; }
+        .col-cajas { width: 4%; }
+        .col-cantidad { width: 5%; }
+        .col-almacen { width: 7%; }
+        .col-referencia { width: 6%; }
+        .col-tipo-ref { width: 5%; }
+        .col-destino { width: 7%; }
+        .col-conductor { width: 7%; }
+        .col-cedula { width: 6%; }
+        .col-placa { width: 5%; }
+        .col-observacion { width: 7%; }
         @media print {
             body { margin:0; }
             .no-print { display: none !important; }
@@ -48,9 +49,9 @@
         <div class="subtitle">Producto: Todos los productos</div>
     @endif
     @if($selectedWarehouseId)
-        <div class="subtitle">Almacén: {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}</div>
+        <div class="subtitle">Bodega: {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}</div>
     @else
-        <div class="subtitle">Almacén: Todos los almacenes</div>
+        <div class="subtitle">Bodega: Todos los bodegas</div>
     @endif
     @if($dateFrom || $dateTo)
         <div class="subtitle">
@@ -66,9 +67,10 @@
                 <th class="col-tipo">Tipo</th>
                 <th class="col-producto">Producto</th>
                 <th class="col-codigo">Código</th>
+                <th class="col-medidas">Medidas</th>
                 <th class="col-cajas">Cajas</th>
                 <th class="col-cantidad">Cantidad</th>
-                <th class="col-almacen">Almacén</th>
+                <th class="col-almacen">Bodega</th>
                 <th class="col-referencia">Referencia</th>
                 <th class="col-tipo-ref">Tipo Ref.</th>
                 <th class="col-destino">Destino</th>
@@ -91,6 +93,7 @@
                 </td>
                 <td class="col-producto">{{ $movement['product_name'] }}</td>
                 <td class="col-codigo">{{ $movement['product_code'] }}</td>
+                <td class="col-medidas">{{ $movement['product_medidas'] ?? '-' }}</td>
                 <td class="col-cajas" style="text-align: center;">
                     @if(isset($movement['boxes']) && $movement['boxes'] !== null)
                         {{ number_format($movement['boxes'], 0) }}

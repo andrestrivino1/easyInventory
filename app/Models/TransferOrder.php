@@ -16,6 +16,8 @@ class TransferOrder extends Model
         'order_number',
         'warehouse_from_id',
         'warehouse_to_id',
+        'salida',
+        'destino',
         'status',
         'date',
         'note',

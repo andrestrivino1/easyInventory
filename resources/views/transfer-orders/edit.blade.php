@@ -129,7 +129,7 @@
             $isEditable = $transferOrder->status === 'en_transito';
         @endphp
 
-        <label for="warehouse_from_id">Almacén origen*</label>
+        <label for="warehouse_from_id">Bodega origen*</label>
         <select name="warehouse_from_id" id="warehouse_from_id" required @if(!$isEditable) disabled @endif onchange="filterProductsByWarehouse()">
             <option value="">Seleccione</option>
             @foreach($warehouses as $wh)
@@ -139,7 +139,7 @@
         @if(!$isEditable) <input type="hidden" name="warehouse_from_id" value="{{ $transferOrder->warehouse_from_id }}"> @endif
         @error('warehouse_from_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
-        <label for="warehouse_to_id">Almacén destino*</label>
+        <label for="warehouse_to_id">Bodega destino*</label>
         <select name="warehouse_to_id" id="warehouse_to_id" required @if(!$isEditable) disabled @endif>
             <option value="">Seleccione</option>
             @foreach($warehouses as $wh)
@@ -149,8 +149,18 @@
         @if(!$isEditable) <input type="hidden" name="warehouse_to_id" value="{{ $transferOrder->warehouse_to_id }}"> @endif
         @error('warehouse_to_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
-        <div id="buenaventura-info" style="display:none; background:#e3f2fd; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
-            ℹ️ Desde Buenaventura solo se pueden despachar productos medidos en Cajas
+        <label for="salida">Salida (Ciudad)*</label>
+        <input type="text" name="salida" id="salida" value="{{ old('salida', $transferOrder->salida) }}" placeholder="Ej: Cali" required @if(!$isEditable) readonly @endif>
+        @if(!$isEditable) <input type="hidden" name="salida" value="{{ $transferOrder->salida }}"> @endif
+        @error('salida') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="destino">Destino (Ciudad)*</label>
+        <input type="text" name="destino" id="destino" value="{{ old('destino', $transferOrder->destino) }}" placeholder="Ej: Bogotá" required @if(!$isEditable) readonly @endif>
+        @if(!$isEditable) <input type="hidden" name="destino" value="{{ $transferOrder->destino }}"> @endif
+        @error('destino') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <div id="pablo-rojas-info" style="display:none; background:#e3f2fd; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
+            ℹ️ Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas
         </div>
 
         @if($isEditable)
@@ -208,7 +218,7 @@
 let productIndex = 0;
 const products = @json($products ?? []);
 const existingProducts = @json($transferOrder->products ?? []);
-const ID_BUENAVENTURA = 1;
+const ID_PABLO_ROJAS = 1;
 const isEditable = @json($transferOrder->status === 'en_transito');
 
 function setConductorFromPlate(sel) {
@@ -297,15 +307,15 @@ function renumberProducts() {
 
 function filterProductsByWarehouse() {
     const warehouseFrom = document.getElementById('warehouse_from_id');
-    const infoDiv = document.getElementById('buenaventura-info');
+    const infoDiv = document.getElementById('pablo-rojas-info');
     
     if (!warehouseFrom || warehouseFrom.disabled) return;
     
     const selectedWarehouseId = parseInt(warehouseFrom.value);
-    const isBuenaventura = selectedWarehouseId === ID_BUENAVENTURA;
+    const isPabloRojas = selectedWarehouseId === ID_PABLO_ROJAS;
     
     if (infoDiv) {
-        infoDiv.style.display = isBuenaventura ? 'block' : 'none';
+        infoDiv.style.display = isPabloRojas ? 'block' : 'none';
     }
     
     const productSelects = document.querySelectorAll('select[id^="product-select-"]');
@@ -324,7 +334,7 @@ function filterProductsByWarehouse() {
             const productWarehouseId = parseInt(option.getAttribute('data-almacen-id'));
             const productTipoMedida = option.getAttribute('data-tipo');
             
-            if (isBuenaventura) {
+            if (isPabloRojas) {
                 if (productWarehouseId === selectedWarehouseId && productTipoMedida === 'caja') {
                     option.style.display = 'block';
                     hasVisibleOptions = true;
@@ -451,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Filtrar productos cuando cambie el almacén origen
+    // Filtrar productos cuando cambie la bodega origen
     const warehouseFrom = document.getElementById('warehouse_from_id');
     if (warehouseFrom && !warehouseFrom.disabled) {
         warehouseFrom.addEventListener('change', filterProductsByWarehouse);

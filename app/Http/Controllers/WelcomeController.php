@@ -15,30 +15,30 @@ class WelcomeController extends Controller
             return redirect()->route('login');
         }
         $isAdmin = $user && in_array($user->rol, ['admin', 'secretaria']);
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
         // Productos
         if ($isAdmin) {
             $productos = Product::all();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve productos de Buenaventura
-            $productos = Product::where('almacen_id', $ID_BUENAVENTURA)->get();
+            // Funcionario solo ve productos de Pablo Rojas
+            $productos = Product::where('almacen_id', $ID_PABLO_ROJAS)->get();
         } else {
             $productos = Product::where('almacen_id', $user->almacen_id)->get();
         }
         $totalProductos = $productos->count();
         $bajoStock = $productos->where('stock', '<', 5)->count();
-        // Almacenes
-        $totalAlmacenes = $isAdmin ? Warehouse::count() : 1;
+        // Bodegas
+        $totalBodegas = $isAdmin ? Warehouse::count() : 1;
         // Transferencias
         if ($isAdmin) {
             $transito = TransferOrder::where('status','en_transito')->count();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve transferencias relacionadas con Buenaventura
+            // Funcionario solo ve transferencias relacionadas con Pablo Rojas
             $transito = TransferOrder::where('status', 'en_transito')
-                ->where(function($q) use($ID_BUENAVENTURA) {
-                    $q->where('warehouse_from_id', $ID_BUENAVENTURA)
-                      ->orWhere('warehouse_to_id', $ID_BUENAVENTURA);
+                ->where(function($q) use($ID_PABLO_ROJAS) {
+                    $q->where('warehouse_from_id', $ID_PABLO_ROJAS)
+                      ->orWhere('warehouse_to_id', $ID_PABLO_ROJAS);
                 })
                 ->count();
         } else {
@@ -49,6 +49,6 @@ class WelcomeController extends Controller
                 })
                 ->count();
         }
-        return view('welcome', compact('totalProductos', 'totalAlmacenes', 'bajoStock', 'transito'));
+        return view('welcome', compact('totalProductos', 'totalBodegas', 'bajoStock', 'transito'));
     }
 }

@@ -68,6 +68,15 @@
             <a href="{{ route('containers.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nuevo contenedor</a>
         </div>
         <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold;">Contenedores registrados</h2>
+        
+        <!-- Campo de búsqueda -->
+        <div class="mb-3" style="max-width: 400px; margin: 0 auto 20px; text-align: center;">
+          <div style="position: relative; width: 100%;">
+            <input type="text" id="search-containers-main" class="form-control" placeholder="Buscar contenedores..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
+            <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
+          </div>
+        </div>
+        
         @if(session('success') || session('error') || session('warning'))
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -108,8 +117,25 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 @endif
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Búsqueda en tiempo real
+    const searchInput = document.getElementById('search-containers-main');
+    const table = document.getElementById('containers-main-table');
+    if (searchInput && table) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
         <div class="table-responsive-custom">
-        <table class="container-table">
+        <table class="container-table" id="containers-main-table">
             <thead>
                 <tr>
                     <th>Contenedor</th>

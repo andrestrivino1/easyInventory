@@ -127,10 +127,10 @@
       <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
         <strong>Nota:</strong> El stock y las unidades por caja se asignarán cuando agregues este producto a un contenedor.
       </div>
-      <label for="almacen_id">Almacén*</label>
+      <label for="almacen_id">Bodega*</label>
       @if($user->rol === 'admin')
       <select name="almacen_id" id="almacen_id" required>
-        <option value="">Seleccione un almacén</option>
+        <option value="">Seleccione una bodega</option>
         @foreach($warehouses as $almacen)
           <option value="{{ $almacen->id }}" {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
         @endforeach
@@ -138,7 +138,7 @@
       @else
       <input type="hidden" name="almacen_id" value="{{ $user->almacen_id }}">
       <div style="margin-bottom:15px; padding:10px 14px; background:#f4f4f8; border-radius:5px; color:#333; font-size:14px;">
-        {{ $user->almacen->nombre ?? 'Almacén asignado' }}
+        {{ $user->almacen->nombre ?? 'Bodega asignada' }}
       </div>
       @endif
       @error('almacen_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
@@ -178,15 +178,15 @@ document.addEventListener('DOMContentLoaded', function() {
   var tipoSelect = document.getElementById('tipo_medida');
   if(wh && tipoSelect){
     wh.addEventListener('change', function() {
-      var buenaventuraOption = null;
+      var pabloRojasOption = null;
       for(let opt of wh.options) {
-        if(opt.innerText.trim().toLowerCase() === 'buenaventura' && opt.value) buenaventuraOption = opt.value;
+        if(opt.innerText.trim().toLowerCase() === 'pablo rojas' && opt.value) pabloRojasOption = opt.value;
       }
-      if (wh.value === buenaventuraOption) {
+      if (wh.value === pabloRojasOption) {
         if(tipoSelect.value !== 'caja') {
         tipoSelect.value = 'caja';
           if(typeof Swal !== 'undefined') {
-            Swal.fire({icon:'info',title:'Solo se permiten Cajas en Buenaventura',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
+            Swal.fire({icon:'info',title:'Solo se permiten Cajas en Pablo Rojas',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
           }
         }
         tipoSelect.options[0].disabled = true;

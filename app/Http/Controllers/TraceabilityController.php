@@ -7,6 +7,7 @@ use App\Models\Warehouse;
 use App\Models\Product;
 use App\Models\Container;
 use App\Models\TransferOrder;
+use App\Models\Salida;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -23,17 +24,17 @@ class TraceabilityController extends Controller
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su almacén
+        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
         // Funcionario solo ve Buenaventura
         if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_BUENAVENTURA;
+            $selectedWarehouseId = $ID_PABLO_ROJAS;
             // Filtrar productos solo de Buenaventura
-            $products = Product::where('almacen_id', $ID_BUENAVENTURA)->orderBy('nombre')->get();
+            $products = Product::where('almacen_id', $ID_PABLO_ROJAS)->orderBy('nombre')->get();
         } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
-            // Filtrar productos solo del almacén del usuario
+            // Filtrar productos solo de la bodega del usuario
             $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();
         }
         
@@ -50,7 +51,7 @@ class TraceabilityController extends Controller
                 
                 $totalSheets = $product->pivot->boxes * $product->pivot->sheets_per_box;
                 
-                // Obtener el almacén del producto
+                // Obtener la bodega del producto
                 $productModel = Product::find($product->id);
                 if (!$productModel) continue;
                 
@@ -78,6 +79,7 @@ class TraceabilityController extends Controller
                     'product_id' => $product->id,
                     'product_name' => $product->nombre,
                     'product_code' => $product->codigo,
+                    'product_medidas' => $product->medidas ?? '-',
                     'quantity' => $totalSheets,
                     'warehouse_id' => $productModel->almacen_id,
                     'warehouse_name' => $productModel->almacen->nombre ?? '-',
@@ -113,7 +115,7 @@ class TraceabilityController extends Controller
                 // Salida desde almacén origen (siempre se registra cuando se crea la transferencia)
                 if (!$dateFromObj || $transferDate >= $dateFromObj) {
                     if (!$dateToObj || $transferDate <= $dateToObj) {
-                        // Filtrar por almacén si está seleccionado
+                        // Filtrar por bodega si está seleccionado
                         if (!$selectedWarehouseId || $transfer->warehouse_from_id == $selectedWarehouseId) {
                             $movements->push([
                                 'date' => $transferDate,
@@ -122,6 +124,7 @@ class TraceabilityController extends Controller
                                 'product_id' => $product->id,
                                 'product_name' => $product->nombre,
                                 'product_code' => $product->codigo,
+                                'product_medidas' => $product->medidas ?? '-',
                                 'quantity' => -$quantity, // Negativo para salida
                                 'warehouse_id' => $transfer->warehouse_from_id,
                                 'warehouse_name' => $transfer->from->nombre ?? '-',
@@ -146,7 +149,7 @@ class TraceabilityController extends Controller
                     
                     if (!$dateFromObj || $receivedDate >= $dateFromObj) {
                         if (!$dateToObj || $receivedDate <= $dateToObj) {
-                            // Filtrar por almacén si está seleccionado
+                            // Filtrar por bodega si está seleccionado
                             if (!$selectedWarehouseId || $transfer->warehouse_to_id == $selectedWarehouseId) {
                                 $movements->push([
                                     'date' => $receivedDate,
@@ -155,6 +158,7 @@ class TraceabilityController extends Controller
                                     'product_id' => $product->id,
                                     'product_name' => $product->nombre,
                                     'product_code' => $product->codigo,
+                                    'product_medidas' => $product->medidas ?? '-',
                                     'quantity' => $quantity, // Positivo para entrada
                                     'warehouse_id' => $transfer->warehouse_to_id,
                                     'warehouse_name' => $transfer->to->nombre ?? '-',
@@ -172,6 +176,60 @@ class TraceabilityController extends Controller
                         }
                     }
                 }
+            }
+        }
+        
+        // Obtener salidas del módulo Salidas
+        $salidas = Salida::with(['warehouse', 'products'])->get();
+        foreach ($salidas as $salida) {
+            foreach ($salida->products as $product) {
+                // Filtrar por producto si está seleccionado
+                if ($selectedProductId && $product->id != $selectedProductId) {
+                    continue;
+                }
+                
+                // Filtrar por bodega si está seleccionado
+                if ($selectedWarehouseId && $salida->warehouse_id != $selectedWarehouseId) {
+                    continue;
+                }
+                
+                // Filtrar por fecha si está seleccionada
+                $salidaDate = $salida->fecha ?? now();
+                if ($dateFrom) {
+                    $dateFromObj = is_string($dateFrom) ? \Carbon\Carbon::parse($dateFrom) : $dateFrom;
+                    if ($salidaDate < $dateFromObj) continue;
+                }
+                if ($dateTo) {
+                    $dateToObj = is_string($dateTo) ? \Carbon\Carbon::parse($dateTo)->endOfDay() : $dateTo;
+                    if ($salidaDate > $dateToObj) continue;
+                }
+                
+                // La cantidad en salidas siempre es en láminas
+                $quantity = $product->pivot->quantity;
+                
+                // Calcular cajas equivalentes si es tipo caja
+                $cajasEquivalentes = null;
+                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                    $cajasEquivalentes = floor($quantity / $product->unidades_por_caja);
+                }
+                
+                $movements->push([
+                    'date' => $salidaDate,
+                    'type' => 'salida',
+                    'type_label' => 'Salida',
+                    'product_id' => $product->id,
+                    'product_name' => $product->nombre,
+                    'product_code' => $product->codigo,
+                    'product_medidas' => $product->medidas ?? '-',
+                    'quantity' => -$quantity, // Negativo para salida
+                    'warehouse_id' => $salida->warehouse_id,
+                    'warehouse_name' => $salida->warehouse->nombre ?? '-',
+                    'reference' => $salida->salida_number,
+                    'reference_type' => 'Salida',
+                    'note' => $salida->note ?? ($salida->a_nombre_de ? "A nombre de: {$salida->a_nombre_de}" : '-'),
+                    'destination_warehouse' => $salida->a_nombre_de ?? '-',
+                    'boxes' => $cajasEquivalentes,
+                ]);
             }
         }
         
@@ -220,17 +278,17 @@ class TraceabilityController extends Controller
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         
-        $ID_BUENAVENTURA = 1;
+        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su almacén
+        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
         // Funcionario solo ve Buenaventura
         if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_BUENAVENTURA;
+            $selectedWarehouseId = $ID_PABLO_ROJAS;
             // Filtrar productos solo de Buenaventura
-            $products = Product::where('almacen_id', $ID_BUENAVENTURA)->orderBy('nombre')->get();
+            $products = Product::where('almacen_id', $ID_PABLO_ROJAS)->orderBy('nombre')->get();
         } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
-            // Filtrar productos solo del almacén del usuario
+            // Filtrar productos solo de la bodega del usuario
             $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();
         }
         
@@ -266,6 +324,7 @@ class TraceabilityController extends Controller
                     'product_id' => $product->id,
                     'product_name' => $product->nombre,
                     'product_code' => $product->codigo,
+                    'product_medidas' => $product->medidas ?? '-',
                     'quantity' => $totalSheets,
                     'warehouse_id' => $productModel->almacen_id,
                     'warehouse_name' => $productModel->almacen->nombre ?? '-',
@@ -304,6 +363,7 @@ class TraceabilityController extends Controller
                                 'product_id' => $product->id,
                                 'product_name' => $product->nombre,
                                 'product_code' => $product->codigo,
+                                'product_medidas' => $product->medidas ?? '-',
                                 'quantity' => -$quantity,
                                 'warehouse_id' => $transfer->warehouse_from_id,
                                 'warehouse_name' => $transfer->from->nombre ?? '-',
@@ -335,6 +395,7 @@ class TraceabilityController extends Controller
                                     'product_id' => $product->id,
                                     'product_name' => $product->nombre,
                                     'product_code' => $product->codigo,
+                                    'product_medidas' => $product->medidas ?? '-',
                                     'quantity' => $quantity,
                                     'warehouse_id' => $transfer->warehouse_to_id,
                                     'warehouse_name' => $transfer->to->nombre ?? '-',
@@ -352,6 +413,51 @@ class TraceabilityController extends Controller
                         }
                     }
                 }
+            }
+        }
+        
+        // Obtener salidas del módulo Salidas
+        $salidas = Salida::with(['warehouse', 'products'])->get();
+        foreach ($salidas as $salida) {
+            foreach ($salida->products as $product) {
+                if ($selectedProductId && $product->id != $selectedProductId) continue;
+                
+                if ($selectedWarehouseId && $salida->warehouse_id != $selectedWarehouseId) continue;
+                
+                $salidaDate = $salida->fecha ?? now();
+                if ($dateFrom) {
+                    $dateFromObj = is_string($dateFrom) ? \Carbon\Carbon::parse($dateFrom) : $dateFrom;
+                    if ($salidaDate < $dateFromObj) continue;
+                }
+                if ($dateTo) {
+                    $dateToObj = is_string($dateTo) ? \Carbon\Carbon::parse($dateTo)->endOfDay() : $dateTo;
+                    if ($salidaDate > $dateToObj) continue;
+                }
+                
+                $quantity = $product->pivot->quantity;
+                
+                $cajasEquivalentes = null;
+                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                    $cajasEquivalentes = floor($quantity / $product->unidades_por_caja);
+                }
+                
+                $movements->push([
+                    'date' => $salidaDate,
+                    'type' => 'salida',
+                    'type_label' => 'Salida',
+                    'product_id' => $product->id,
+                    'product_name' => $product->nombre,
+                    'product_code' => $product->codigo,
+                    'product_medidas' => $product->medidas ?? '-',
+                    'quantity' => -$quantity,
+                    'warehouse_id' => $salida->warehouse_id,
+                    'warehouse_name' => $salida->warehouse->nombre ?? '-',
+                    'reference' => $salida->salida_number,
+                    'reference_type' => 'Salida',
+                    'note' => $salida->note ?? ($salida->a_nombre_de ? "A nombre de: {$salida->a_nombre_de}" : '-'),
+                    'destination_warehouse' => $salida->a_nombre_de ?? '-',
+                    'boxes' => $cajasEquivalentes,
+                ]);
             }
         }
         
@@ -435,9 +541,9 @@ class TraceabilityController extends Controller
         
         if ($selectedWarehouseId) {
             $warehouseName = $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '';
-            $html .= '<div class="info">Almacén: ' . htmlspecialchars($warehouseName) . '</div>';
+            $html .= '<div class="info">Bodega: ' . htmlspecialchars($warehouseName) . '</div>';
         } else {
-            $html .= '<div class="info">Almacén: Todos los almacenes</div>';
+            $html .= '<div class="info">Bodega: Todas las bodegas</div>';
         }
         
         if ($dateFrom || $dateTo) {
@@ -453,9 +559,10 @@ class TraceabilityController extends Controller
                 <th>Tipo</th>
                 <th>Producto</th>
                 <th>Código</th>
+                <th>Medidas</th>
                 <th>Cajas</th>
                 <th>Cantidad</th>
-                <th>Almacén</th>
+                <th>Bodega</th>
                 <th>Referencia</th>
                 <th>Tipo Referencia</th>
                 <th>Destino</th>
@@ -477,6 +584,7 @@ class TraceabilityController extends Controller
                 <td>' . htmlspecialchars($movement['type_label']) . '</td>
                 <td>' . htmlspecialchars($movement['product_name']) . '</td>
                 <td>' . htmlspecialchars($movement['product_code']) . '</td>
+                <td>' . htmlspecialchars($movement['product_medidas'] ?? '-') . '</td>
                 <td style="text-align: center;">' . (isset($movement['boxes']) && $movement['boxes'] !== null ? number_format($movement['boxes'], 0) : '-') . '</td>
                 <td class="' . $quantityClass . '">' . $quantityDisplay . '</td>
                 <td>' . htmlspecialchars($movement['warehouse_name']) . '</td>

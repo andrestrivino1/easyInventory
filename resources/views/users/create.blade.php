@@ -43,9 +43,9 @@
           @error('telefono')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
         <div class="form-group">
-          <label for="almacen_id">Almacén *</label>
+          <label for="almacen_id">Bodega *</label>
           <select id="almacen_id" name="almacen_id" required>
-              <option value="">Seleccione almacén</option>
+              <option value="">Seleccione bodega</option>
               @foreach ($almacenes as $almacen)
                   <option value="{{ $almacen->id }}" {{ old('almacen_id')==$almacen->id ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
               @endforeach

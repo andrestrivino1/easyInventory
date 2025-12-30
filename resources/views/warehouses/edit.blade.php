@@ -99,12 +99,12 @@
 </style>
 <div class="form-bg">
   <div class="form-container">
-    <h2>Editar almacén</h2>
+    <h2>Editar bodega</h2>
     <form action="{{ route('warehouses.update', $warehouse) }}" method="POST" autocomplete="off">
       @csrf
       @method('PUT')
       <label for="nombre">Nombre*</label>
-      <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del almacén" value="{{ old('nombre', $warehouse->nombre) }}" required>
+      <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre de la bodega" value="{{ old('nombre', $warehouse->nombre) }}" required>
       @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="direccion">Dirección</label>

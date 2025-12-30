@@ -20,9 +20,9 @@ class ContainerController extends Controller
         if ($user->rol === 'funcionario') {
             return redirect()->route('containers.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
-        // Solo mostrar productos de Buenaventura (almacén ID 1) ya que los contenedores solo existen allí
-        $ID_BUENAVENTURA = 1;
-        $products = \App\Models\Product::where('almacen_id', $ID_BUENAVENTURA)
+        // Solo mostrar productos de Pablo Rojas (bodega ID 1) ya que los contenedores solo existen allí
+        $ID_PABLO_ROJAS = 1;
+        $products = \App\Models\Product::where('almacen_id', $ID_PABLO_ROJAS)
             ->orderBy('nombre')
             ->get();
         return view('containers.create', compact('products'));
@@ -88,9 +88,9 @@ class ContainerController extends Controller
         }
         
         $container->load('products');
-        // Solo mostrar productos de Buenaventura (almacén ID 1) ya que los contenedores solo existen allí
-        $ID_BUENAVENTURA = 1;
-        $products = \App\Models\Product::where('almacen_id', $ID_BUENAVENTURA)
+        // Solo mostrar productos de Pablo Rojas (bodega ID 1) ya que los contenedores solo existen allí
+        $ID_PABLO_ROJAS = 1;
+        $products = \App\Models\Product::where('almacen_id', $ID_PABLO_ROJAS)
             ->orderBy('nombre')
             ->get();
         return view('containers.edit', compact('container', 'products'));
