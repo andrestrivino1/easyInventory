@@ -100,7 +100,7 @@ body .form-bg {
     <h2>Nuevo contenedor</h2>
     <form method="POST" action="{{ route('containers.store') }}" autocomplete="off" id="containerForm">
         @csrf
-        <label for="reference">Referencia*</label>
+        <label for="reference">Contenedor*</label>
         <input name="reference" type="text" required value="{{ old('reference') }}" placeholder="Ej: CONT-001">
         @error('reference') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
@@ -147,8 +147,12 @@ function addProduct() {
                 <label for="products[${productIndex}][product_id]">Producto*</label>
                 <select name="products[${productIndex}][product_id]" required onchange="updateProductFields(${productIndex})">
                     <option value="">Seleccione un producto</option>
-                    ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida}">${p.nombre} (${p.codigo})</option>`).join('')}
+                    ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida}" data-medidas="${p.medidas || ''}">${p.nombre} (${p.codigo})</option>`).join('')}
                 </select>
+            </div>
+            <div>
+                <label for="products[${productIndex}][medidas]">Medidas</label>
+                <input type="text" name="products[${productIndex}][medidas]" id="medidas-${productIndex}" value="" readonly placeholder="Seleccione un producto primero" style="background-color: #f0f0f0; cursor: not-allowed;">
             </div>
             <div>
                 <label for="products[${productIndex}][boxes]">Cajas*</label>
@@ -192,7 +196,15 @@ function updateProductFields(index) {
     const select = document.querySelector(`#product-${index} select[name*="[product_id]"]`);
     if (select && select.selectedOptions[0]) {
         const tipo = select.selectedOptions[0].dataset.tipo;
+        const medidas = select.selectedOptions[0].dataset.medidas || '';
+        const medidasInput = document.querySelector(`#medidas-${index}`);
         const sheetsInput = document.querySelector(`#product-${index} input[name*="[sheets_per_box]"]`);
+        
+        // Actualizar medidas del producto
+        if (medidasInput) {
+            medidasInput.value = medidas;
+        }
+        
         if (tipo === 'unidad' && sheetsInput) {
             sheetsInput.value = 1;
             sheetsInput.readOnly = true;

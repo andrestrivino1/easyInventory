@@ -86,7 +86,10 @@ class ProductController extends Controller
         // Funcionario no puede crear productos (solo lectura)
         $canCreateProducts = ($user->rol !== 'funcionario') && (in_array($user->rol, ['admin', 'secretaria']) || $user->almacen_id == $ID_BUENAVENTURA);
         
-        return view('products.index', compact('productos', 'productosConTransferencias', 'productosContenedoresOrigen', 'ID_BUENAVENTURA', 'canCreateProducts'));
+        // Calcular cantidades por contenedor para cada producto
+        $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($productos);
+        
+        return view('products.index', compact('productos', 'productosConTransferencias', 'productosContenedoresOrigen', 'ID_BUENAVENTURA', 'canCreateProducts', 'productosCantidadesPorContenedor'));
     }
 
     /**
@@ -286,5 +289,93 @@ class ProductController extends Controller
         
         $product->delete();
         return redirect()->route('products.index')->with('success', 'Producto eliminado correctamente.');
+    }
+    
+    /**
+     * Calcula las cantidades por contenedor para cada producto basado en:
+     * 1. Contenedores relacionados directamente (tabla container_product)
+     * 2. Transferencias recibidas
+     */
+    private function calcularCantidadesPorContenedor($products)
+    {
+        $resultado = collect();
+        
+        // Obtener todas las transferencias recibidas de una vez para optimizar
+        $allReceivedTransfers = \App\Models\TransferOrder::where('status', 'recibido')
+            ->with(['products' => function($query) {
+                $query->withPivot('container_id', 'quantity');
+            }])
+            ->get();
+        
+        // Obtener todos los contenedores de una vez
+        $allContainers = Container::all()->keyBy('id');
+        
+        // Cargar relaciones de contenedores para todos los productos de una vez
+        $products->load('containers');
+        
+        foreach ($products as $producto) {
+            // Agrupar cantidades por contenedor
+            $cantidadesPorContenedor = collect();
+            
+            // 1. Obtener contenedores relacionados directamente (tabla container_product)
+            foreach ($producto->containers as $container) {
+                $containerId = $container->id;
+                $boxes = $container->pivot->boxes ?? 0;
+                $sheetsPerBox = $container->pivot->sheets_per_box ?? 0;
+                $laminas = $boxes * $sheetsPerBox;
+                
+                $cantidadesPorContenedor[$containerId] = [
+                    'container_reference' => $container->reference,
+                    'cajas' => $boxes,
+                    'laminas' => $laminas,
+                ];
+            }
+            
+            // 2. Obtener cantidades de transferencias recibidas
+            $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
+                if ($transfer->warehouse_to_id != $producto->almacen_id) {
+                    return false;
+                }
+                // Buscar por nombre del producto (ya que el ID puede ser diferente)
+                return $transfer->products->contains(function($p) use ($producto) {
+                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                });
+            });
+            
+            foreach ($receivedTransfers as $transfer) {
+                // Buscar el producto en la transferencia por nombre y código
+                $productInTransfer = $transfer->products->first(function($p) use ($producto) {
+                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                });
+                
+                if ($productInTransfer && $productInTransfer->pivot->container_id) {
+                    $containerId = $productInTransfer->pivot->container_id;
+                    $quantity = $productInTransfer->pivot->quantity;
+                    
+                    // Calcular láminas si es tipo caja
+                    $laminas = $quantity;
+                    if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                        $laminas = $quantity * $producto->unidades_por_caja;
+                    }
+                    
+                    // Agregar o sumar a las cantidades existentes del contenedor
+                    if ($cantidadesPorContenedor->has($containerId)) {
+                        $cantidadesPorContenedor[$containerId]['cajas'] += $quantity;
+                        $cantidadesPorContenedor[$containerId]['laminas'] += $laminas;
+                    } else {
+                        $container = $allContainers->get($containerId);
+                        $cantidadesPorContenedor[$containerId] = [
+                            'container_reference' => $container ? $container->reference : 'N/A',
+                            'cajas' => $quantity,
+                            'laminas' => $laminas,
+                        ];
+                    }
+                }
+            }
+            
+            $resultado->put($producto->id, $cantidadesPorContenedor);
+        }
+        
+        return $resultado;
     }
 }

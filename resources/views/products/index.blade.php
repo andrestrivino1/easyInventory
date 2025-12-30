@@ -156,13 +156,38 @@ document.addEventListener('DOMContentLoaded', function() {
         @endif
     </td>
     <td>
-        @if($producto->tipo_medida === 'caja')
+        @php
+            $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($producto->id) 
+                ? $productosCantidadesPorContenedor->get($producto->id) 
+                : collect();
+        @endphp
+        @if($cantidadesPorContenedor->isNotEmpty())
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
+                @foreach($cantidadesPorContenedor as $containerData)
+                    <div>
+                        {{ number_format($containerData['cajas'], 0) }} cajas
+                    </div>
+                @endforeach
+            </div>
+        @elseif($producto->tipo_medida === 'caja')
             {{ $producto->cajas }}
         @else
             -
         @endif
     </td>
-    <td>{{ $producto->stock }}</td>
+    <td>
+        @if($cantidadesPorContenedor->isNotEmpty())
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
+                @foreach($cantidadesPorContenedor as $containerData)
+                    <div>
+                        {{ number_format($containerData['laminas'], 0) }} láminas
+                    </div>
+                @endforeach
+            </div>
+        @else
+            {{ $producto->stock }}
+        @endif
+    </td>
     <td>{{ $producto->almacen->nombre ?? '-' }}</td>
     <td>{{ $producto->estado ? 'Activo' : 'Inactivo' }}</td>
     @if(isset($canCreateProducts) && $canCreateProducts)

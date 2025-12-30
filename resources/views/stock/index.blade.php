@@ -131,6 +131,7 @@
                         <th>Nombre</th>
                         <th>Almacén</th>
                         <th>Medidas</th>
+                        <th>Contenedor</th>
                         <th>Cajas</th>
                         <th>Laminas</th>
                         <th>Estado</th>
@@ -144,18 +145,64 @@
                         <td>{{ $product->almacen->nombre ?? '-' }}</td>
                         <td>{{ $product->medidas ?? '-' }}</td>
                         <td>
-                            @if($product->tipo_medida === 'caja' && $product->cajas !== null)
+                            @php
+                                // Contenedores directos del producto
+                                $directContainers = $product->containers;
+                                // Contenedores de origen desde transferencias recibidas
+                                $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($product->id) 
+                                    ? $productosContenedoresOrigen->get($product->id) 
+                                    : collect();
+                                // Combinar ambos (sin duplicados)
+                                $allContainers = $directContainers->merge($transferContainers)->unique('id');
+                            @endphp
+                            @if($allContainers->count() > 0)
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    @foreach($allContainers as $container)
+                                        <span style="font-size: 13px;">{{ $container->reference }}</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span style="color: #999; font-style: italic;">-</span>
+                            @endif
+                        </td>
+                        <td>
+                            @php
+                                $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id) 
+                                    ? $productosCantidadesPorContenedor->get($product->id) 
+                                    : collect();
+                            @endphp
+                            @if($cantidadesPorContenedor->isNotEmpty())
+                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
+                                    @foreach($cantidadesPorContenedor as $containerData)
+                                        <div>
+                                            {{ number_format($containerData['cajas'], 0) }} cajas
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @elseif($product->tipo_medida === 'caja' && $product->cajas !== null)
                                 <strong>{{ number_format($product->cajas, 0) }}</strong>
                             @else
                                 -
                             @endif
                         </td>
-                        <td><strong>{{ number_format($product->stock, 0) }}</strong></td>
+                        <td>
+                            @if($cantidadesPorContenedor->isNotEmpty())
+                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
+                                    @foreach($cantidadesPorContenedor as $containerData)
+                                        <div>
+                                            {{ number_format($containerData['laminas'], 0) }} láminas
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <strong>{{ number_format($product->stock, 0) }}</strong>
+                            @endif
+                        </td>
                         <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">
+                        <td colspan="8" class="text-center text-muted py-4">
                             <i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br>
                             <div class="mt-2">No hay productos registrados.</div>
                         </td>

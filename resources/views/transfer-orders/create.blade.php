@@ -167,6 +167,13 @@ body .form-bg {
         <textarea name="note" id="note" rows="2" placeholder="Opcional">{{ old('note') }}</textarea>
         @error('note') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <div style="margin-top: 15px; margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                <input type="checkbox" name="show_signatures" id="show_signatures" value="1" {{ old('show_signatures') ? 'checked' : '' }} style="width: auto; margin: 0;">
+                <span>Mostrar campos de firma (Nombre y NIT/Cédula) en el PDF</span>
+            </label>
+        </div>
+
         <div class="actions">
             <a href="{{ route('transfer-orders.index') }}" class="btn-cancel">Cancelar</a>
             <button type="submit" class="btn-save">Guardar</button>

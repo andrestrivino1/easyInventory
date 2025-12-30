@@ -144,6 +144,36 @@
             </td>
         </tr>
     </table>
+    @if(isset($showSignatures) && $showSignatures)
+    <table style="width:100%;margin-top:60px;text-align:center;border:0;">
+        <tr>
+            <td style="border:none; width:50%;">
+                <div class="firma" style="width:100%; max-width:300px; margin:0 auto;">
+                    <div style="margin-bottom:40px; border-bottom:1px solid #aaa; padding-bottom:8px;">
+                        <div style="font-weight:bold; margin-bottom:5px;">Nombre:</div>
+                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
+                    </div>
+                    <div style="border-bottom:1px solid #aaa; padding-bottom:8px;">
+                        <div style="font-weight:bold; margin-bottom:5px;">NIT/Cédula:</div>
+                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
+                    </div>
+                </div>
+            </td>
+            <td style="border:none; width:50%;">
+                <div class="firma" style="width:100%; max-width:300px; margin:0 auto;">
+                    <div style="margin-bottom:40px; border-bottom:1px solid #aaa; padding-bottom:8px;">
+                        <div style="font-weight:bold; margin-bottom:5px;">Nombre:</div>
+                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
+                    </div>
+                    <div style="border-bottom:1px solid #aaa; padding-bottom:8px;">
+                        <div style="font-weight:bold; margin-bottom:5px;">NIT/Cédula:</div>
+                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    @endif
     <div class="footer" style="margin-top:60px; text-align:right; font-size:13px;color:#777;">
         Generado por EasyInventory - {{ now()->format('d/m/Y h:i A') }}
     </div>

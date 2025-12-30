@@ -200,6 +200,13 @@ class TransferOrderController extends Controller
                 $transfer->products()->attach($item['product_id'], $pivotData);
             }
             
+            // Guardar preferencia de mostrar firmas en sesión
+            if ($request->has('show_signatures')) {
+                session(["transfer_signatures_{$transfer->id}" => true]);
+            } else {
+                session()->forget("transfer_signatures_{$transfer->id}");
+            }
+            
             DB::commit();
             \Log::info('TRANSFER store - exito', ['transfer_id'=>$transfer->id]);
             return redirect()->route('transfer-orders.index')->with('success', 'Transferencia creada correctamente.');
@@ -360,6 +367,13 @@ class TransferOrderController extends Controller
             }
             $transferOrder->products()->sync($syncData);
             
+            // Guardar preferencia de mostrar firmas en sesión
+            if ($request->has('show_signatures')) {
+                session(["transfer_signatures_{$transferOrder->id}" => true]);
+            } else {
+                session()->forget("transfer_signatures_{$transferOrder->id}");
+            }
+            
             DB::commit();
             return redirect()->route('transfer-orders.index')->with('success', 'Transferencia actualizada correctamente.');
         } catch (\Throwable $e) {
@@ -408,26 +422,30 @@ class TransferOrderController extends Controller
         }
     }
 
-    public function export(TransferOrder $transferOrder)
+    public function export(TransferOrder $transferOrder, Request $request)
     {
         $transferOrder->load(['from', 'to', 'products']);
         // Cargar contenedores para optimizar consultas
         $containerIds = $transferOrder->products->pluck('pivot.container_id')->filter()->unique();
         $containers = \App\Models\Container::whereIn('id', $containerIds)->get()->keyBy('id');
         $isExport = true;
-        $pdf = Pdf::loadView('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers'));
+        // Verificar sesión para mostrar firmas
+        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
+        $pdf = Pdf::loadView('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers', 'showSignatures'));
         $filename = 'Orden-Transferencia-' . $transferOrder->order_number . '.pdf';
         return $pdf->download($filename);
     }
 
-    public function print(TransferOrder $transferOrder)
+    public function print(TransferOrder $transferOrder, Request $request)
     {
         $transferOrder->load(['from', 'to', 'products']);
         // Cargar contenedores para optimizar consultas
         $containerIds = $transferOrder->products->pluck('pivot.container_id')->filter()->unique();
         $containers = \App\Models\Container::whereIn('id', $containerIds)->get()->keyBy('id');
         $isExport = false; // Indicar que es para visualizar en navegador
-        return view('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers'));
+        // Verificar sesión para mostrar firmas
+        $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
+        return view('transfer-orders.pdf', compact('transferOrder', 'isExport', 'containers', 'showSignatures'));
     }
 
     public function confirmReceived(TransferOrder $transferOrder)

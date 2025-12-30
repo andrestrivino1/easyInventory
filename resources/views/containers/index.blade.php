@@ -112,8 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
         <table class="container-table">
             <thead>
                 <tr>
-                    <th>Referencia</th>
+                    <th>Contenedor</th>
                     <th style="min-width:280px;">Productos</th>
+                    <th>Medidas</th>
                     <th>Cajas</th>
                     <th>Láminas</th>
                     <th>Observación</th>
@@ -147,6 +148,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span style="color: #999; font-style: italic;">Sin productos</span>
                         @endif
                     </td>
+                    <td>
+                        @if($container->products->count() > 0)
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                @foreach($container->products as $product)
+                                    <div style="font-size: 13px; line-height: 1.5;">
+                                        {{ $product->medidas ?? '-' }}
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <span style="color: #999; font-style: italic;">-</span>
+                        @endif
+                    </td>
                     <td><strong>{{ $totalBoxes }}</strong></td>
                     <td><strong>{{ $totalSheets }}</strong></td>
                     <td>{{ $container->note ?? '-' }}</td>
@@ -166,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4"><i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br><div class="mt-2">No hay contenedores registrados.</div></td>
+                    <td colspan="7" class="text-center text-muted py-4"><i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br><div class="mt-2">No hay contenedores registrados.</div></td>
                 </tr>
                 @endforelse
             </tbody>

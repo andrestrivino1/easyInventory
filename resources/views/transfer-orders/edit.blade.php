@@ -187,6 +187,13 @@
         <textarea name="note" id="note" rows="2" placeholder="Opcional" @if(!$isEditable) readonly @endif>{{ old('note', $transferOrder->note) }}</textarea>
         @error('note') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <div style="margin-top: 15px; margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                <input type="checkbox" name="show_signatures" id="show_signatures" value="1" {{ old('show_signatures', session("transfer_signatures_{$transferOrder->id}")) ? 'checked' : '' }} @if(!$isEditable) disabled @endif style="width: auto; margin: 0;">
+                <span>Mostrar campos de firma (Nombre y NIT/Cédula) en el PDF</span>
+            </label>
+        </div>
+
         <div class="actions">
             <a href="{{ route('transfer-orders.index') }}" class="btn-cancel">Cancelar</a>
             @if($isEditable)
