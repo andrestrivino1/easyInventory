@@ -46,37 +46,86 @@ class StockController extends Controller
         }
         
         // Obtener productos globales (todos los productos sin almacen_id específico)
+        // Ordenar por nombre, luego por medidas, luego por código para diferenciar productos similares
         $allProducts = Product::whereNull('almacen_id')
             ->with(['containers'])
             ->orderBy('nombre')
+            ->orderBy('medidas')
+            ->orderBy('codigo')
             ->get();
+        
+        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
         
         // Calcular stock por bodega para cada producto
         $productosStockPorBodega = $this->calcularStockPorBodega($allProducts, $selectedWarehouseId);
         
-        // Filtrar productos: solo mostrar los que tienen stock > 0 en la bodega seleccionada
+        // Siempre mostrar productos relacionados directamente con contenedores cuando existan
+        // Crear una fila por cada combinación producto-contenedor
+        $productsWithContainers = collect();
+        
+        // Construir query base para obtener productos en contenedores
+        $containerProductQuery = DB::table('container_product')
+            ->join('containers', 'container_product.container_id', '=', 'containers.id')
+            ->join('products', 'container_product.product_id', '=', 'products.id')
+            ->where('container_product.boxes', '>', 0)
+            ->select(
+                'container_product.container_id',
+                'container_product.product_id',
+                'container_product.boxes',
+                'container_product.sheets_per_box',
+                'containers.reference',
+                'containers.warehouse_id'
+            );
+        
+        // Si hay bodega seleccionada, filtrar por bodega
         if ($selectedWarehouseId) {
-            $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
-                if ($productosStockPorBodega->has($product->id)) {
-                    $stockPorBodega = $productosStockPorBodega->get($product->id);
-                    $stock = $stockPorBodega->get($selectedWarehouseId, 0);
-                    return $stock > 0;
-                }
-                return false;
-            })->values();
-        } else {
-            // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
-            $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
-                if ($productosStockPorBodega->has($product->id)) {
-                    $stockPorBodega = $productosStockPorBodega->get($product->id);
-                    return $stockPorBodega->sum() > 0;
-                }
-                return false;
-            })->values();
+            $containerProductQuery->where('containers.warehouse_id', $selectedWarehouseId);
         }
         
-        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
-        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        $containerProductData = $containerProductQuery->get();
+        
+        // Agrupar por producto y crear objetos producto-contenedor
+        foreach ($containerProductData as $cp) {
+            $product = $allProducts->firstWhere('id', $cp->product_id);
+            if ($product) {
+                // Crear un objeto producto con información del contenedor
+                $productCopy = clone $product;
+                $productCopy->container_id = $cp->container_id;
+                $productCopy->container_reference = $cp->reference;
+                $productCopy->container_warehouse_id = $cp->warehouse_id;
+                $productCopy->cajas_en_contenedor = $cp->boxes;
+                $productCopy->laminas_en_contenedor = $cp->boxes * $cp->sheets_per_box;
+                $productsWithContainers->push($productCopy);
+            }
+        }
+        
+        // Si hay productos en contenedores, usarlos
+        if ($productsWithContainers->count() > 0) {
+            $products = $productsWithContainers;
+        } else {
+            // Si no hay productos en contenedores, usar lógica de filtrado normal (para bodegas que no reciben contenedores)
+            if ($selectedWarehouseId) {
+                $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
+                    if ($productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                        return $stock > 0;
+                    }
+                    return false;
+                })->values();
+            } else {
+                // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
+                $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
+                    if ($productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        return $stockPorBodega->sum() > 0;
+                    }
+                    return false;
+                })->values();
+            }
+        }
+        
         if ($selectedWarehouseId) {
             // Si se selecciona una bodega que recibe contenedores, mostrar solo sus contenedores
             if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
@@ -162,37 +211,85 @@ class StockController extends Controller
         }
         
         // Obtener productos globales (todos los productos sin almacen_id específico)
+        // Ordenar por nombre, luego por medidas, luego por código para diferenciar productos similares
         $allProducts = Product::whereNull('almacen_id')
             ->with(['containers'])
             ->orderBy('nombre')
+            ->orderBy('medidas')
+            ->orderBy('codigo')
             ->get();
+        
+        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
         
         // Calcular stock por bodega para cada producto
         $productosStockPorBodega = $this->calcularStockPorBodega($allProducts, $selectedWarehouseId);
         
-        // Filtrar productos: solo mostrar los que tienen stock > 0 en la bodega seleccionada
+        // Siempre mostrar productos relacionados directamente con contenedores cuando existan
+        // Crear una fila por cada combinación producto-contenedor
+        $productsWithContainers = collect();
+        
+        // Construir query base para obtener productos en contenedores
+        $containerProductQuery = DB::table('container_product')
+            ->join('containers', 'container_product.container_id', '=', 'containers.id')
+            ->join('products', 'container_product.product_id', '=', 'products.id')
+            ->where('container_product.boxes', '>', 0)
+            ->select(
+                'container_product.container_id',
+                'container_product.product_id',
+                'container_product.boxes',
+                'container_product.sheets_per_box',
+                'containers.reference',
+                'containers.warehouse_id'
+            );
+        
+        // Si hay bodega seleccionada, filtrar por bodega
         if ($selectedWarehouseId) {
-            $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
-                if ($productosStockPorBodega->has($product->id)) {
-                    $stockPorBodega = $productosStockPorBodega->get($product->id);
-                    $stock = $stockPorBodega->get($selectedWarehouseId, 0);
-                    return $stock > 0;
-                }
-                return false;
-            })->values();
-        } else {
-            // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
-            $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
-                if ($productosStockPorBodega->has($product->id)) {
-                    $stockPorBodega = $productosStockPorBodega->get($product->id);
-                    return $stockPorBodega->sum() > 0;
-                }
-                return false;
-            })->values();
+            $containerProductQuery->where('containers.warehouse_id', $selectedWarehouseId);
         }
         
-        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
-        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        $containerProductData = $containerProductQuery->get();
+        
+        // Agrupar por producto y crear objetos producto-contenedor
+        foreach ($containerProductData as $cp) {
+            $product = $allProducts->firstWhere('id', $cp->product_id);
+            if ($product) {
+                // Crear un objeto producto con información del contenedor
+                $productCopy = clone $product;
+                $productCopy->container_id = $cp->container_id;
+                $productCopy->container_reference = $cp->reference;
+                $productCopy->container_warehouse_id = $cp->warehouse_id;
+                $productCopy->cajas_en_contenedor = $cp->boxes;
+                $productCopy->laminas_en_contenedor = $cp->boxes * $cp->sheets_per_box;
+                $productsWithContainers->push($productCopy);
+            }
+        }
+        
+        // Si hay productos en contenedores, usarlos
+        if ($productsWithContainers->count() > 0) {
+            $products = $productsWithContainers;
+        } else {
+            // Si no hay productos en contenedores, usar lógica de filtrado normal (para bodegas que no reciben contenedores)
+            if ($selectedWarehouseId) {
+                $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
+                    if ($productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                        return $stock > 0;
+                    }
+                    return false;
+                })->values();
+            } else {
+                // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
+                $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
+                    if ($productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        return $stockPorBodega->sum() > 0;
+                    }
+                    return false;
+                })->values();
+            }
+        }
         if ($selectedWarehouseId) {
             if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
                 $containers = Container::where('warehouse_id', $selectedWarehouseId)
@@ -222,10 +319,16 @@ class StockController extends Controller
         }
         
         // Refrescar los productos ANTES de calcular las cantidades para obtener los valores actualizados de la base de datos
+        // Solo refrescar si son modelos Eloquent reales (no productos clonados con contenedores)
         foreach ($products as $product) {
-            $product->refresh();
-            // Recargar relaciones para asegurar que estén actualizadas
-            $product->load('almacen', 'containers');
+            // Solo refrescar si no es un producto clonado con información de contenedor
+            if (!isset($product->container_reference) && method_exists($product, 'refresh')) {
+                $product->refresh();
+                // Recargar relaciones para asegurar que estén actualizadas
+                if (method_exists($product, 'load')) {
+                    $product->load('almacen', 'containers');
+                }
+            }
         }
         
         // Calcular cantidades por contenedor para cada producto (filtrar por bodega si hay una seleccionada)
@@ -270,7 +373,15 @@ class StockController extends Controller
         $allContainers = Container::with('warehouse')->get()->keyBy('id');
         
         // Cargar relaciones de contenedores para todos los productos de una vez
-        $products->load('containers');
+        // Solo si es una colección Eloquent (no productos clonados con contenedores)
+        if ($products instanceof \Illuminate\Database\Eloquent\Collection && $products->count() > 0) {
+            $firstProduct = $products->first();
+            // Verificar si es un modelo Eloquent sin contenedor asignado (no clonado)
+            if ($firstProduct instanceof \Illuminate\Database\Eloquent\Model && 
+                !isset($firstProduct->container_reference)) {
+                $products->load('containers');
+            }
+        }
         
         foreach ($products as $producto) {
             // Agrupar cantidades por contenedor
@@ -663,14 +774,12 @@ class StockController extends Controller
                         if ($transfer->warehouse_to_id != $warehouse->id) {
                             return false;
                         }
-                        return $transfer->products->contains(function($p) use ($product) {
-                            return $p->codigo === $product->codigo && $p->nombre === $product->nombre;
-                        });
+                        return $transfer->products->contains('id', $product->id);
                     });
                     
                     foreach ($transfersToWarehouse as $transfer) {
                         $productInTransfer = $transfer->products->first(function($p) use ($product) {
-                            return $p->codigo === $product->codigo && $p->nombre === $product->nombre;
+                            return $p->id === $product->id;
                         });
                         
                         if ($productInTransfer) {
@@ -687,10 +796,10 @@ class StockController extends Controller
                 // Descontar salidas
                 $salidas = Salida::where('warehouse_id', $warehouse->id)
                     ->whereHas('products', function($query) use ($product) {
-                        $query->where('codigo', $product->codigo);
+                        $query->where('products.id', $product->id);
                     })
                     ->with(['products' => function($query) use ($product) {
-                        $query->where('codigo', $product->codigo)->withPivot('quantity');
+                        $query->where('products.id', $product->id)->withPivot('quantity');
                     }])
                     ->get();
                 

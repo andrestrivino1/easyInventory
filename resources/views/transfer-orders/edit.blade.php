@@ -265,14 +265,25 @@ function updateProductSelects() {
         select.innerHTML = firstOption ? firstOption.outerHTML : '<option value="">Seleccione un producto</option>';
         
         // Agregar productos disponibles
+        // Si el producto tiene un solo contenedor, incluir la referencia en el nombre para diferenciarlo
         availableProducts.forEach(product => {
             const option = document.createElement('option');
+            let displayText = `${product.nombre}`;
+            if (product.medidas) {
+                displayText += ` - ${product.medidas}`;
+            }
+            displayText += ` (${product.codigo})`;
+            // Si tiene un solo contenedor, agregar la referencia
+            if (product.containers && product.containers.length === 1) {
+                displayText += ` [${product.containers[0].reference}]`;
+            }
             option.value = product.id;
-            option.textContent = `${product.nombre} (${product.codigo})`;
+            option.textContent = displayText;
             option.setAttribute('data-tipo', product.tipo_medida || '');
             option.setAttribute('data-stock', product.stock || 0);
             option.setAttribute('data-unidades', product.unidades_por_caja || 1);
             option.setAttribute('data-containers', JSON.stringify(product.containers || []));
+            option.setAttribute('data-cajas', product.cajas_en_contenedor || 0);
             select.appendChild(option);
         });
         
@@ -409,6 +420,7 @@ function loadContainersForProduct(index) {
         // Cargar contenedores del producto
         const containersJson = selectedOption.getAttribute('data-containers');
         const containers = containersJson ? JSON.parse(containersJson) : [];
+        const cajasEnContenedor = parseInt(selectedOption.getAttribute('data-cajas')) || 0;
         
         // Limpiar y poblar el select de contenedores
         containerSelect.innerHTML = '<option value="">Seleccione un contenedor</option>';
@@ -419,6 +431,11 @@ function loadContainersForProduct(index) {
                 option.textContent = container.reference;
                 containerSelect.appendChild(option);
             });
+            
+            // Si solo hay un contenedor, seleccionarlo automáticamente
+            if (containers.length === 1) {
+                containerSelect.value = containers[0].id;
+            }
         } else {
             const option = document.createElement('option');
             option.value = '';
@@ -432,7 +449,11 @@ function loadContainersForProduct(index) {
         const tipo = selectedOption.getAttribute('data-tipo');
         const unidadesPorCaja = parseInt(selectedOption.getAttribute('data-unidades')) || 1;
         
-        if (tipo === 'caja' && unidadesPorCaja > 0) {
+        if (cajasEnContenedor > 0) {
+            // Si tiene cajas específicas del contenedor, mostrar esas
+            const stockContenedor = cajasEnContenedor * unidadesPorCaja;
+            stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${cajasEnContenedor} cajas disponibles)`;
+        } else if (tipo === 'caja' && unidadesPorCaja > 0) {
             const cajasDisponibles = Math.floor(stock / unidadesPorCaja);
             stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)`;
         } else {

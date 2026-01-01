@@ -117,73 +117,80 @@
         </thead>
         <tbody>
         @forelse($transferOrders as $transfer)
-            <tr>
-                <td>{{ $transfer->order_number }}</td>
-                <td>{{ $transfer->from->nombre ?? '-' }}{{ $transfer->from && $transfer->from->ciudad ? ' - ' . $transfer->from->ciudad : '' }}</td>
-                <td>{{ $transfer->to->nombre ?? '-' }}{{ $transfer->to && $transfer->to->ciudad ? ' - ' . $transfer->to->ciudad : '' }}</td>
-                <td>
-                    @if($transfer->status == 'en_transito')
-                      <span style="background:#ffc107;color:#212529;border-radius:5px;padding:3px 10px;font-size:13px;">En tránsito</span>
-                    @elseif($transfer->status == 'recibido')
-                      <span style="background:#4caf50;color:white;border-radius:5px;padding:3px 10px;font-size:13px;">Recibido</span>
-                    @else
-                      <span style="background:#d1d5db;color:#333;border-radius:5px;padding:3px 10px;font-size:13px;">{{ ucfirst($transfer->status) }}</span>
-                    @endif
-                </td>
-                <td>{{ $transfer->date->setTimezone(config('app.timezone'))->format('d/m/Y H:i') }}</td>
-                <td>
-                  @foreach($transfer->products as $prod)
-                    <div style="font-size: 13px; margin-bottom: 4px;">
-                      <strong>{{ $prod->nombre }}</strong>
-                      <span style="color: #666;">({{ $prod->pivot->quantity }} {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})</span>
-                    </div>
-                  @endforeach
-                </td>
-                <td>
-                  @foreach($transfer->products as $prod)
-                    <div style="font-size: 13px; margin-bottom: 4px;">
-                      @php
-                        $containerId = $prod->pivot->container_id ?? null;
-                        $container = null;
-                        if ($containerId) {
-                            if (isset($containers) && $containers->has($containerId)) {
-                                $container = $containers->get($containerId);
-                            } else {
-                                $container = \App\Models\Container::find($containerId);
-                            }
+            @php
+                $products = $transfer->products;
+                $productCount = $products->count();
+                $isFirstProduct = true;
+            @endphp
+            @foreach($products as $index => $prod)
+                @php
+                    $containerId = $prod->pivot->container_id ?? null;
+                    $container = null;
+                    if ($containerId) {
+                        if (isset($containers) && $containers->has($containerId)) {
+                            $container = $containers->get($containerId);
+                        } else {
+                            $container = \App\Models\Container::find($containerId);
                         }
-                      @endphp
-                      @if($container)
-                        <strong>{{ $container->reference }}</strong>
-                      @else
-                        <span style="color: #999; font-style: italic;">-</span>
-                      @endif
-                    </div>
-                  @endforeach
-                </td>
-                <td>{{ $transfer->driver->name ?? '-' }}</td>
-                <td>{{ $transfer->driver->identity ?? '-' }}</td>
-                <td>{{ $transfer->driver->vehicle_plate ?? '-' }}</td>
-                <td class="actions" style="white-space:nowrap;">
-                    @php $user = Auth::user(); @endphp
-                    <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
-                        @if($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
-                            <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit">Editar</a>
-                            <form action="{{ route('transfer-orders.destroy', $transfer) }}" method="POST" style="display:inline; margin:0;">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="btn-delete">Eliminar</button>
-                            </form>
+                    }
+                @endphp
+                <tr>
+                    @if($isFirstProduct)
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->order_number }}</td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->from->nombre ?? '-' }}{{ $transfer->from && $transfer->from->ciudad ? ' - ' . $transfer->from->ciudad : '' }}</td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->to->nombre ?? '-' }}{{ $transfer->to && $transfer->to->ciudad ? ' - ' . $transfer->to->ciudad : '' }}</td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">
+                            @if($transfer->status == 'en_transito')
+                              <span style="background:#ffc107;color:#212529;border-radius:5px;padding:3px 10px;font-size:13px;">En tránsito</span>
+                            @elseif($transfer->status == 'recibido')
+                              <span style="background:#4caf50;color:white;border-radius:5px;padding:3px 10px;font-size:13px;">Recibido</span>
+                            @else
+                              <span style="background:#d1d5db;color:#333;border-radius:5px;padding:3px 10px;font-size:13px;">{{ ucfirst($transfer->status) }}</span>
+                            @endif
+                        </td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->date->setTimezone(config('app.timezone'))->format('d/m/Y H:i') }}</td>
+                    @endif
+                    <td>
+                        <strong>{{ $prod->nombre }}</strong>
+                        @if($prod->medidas)
+                            <br><span style="color: #666; font-size: 12px;">{{ $prod->medidas }}</span>
                         @endif
-                        <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-secondary" title="Imprimir" style="padding: 5px 9px; vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
-                        @if($user->rol !== 'funcionario' && $transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
-                            <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline; margin:0;">
-                                @csrf
-                                <button type="submit" class="btn btn-success" style="padding: 5px 9px; font-size: 12px;">Confirmar recibido</button>
-                            </form>
+                        <br><span style="color: #666; font-size: 12px;">({{ $prod->pivot->quantity }} {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})</span>
+                    </td>
+                    <td>
+                        @if($container)
+                            <strong>{{ $container->reference }}</strong>
+                        @else
+                            <span style="color: #999; font-style: italic;">-</span>
                         @endif
-                    </div>
-                </td>
-            </tr>
+                    </td>
+                    @if($isFirstProduct)
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->driver->name ?? '-' }}</td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->driver->identity ?? '-' }}</td>
+                        <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->driver->vehicle_plate ?? '-' }}</td>
+                        <td rowspan="{{ $productCount }}" class="actions" style="white-space:nowrap; vertical-align: middle;">
+                            @php $user = Auth::user(); @endphp
+                            <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                                @if($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
+                                    <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit">Editar</a>
+                                    <form action="{{ route('transfer-orders.destroy', $transfer) }}" method="POST" style="display:inline; margin:0;">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="btn-delete">Eliminar</button>
+                                    </form>
+                                @endif
+                                <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-secondary" title="Imprimir" style="padding: 5px 9px; vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
+                                @if($user->rol !== 'funcionario' && $transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
+                                    <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline; margin:0;">
+                                        @csrf
+                                        <button type="submit" class="btn btn-success" style="padding: 5px 9px; font-size: 12px;">Confirmar recibido</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </td>
+                    @endif
+                </tr>
+                @php $isFirstProduct = false; @endphp
+            @endforeach
         @empty
             <tr>
                 <td colspan="11" class="text-center text-muted py-5">

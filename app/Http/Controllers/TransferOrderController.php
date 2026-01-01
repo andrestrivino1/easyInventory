@@ -763,27 +763,41 @@ class TransferOrderController extends Controller
                 }
             }
             
-            // Solo incluir productos con stock > 0
-            if ($stock > 0) {
-                // Obtener contenedores relacionados con este producto en esta bodega
-                $containers = [];
-                if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
-                    $containerProducts = DB::table('container_product')
-                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
-                        ->where('container_product.product_id', $product->id)
-                        ->where('containers.warehouse_id', $warehouseId)
-                        ->where('container_product.boxes', '>', 0)
-                        ->select('containers.id', 'containers.reference')
-                        ->distinct()
-                        ->get();
-                    
-                    foreach ($containerProducts as $cp) {
-                        $containers[] = [
-                            'id' => $cp->id,
-                            'reference' => $cp->reference
+            // Para bodegas que reciben contenedores, crear una entrada por cada combinación producto-contenedor
+            if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+                $containerProducts = DB::table('container_product')
+                    ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                    ->where('container_product.product_id', $product->id)
+                    ->where('containers.warehouse_id', $warehouseId)
+                    ->where('container_product.boxes', '>', 0)
+                    ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box', 'containers.reference')
+                    ->get();
+                
+                // Crear una entrada por cada contenedor con stock
+                foreach ($containerProducts as $cp) {
+                    $stockContenedor = ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                    if ($stockContenedor > 0) {
+                        $productsWithStock[] = [
+                            'id' => $product->id,
+                            'nombre' => $product->nombre,
+                            'codigo' => $product->codigo,
+                            'medidas' => $product->medidas,
+                            'tipo_medida' => $product->tipo_medida,
+                            'unidades_por_caja' => $product->unidades_por_caja,
+                            'stock' => $stockContenedor,
+                            'cajas_en_contenedor' => $cp->boxes,
+                            'containers' => [[
+                                'id' => $cp->container_id,
+                                'reference' => $cp->reference
+                            ]]
                         ];
                     }
-                } else {
+                }
+            } else {
+                // Para otras bodegas, incluir productos con stock > 0
+                if ($stock > 0) {
+                    // Obtener contenedores relacionados con este producto en esta bodega
+                    $containers = [];
                     // Para otras bodegas, obtener contenedores de transferencias recibidas
                     $transfers = TransferOrder::where('status', 'recibido')
                         ->where('warehouse_to_id', $warehouseId)
@@ -815,17 +829,18 @@ class TransferOrderController extends Controller
                             ];
                         }
                     }
+                    
+                    $productsWithStock[] = [
+                        'id' => $product->id,
+                        'nombre' => $product->nombre,
+                        'codigo' => $product->codigo,
+                        'medidas' => $product->medidas,
+                        'tipo_medida' => $product->tipo_medida,
+                        'unidades_por_caja' => $product->unidades_por_caja,
+                        'stock' => max(0, $stock),
+                        'containers' => $containers
+                    ];
                 }
-                
-                $productsWithStock[] = [
-                    'id' => $product->id,
-                    'nombre' => $product->nombre,
-                    'codigo' => $product->codigo,
-                    'tipo_medida' => $product->tipo_medida,
-                    'unidades_por_caja' => $product->unidades_por_caja,
-                    'stock' => max(0, $stock),
-                    'containers' => $containers
-                ];
             }
         }
         
