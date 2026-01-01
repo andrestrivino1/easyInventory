@@ -2,15 +2,74 @@
 
 @section('content')
 <style>
-.table-users { width:100%; border-collapse:collapse; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.08); }
-.table-users th { background:#0d6efd; color:white; text-align:left; padding:12px; font-size:15px; }
-.table-users td { padding:12px; border-bottom:1px solid #ebebeb; }
-.table-users tr:hover { background:#f2f8ff; }
-.actions button,.actions a{ padding:6px 12px; border:none; border-radius:6px; cursor:pointer; font-size:13px; margin-right:6px; text-decoration:none; }
-.btn-edit{background:#198754;color:white;}
-.btn-delete{background:#ffc107;color:#b30000;}
+.table-users { 
+    width:100%; 
+    border-collapse:separate; 
+    border-spacing:0;
+    background:white; 
+    border-radius:10px; 
+    overflow:hidden; 
+    box-shadow:0 4px 10px rgba(0,0,0,0.08); 
+}
+.table-users th { 
+    background:#0d6efd; 
+    color:white; 
+    text-align:left; 
+    padding:16px 18px; 
+    font-size:15px; 
+    font-weight:600;
+    letter-spacing:0.3px;
+}
+.table-users td { 
+    padding:16px 18px; 
+    border-bottom:1px solid #ebebeb; 
+    vertical-align:middle;
+    font-size:14px;
+}
+.table-users tbody tr:last-child td {
+    border-bottom:none;
+}
+.table-users tr:hover { 
+    background:#f2f8ff; 
+}
+.table-users th:first-child,
+.table-users td:first-child {
+    padding-left:24px;
+}
+.table-users th:last-child,
+.table-users td:last-child {
+    padding-right:24px;
+}
+.actions { 
+    white-space:nowrap;
+}
+.actions button, 
+.actions a { 
+    padding:8px 16px; 
+    border:none; 
+    border-radius:6px; 
+    cursor:pointer; 
+    font-size:13px; 
+    margin-right:8px; 
+    text-decoration:none; 
+    display:inline-block;
+    font-weight:500;
+    transition:opacity 0.2s;
+}
+.actions button:hover,
+.actions a:hover {
+    opacity:0.9;
+}
+.btn-edit {
+    background:#198754;
+    color:white;
+}
+.btn-delete {
+    background:#ffc107;
+    color:#b30000;
+}
 </style>
-<div class="container-fluid" style="padding-top:32px;min-height:88vh;">
+<div class="container-fluid" style="padding-top:32px; padding-bottom:40px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1050px;">
     @if(auth()->user()->rol === 'admin')
     <div class="d-flex justify-content-end align-items-center mb-3"><a href="{{ route('users.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-person-plus me-2"></i>Nuevo usuario</a></div>
@@ -18,7 +77,7 @@
     <h2 class="mb-4 text-center" style="color:#333;font-weight:bold">Gestión de Usuarios</h2>
     
     <!-- Campo de búsqueda -->
-    <div class="mb-3" style="max-width: 400px; margin: 0 auto 20px; text-align: center;">
+    <div class="mb-4" style="max-width: 400px; margin: 0 auto 24px; text-align: center;">
       <div style="position: relative; width: 100%;">
         <input type="text" id="search-users" class="form-control" placeholder="Buscar usuarios..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
         <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
@@ -42,7 +101,19 @@
                 <td>{{ $user->nombre_completo }}</td>
                 <td>{{ $user->email }}</td>
                 <td>{{ $user->telefono ?? '-' }}</td>
-                <td>{{ $user->almacen->nombre ?? '-' }}</td>
+                <td>
+                    @if($user->rol === 'funcionario')
+                        @if($user->almacenes->count() > 0)
+                            {{ $user->almacenes->map(function($almacen) { return $almacen->nombre . ($almacen->ciudad ? ' - ' . $almacen->ciudad : ''); })->join(', ') }}
+                        @else
+                            -
+                        @endif
+                    @elseif($user->rol === 'admin' || $user->rol === 'secretaria')
+                        Todas
+                    @else
+                        {{ $user->almacen ? $user->almacen->nombre . ($user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '') : '-' }}
+                    @endif
+                </td>
                 <td>{{ ucfirst($user->rol) }}</td>
                 <td class="actions">
                     <a href="{{ route('users.edit', $user) }}" class="btn-edit">Editar</a>

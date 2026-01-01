@@ -13,7 +13,7 @@ class WarehouseController extends Controller
      */
     public function index()
     {
-        $warehouses = \App\Models\Warehouse::orderBy('nombre')->get();
+        $warehouses = \App\Models\Warehouse::orderBy('nombre')->paginate(10);
         return view('warehouses.index', compact('warehouses'));
     }
 
@@ -38,6 +38,7 @@ class WarehouseController extends Controller
         $data = $request->validate([
             'nombre' => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
+            'ciudad' => 'nullable|string|max:255',
         ]);
         \App\Models\Warehouse::create($data);
         return redirect()->route('warehouses.index')
@@ -80,6 +81,7 @@ class WarehouseController extends Controller
         $data = $request->validate([
             'nombre' => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
+            'ciudad' => 'nullable|string|max:255',
         ]);
         $warehouse->update($data);
         return redirect()->route('warehouses.index')->with('success', 'Bodega editada correctamente.');

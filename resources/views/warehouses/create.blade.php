@@ -110,6 +110,10 @@
       <input type="text" name="direccion" id="direccion" class="@error('direccion') is-invalid @enderror" placeholder="Dirección" value="{{ old('direccion') }}">
       @error('direccion') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
+      <label for="ciudad">Ciudad</label>
+      <input type="text" name="ciudad" id="ciudad" class="@error('ciudad') is-invalid @enderror" placeholder="Ciudad" value="{{ old('ciudad') }}">
+      @error('ciudad') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
       <div class="actions">
         <a href="{{ route('warehouses.index') }}" class="btn-cancel">Cancelar</a>
         <button type="submit" class="btn-save">Guardar</button>

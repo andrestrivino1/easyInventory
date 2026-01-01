@@ -104,6 +104,17 @@ body .form-bg {
         <input name="reference" type="text" required value="{{ old('reference') }}" placeholder="Ej: CONT-001">
         @error('reference') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <label for="warehouse_id">Bodega*</label>
+        <select name="warehouse_id" id="warehouse_id" required>
+            <option value="">Seleccione una bodega</option>
+            @foreach($warehouses as $warehouse)
+                <option value="{{ $warehouse->id }}" {{ old('warehouse_id') == $warehouse->id ? 'selected' : '' }}>
+                    {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
+                </option>
+            @endforeach
+        </select>
+        @error('warehouse_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
         <label for="note">Observación</label>
         <textarea name="note" rows="2" placeholder="Notas adicionales sobre el contenedor">{{ old('note') }}</textarea>
         @error('note') <div class="invalid-feedback">{{ $message }}</div>@enderror

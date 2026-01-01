@@ -83,14 +83,25 @@
                     $isFuncionario = $user && $user->rol === 'funcionario';
                     $canExport = $user && $user->rol === 'admin'; // Solo admin puede descargar
                 @endphp
-                @if($isAdmin && !$isFuncionario)
+                @if($isAdmin)
                 <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
                     <label for="warehouse_id">Filtrar por Bodega:</label>
                     <select name="warehouse_id" id="warehouse_id" onchange="this.form.submit()">
                         <option value="">Todos los bodegas</option>
                         @foreach($warehouses as $warehouse)
                             <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
-                                {{ $warehouse->nombre }}
+                                {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+                @elseif($isFuncionario && $warehouses->count() > 1)
+                <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
+                    <label for="warehouse_id">Filtrar por Bodega:</label>
+                    <select name="warehouse_id" id="warehouse_id" onchange="this.form.submit()">
+                        @foreach($warehouses as $warehouse)
+                            <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
+                                {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
                             </option>
                         @endforeach
                     </select>
@@ -98,7 +109,13 @@
                 @else
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <label>Bodega:</label>
-                    <span style="font-weight: 500; color: #333;">{{ $isFuncionario ? 'Pablo Rojas' : ($user->almacen->nombre ?? 'N/A') }}</span>
+                    <span style="font-weight: 500; color: #333;">
+                        @if($isFuncionario && $warehouses->count() > 0)
+                            {{ $warehouses->first()->nombre }}{{ $warehouses->first()->ciudad ? ' - ' . $warehouses->first()->ciudad : '' }}
+                        @else
+                            {{ $user->almacen->nombre ?? 'N/A' }}{{ $user->almacen && $user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '' }}
+                        @endif
+                    </span>
                 </div>
                 @endif
                 @if($canExport)
@@ -147,20 +164,44 @@
                 <tbody>
                     @forelse($products as $product)
                     @php
-                        // Asegurar que el producto tenga los datos más recientes
-                        $product->refresh();
+                        // Obtener stock de este producto en la bodega seleccionada (o suma total si no hay bodega seleccionada)
+                        $stockEnBodega = 0;
+                        if (isset($productosStockPorBodega) && $productosStockPorBodega->has($product->id)) {
+                            $stockPorBodega = $productosStockPorBodega->get($product->id);
+                            if ($selectedWarehouseId) {
+                                $stockEnBodega = $stockPorBodega->get($selectedWarehouseId, 0);
+                            } else {
+                                // Si no hay bodega seleccionada, sumar el stock de todas las bodegas
+                                $stockEnBodega = $stockPorBodega->sum();
+                            }
+                        }
                         // Calcular cajas para verificar bajo stock
                         $cajasReales = null;
                         $bajoStock = false;
                         if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                            $cajasReales = floor($product->stock / $product->unidades_por_caja);
+                            $cajasReales = floor($stockEnBodega / $product->unidades_por_caja);
                             $bajoStock = $cajasReales <= 5 && $cajasReales >= 0; // Bajo stock si tiene 5 o menos cajas
                         }
+                        $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
+                        $productRecibeContenedores = $selectedWarehouseId && in_array($selectedWarehouseId, $bodegasQueRecibenIds);
                     @endphp
                     <tr @if($bajoStock) style="background-color: #fff3cd; border-left: 4px solid #ffc107;" @endif>
                         <td>{{ $product->codigo }}</td>
                         <td><strong>{{ $product->nombre }}</strong></td>
-                        <td>{{ $product->almacen->nombre ?? '-' }}</td>
+                        <td>
+                            @if($selectedWarehouseId)
+                                @php
+                                    $warehouse = $warehouses->where('id', $selectedWarehouseId)->first();
+                                @endphp
+                                @if($warehouse)
+                                    <span style="font-weight: 500;">{{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}</span>
+                                @else
+                                    <span style="color: #666; font-style: italic;">-</span>
+                                @endif
+                            @else
+                                <span style="color: #666; font-style: italic;">Todas</span>
+                            @endif
+                        </td>
                         <td>{{ $product->medidas ?? '-' }}</td>
                         <td>
                             @php
@@ -168,7 +209,11 @@
                                     ? $productosCantidadesPorContenedor->get($product->id) 
                                     : collect();
                             @endphp
-                            @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                            @php
+                                $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
+                                $productRecibeContenedores = $product->almacen_id && in_array($product->almacen_id, $bodegasQueRecibenIds);
+                            @endphp
+                            @if($productRecibeContenedores && $cantidadesPorContenedor->count() > 1)
                                 {{-- Si hay múltiples contenedores, mostrar cada uno en una línea --}}
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
                                     @foreach($cantidadesPorContenedor as $containerData)
@@ -177,18 +222,8 @@
                                 </div>
                             @else
                                 {{-- Si hay un solo contenedor o no hay desglose, mostrar el contenedor normal --}}
-                                @php
-                                    // Contenedores directos del producto
-                                    $directContainers = $product->containers;
-                                    // Contenedores de origen desde transferencias recibidas
-                                    $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($product->id) 
-                                        ? $productosContenedoresOrigen->get($product->id) 
-                                        : collect();
-                                    // Combinar ambos (sin duplicados)
-                                    $allContainers = $directContainers->merge($transferContainers)->unique('id');
-                                @endphp
-                                @if($allContainers->count() > 0)
-                                    <span style="font-size: 13px;">{{ $allContainers->first()->reference }}</span>
+                                @if($cantidadesPorContenedor->count() > 0)
+                                    <span style="font-size: 13px;">{{ $cantidadesPorContenedor->first()['container_reference'] ?? '-' }}</span>
                                 @else
                                     <span style="color: #999; font-style: italic;">-</span>
                                 @endif
@@ -202,7 +237,7 @@
                                 // Reutilizar el cálculo de cajas ya hecho arriba
                             @endphp
                             @if($product->tipo_medida === 'caja' && $cajasReales !== null)
-                                @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                                @if($productRecibeContenedores && $cantidadesPorContenedor->count() > 1)
                                     {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
                                     <div style="display: flex; flex-direction: column; gap: 4px;">
                                         @foreach($cantidadesPorContenedor as $containerData)
@@ -225,7 +260,11 @@
                         <td>
                             {{-- Para Pablo Rojas: mostrar stock real y cantidades por contenedor como referencia --}}
                             {{-- Para otras bodegas: solo mostrar stock real (ya descontado por salidas) --}}
-                            @if(isset($ID_PABLO_ROJAS) && $product->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
+                            @php
+                                $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
+                                $productRecibeContenedores = $product->almacen_id && in_array($product->almacen_id, $bodegasQueRecibenIds);
+                            @endphp
+                            @if($productRecibeContenedores && $cantidadesPorContenedor->count() > 1)
                                 {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
                                     @foreach($cantidadesPorContenedor as $containerData)
@@ -236,7 +275,7 @@
                                 </div>
                             @else
                                 {{-- Si hay un solo contenedor o no hay desglose, mostrar el total --}}
-                                <strong>{{ number_format($product->stock, 0) }} láminas</strong>
+                                <strong>{{ number_format($stockEnBodega, 0) }} láminas</strong>
                             @endif
                         </td>
                         <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
@@ -254,7 +293,10 @@
         </div>
 
         <!-- Sección de Contenedores -->
-        @if($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId)
+        @php
+            $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
+        @endphp
+        @if(!$selectedWarehouseId || in_array($selectedWarehouseId, $bodegasQueRecibenIds))
         <div class="section-title">
             <i class="bi bi-box me-2"></i>Contenedores
             @if($selectedWarehouseId)

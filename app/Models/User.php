@@ -50,4 +50,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Warehouse::class, 'almacen_id');
     }
+
+    public function almacenes()
+    {
+        return $this->belongsToMany(Warehouse::class, 'user_warehouse')->withTimestamps();
+    }
 }

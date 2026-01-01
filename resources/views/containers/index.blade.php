@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <thead>
                 <tr>
                     <th>Contenedor</th>
+                    <th>Bodega</th>
                     <th style="min-width:280px;">Productos</th>
                     <th>Medidas</th>
                     <th>Cajas</th>
@@ -160,6 +161,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 @endphp
                 <tr>
                     <td><strong>{{ $container->reference }}</strong></td>
+                    <td>
+                        @if($container->warehouse)
+                            <span style="font-weight: 500;">{{ $container->warehouse->nombre }}{{ $container->warehouse->ciudad ? ' - ' . $container->warehouse->ciudad : '' }}</span>
+                        @else
+                            <span style="color: #999; font-style: italic;">Sin asignar</span>
+                        @endif
+                    </td>
                     <td>
                         @if($container->products->count() > 0)
                             <div style="display: flex; flex-direction: column; gap: 5px;">

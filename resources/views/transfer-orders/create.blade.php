@@ -119,10 +119,10 @@ body .form-bg {
         @endif
 
         <label for="warehouse_from_id">Bodega origen*</label>
-        <select name="warehouse_from_id" id="warehouse_from_id" required onchange="filterProductsByWarehouse()">
+        <select name="warehouse_from_id" id="warehouse_from_id" required onchange="loadProductsForWarehouse()">
             <option value="">Seleccione</option>
             @foreach($warehouses as $wh)
-            <option value="{{ $wh->id }}" {{ old('warehouse_from_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}</option>
+            <option value="{{ $wh->id }}" {{ old('warehouse_from_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}{{ $wh->ciudad ? ' - ' . $wh->ciudad : '' }}</option>
             @endforeach
         </select>
         @error('warehouse_from_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -131,18 +131,10 @@ body .form-bg {
         <select name="warehouse_to_id" id="warehouse_to_id" required>
             <option value="">Seleccione</option>
             @foreach($warehouses as $wh)
-            <option value="{{ $wh->id }}" {{ old('warehouse_to_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}</option>
+            <option value="{{ $wh->id }}" {{ old('warehouse_to_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}{{ $wh->ciudad ? ' - ' . $wh->ciudad : '' }}</option>
             @endforeach
         </select>
         @error('warehouse_to_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
-
-        <label for="salida">Salida (Ciudad)*</label>
-        <input type="text" name="salida" id="salida" value="{{ old('salida') }}" placeholder="Ej: Cali" required>
-        @error('salida') <div class="invalid-feedback">{{ $message }}</div>@enderror
-
-        <label for="destino">Destino (Ciudad)*</label>
-        <input type="text" name="destino" id="destino" value="{{ old('destino') }}" placeholder="Ej: Bogotá" required>
-        @error('destino') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
         <div id="pablo-rojas-info" style="display:none; background:#e3f2fd; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
             ℹ️ Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas
@@ -192,13 +184,88 @@ body .form-bg {
 
 <script>
 let productIndex = 0;
-const products = @json($products ?? []);
-const ID_PABLO_ROJAS = 1;
+let availableProducts = [];
 
 function setConductorFromPlate(sel) {
     let n = sel.options[sel.selectedIndex].getAttribute('data-name');
     let cid = sel.options[sel.selectedIndex].getAttribute('data-id');
     document.getElementById('conductor_show').value = (n && cid) ? (n + ' (' + cid + ')') : '';
+}
+
+async function loadProductsForWarehouse() {
+    const warehouseFrom = document.getElementById('warehouse_from_id');
+    const infoDiv = document.getElementById('pablo-rojas-info');
+    
+    if (!warehouseFrom || !warehouseFrom.value) {
+        availableProducts = [];
+        updateProductSelects();
+        if (infoDiv) infoDiv.style.display = 'none';
+        return;
+    }
+    
+    const warehouseId = parseInt(warehouseFrom.value);
+    
+    // Mostrar mensaje de bodegas que reciben contenedores
+    if (infoDiv) {
+        infoDiv.style.display = 'block';
+        infoDiv.textContent = 'ℹ️ Desde esta bodega solo se pueden despachar productos medidos en Cajas';
+    }
+    
+    try {
+        const response = await fetch(`{{ route('transfer-orders.get-products', ':id') }}`.replace(':id', warehouseId));
+        if (!response.ok) throw new Error('Error al cargar productos');
+        
+        availableProducts = await response.json();
+        updateProductSelects();
+        
+        // Limpiar selecciones de productos y contenedores cuando cambie la bodega
+        const productSelects = document.querySelectorAll('select[id^="product-select-"]');
+        productSelects.forEach(select => {
+            select.value = '';
+            const index = select.id.replace('product-select-', '');
+            const containerSelect = document.getElementById(`container-select-${index}`);
+            if (containerSelect) {
+                containerSelect.innerHTML = '<option value="">Primero seleccione un producto</option>';
+            }
+            const stockInfo = document.getElementById(`stock-info-${index}`);
+            if (stockInfo) stockInfo.innerHTML = '';
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        availableProducts = [];
+        updateProductSelects();
+    }
+}
+
+function updateProductSelects() {
+    const productSelects = document.querySelectorAll('select[id^="product-select-"]');
+    productSelects.forEach(select => {
+        const selectedValue = select.value;
+        const currentOptions = Array.from(select.options);
+        const firstOption = currentOptions[0];
+        
+        // Limpiar opciones excepto la primera
+        select.innerHTML = firstOption ? firstOption.outerHTML : '<option value="">Seleccione un producto</option>';
+        
+        // Agregar productos disponibles
+        availableProducts.forEach(product => {
+            const option = document.createElement('option');
+            option.value = product.id;
+            option.textContent = `${product.nombre} (${product.codigo})`;
+            option.setAttribute('data-tipo', product.tipo_medida || '');
+            option.setAttribute('data-stock', product.stock || 0);
+            option.setAttribute('data-unidades', product.unidades_por_caja || 1);
+            option.setAttribute('data-containers', JSON.stringify(product.containers || []));
+            select.appendChild(option);
+        });
+        
+        // Restaurar selección si aún está disponible
+        if (selectedValue && availableProducts.some(p => p.id == selectedValue)) {
+            select.value = selectedValue;
+            const index = select.id.replace('product-select-', '');
+            loadContainersForProduct(index);
+        }
+    });
 }
 
 function addProduct() {
@@ -217,7 +284,6 @@ function addProduct() {
                 <label for="products[${productIndex}][product_id]">Producto*</label>
                 <select name="products[${productIndex}][product_id]" id="product-select-${productIndex}" required onchange="loadContainersForProduct(${productIndex})">
                     <option value="">Seleccione un producto</option>
-                    ${products.map(p => `<option value="${p.id}" data-almacen-id="${p.almacen_id}" data-tipo="${p.tipo_medida}" data-stock="${p.stock}" data-unidades="${p.unidades_por_caja || 1}" data-containers='${JSON.stringify(p.containers || [])}'>${p.nombre} (${p.codigo})</option>`).join('')}
                 </select>
                 <div class="stock-info" id="stock-info-${productIndex}"></div>
             </div>
@@ -236,23 +302,7 @@ function addProduct() {
     
     container.appendChild(productItem);
     productIndex++;
-    filterProductsByWarehouse();
-    // Agregar listener para cuando cambie la bodega origen, actualizar contenedores
-    const warehouseFrom = document.getElementById('warehouse_from_id');
-    if (warehouseFrom) {
-        warehouseFrom.addEventListener('change', function() {
-            // Limpiar selecciones de productos y contenedores cuando cambie la bodega
-            const productSelects = document.querySelectorAll('select[id^="product-select-"]');
-            productSelects.forEach(select => {
-                select.value = '';
-                const index = select.id.replace('product-select-', '');
-                const containerSelect = document.getElementById(`container-select-${index}`);
-                if (containerSelect) {
-                    containerSelect.innerHTML = '<option value="">Primero seleccione un producto</option>';
-                }
-            });
-        });
-    }
+    updateProductSelects();
 }
 
 function removeProduct(index) {
@@ -269,62 +319,6 @@ function renumberProducts() {
         const title = item.querySelector('.product-item-title');
         if (title) {
             title.textContent = `Producto #${index + 1}`;
-        }
-    });
-}
-
-function filterProductsByWarehouse() {
-    const warehouseFrom = document.getElementById('warehouse_from_id');
-    const infoDiv = document.getElementById('pablo-rojas-info');
-    
-    if (!warehouseFrom) return;
-    
-    const selectedWarehouseId = parseInt(warehouseFrom.value);
-    const isPabloRojas = selectedWarehouseId === ID_PABLO_ROJAS;
-    
-    if (infoDiv) {
-        infoDiv.style.display = isPabloRojas ? 'block' : 'none';
-    }
-    
-    // Filtrar productos en todos los selects
-    const productSelects = document.querySelectorAll('select[id^="product-select-"]');
-    productSelects.forEach(select => {
-        const selectedValue = select.value;
-        let hasVisibleOptions = false;
-        
-        for (let option of select.options) {
-            if (option.value === '') {
-                option.style.display = 'block';
-                continue;
-            }
-            
-            const productWarehouseId = parseInt(option.getAttribute('data-almacen-id'));
-            const productTipoMedida = option.getAttribute('data-tipo');
-            
-            if (isPabloRojas) {
-                if (productWarehouseId === selectedWarehouseId && productTipoMedida === 'caja') {
-                    option.style.display = 'block';
-                    hasVisibleOptions = true;
-                } else {
-                    option.style.display = 'none';
-                }
-            } else {
-                if (productWarehouseId === selectedWarehouseId) {
-                    option.style.display = 'block';
-                    hasVisibleOptions = true;
-                } else {
-                    option.style.display = 'none';
-                }
-            }
-        }
-        
-        // Si el producto seleccionado fue ocultado, limpiar
-        if (selectedValue) {
-            const selectedOption = select.querySelector(`option[value="${selectedValue}"]`);
-            if (selectedOption && selectedOption.style.display === 'none') {
-                select.value = '';
-                updateProductInfo(select.id.replace('product-select-', ''));
-            }
         }
     });
 }
@@ -418,10 +412,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Filtrar productos cuando cambie la bodega origen
+    // Cargar productos cuando cambie la bodega origen
     const warehouseFrom = document.getElementById('warehouse_from_id');
     if (warehouseFrom) {
-        warehouseFrom.addEventListener('change', filterProductsByWarehouse);
+        warehouseFrom.addEventListener('change', loadProductsForWarehouse);
+        // Cargar productos si ya hay una bodega seleccionada (por ejemplo, desde old input)
+        if (warehouseFrom.value) {
+            loadProductsForWarehouse();
+        }
     }
 });
 </script>

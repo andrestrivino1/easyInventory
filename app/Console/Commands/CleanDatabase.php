@@ -20,7 +20,7 @@ class CleanDatabase extends Command
      *
      * @var string
      */
-    protected $description = 'Limpia la base de datos eliminando todos los datos excepto los usuarios';
+    protected $description = 'Limpia la base de datos eliminando todos los datos excepto usuarios y bodegas';
 
     /**
      * Execute the console command.
@@ -45,6 +45,7 @@ class CleanDatabase extends Command
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
             // Limpiar tablas en orden (primero las tablas pivot, luego las principales)
+            // NOTA: Se mantienen intactas: users, warehouses, user_warehouse
             $tables = [
                 'salida_products',
                 'salidas',
@@ -54,15 +55,23 @@ class CleanDatabase extends Command
                 'containers',
                 'products',
                 'drivers',
+                'conductors',
+                'password_resets',
+                'failed_jobs',
+                'personal_access_tokens',
             ];
 
             foreach ($tables as $table) {
+                try {
                 if (Schema::hasTable($table)) {
                     $count = DB::table($table)->count();
                     DB::table($table)->truncate();
                     $this->info("✓ Tabla '{$table}' limpiada ({$count} registros eliminados)");
                 } else {
                     $this->warn("⚠ Tabla '{$table}' no existe, se omite");
+                    }
+                } catch (\Exception $e) {
+                    $this->warn("⚠ Error al limpiar tabla '{$table}': " . $e->getMessage() . " - Se omite");
                 }
             }
 
@@ -73,7 +82,7 @@ class CleanDatabase extends Command
 
             $this->info('');
             $this->info('✓ Base de datos limpiada exitosamente.');
-            $this->info('✓ Los usuarios se han mantenido intactos.');
+            $this->info('✓ Los usuarios y bodegas se han mantenido intactos.');
             
             return 0;
         } catch (\Exception $e) {

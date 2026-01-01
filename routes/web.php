@@ -36,6 +36,7 @@ Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::cl
 Route::get('salidas/{salida}/export', [App\Http\Controllers\SalidaController::class, 'export'])->name('salidas.export');
 Route::get('salidas/{salida}/print', [App\Http\Controllers\SalidaController::class, 'print'])->name('salidas.print');
 Route::post('transfer-orders/{transferOrder}/confirm', [TransferOrderController::class, 'confirmReceived'])->name('transfer-orders.confirm');
+Route::get('transfer-orders/get-products/{warehouseId}', [TransferOrderController::class, 'getProductsForWarehouse'])->name('transfer-orders.get-products');
 Route::get('containers/{container}/export', [App\Http\Controllers\ContainerController::class, 'export'])->name('containers.export');
 Route::get('containers/{container}/print', [App\Http\Controllers\ContainerController::class, 'print'])->name('containers.print');
 Route::get('stock', [App\Http\Controllers\StockController::class, 'index'])->name('stock.index');

@@ -10,8 +10,14 @@ class Container extends Model
     public $timestamps = false;
     protected $fillable = [
         'reference',
-        'note'
+        'note',
+        'warehouse_id'
     ];
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
 
     public function products()
     {

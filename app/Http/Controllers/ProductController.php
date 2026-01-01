@@ -18,86 +18,18 @@ class ProductController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         
-        if (in_array($user->rol, ['admin', 'secretaria'])) {
-            $productos = \App\Models\Product::with(['almacen', 'containers'])->orderBy('nombre')->get();
-        } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve productos de Pablo Rojas
-            $productos = \App\Models\Product::with(['almacen', 'containers'])
-                ->where('almacen_id', $ID_PABLO_ROJAS)
-                ->orderBy('nombre')->get();
-        } else {
-            $productos = \App\Models\Product::with(['almacen', 'containers'])
-                ->where('almacen_id', $user->almacen_id)
-                ->orderBy('nombre')->get();
-        }
-        
-        // Verificar para cada producto si tiene transferencias recibidas y obtener contenedores de origen
-        $productosConTransferencias = collect();
-        $productosContenedoresOrigen = collect(); // Contenedores de origen desde transferencias recibidas
-        
-        // Obtener todas las transferencias recibidas de una vez para optimizar
-        $allReceivedTransfers = \App\Models\TransferOrder::where('status', 'recibido')
-            ->with(['products' => function($query) {
-                $query->withPivot('container_id');
-            }])
+        // Productos globales: mostrar todos los productos (sin almacen_id específico)
+        $productos = \App\Models\Product::whereNull('almacen_id')
+            ->orderBy('nombre')
             ->get();
         
-        foreach ($productos as $producto) {
-            // Filtrar transferencias recibidas para este producto en este almacén
-            // Buscar por nombre y almacén destino, ya que el producto puede tener un ID diferente
-            $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
-                if ($transfer->warehouse_to_id != $producto->almacen_id) {
-                    return false;
-                }
-                // Buscar por nombre del producto (ya que el ID puede ser diferente)
-                return $transfer->products->contains(function($p) use ($producto) {
-                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
-                });
-            });
-            
-            $hasReceivedTransfers = $receivedTransfers->isNotEmpty();
-            $productosConTransferencias->put($producto->id, $hasReceivedTransfers);
-            
-            // Obtener contenedores de origen desde transferencias recibidas
-            $containerIds = collect();
-            foreach ($receivedTransfers as $transfer) {
-                // Buscar el producto en la transferencia por nombre y código
-                $productInTransfer = $transfer->products->first(function($p) use ($producto) {
-                    return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
-                });
-                
-                if ($productInTransfer && $productInTransfer->pivot->container_id) {
-                    $containerIds->push($productInTransfer->pivot->container_id);
-                }
-            }
-            
-            // Cargar contenedores únicos
-            $containersFromTransfers = collect();
-            if ($containerIds->isNotEmpty()) {
-                $containers = \App\Models\Container::whereIn('id', $containerIds->unique())->get();
-                $containersFromTransfers = $containers;
-            }
-            
-            $productosContenedoresOrigen->put($producto->id, $containersFromTransfers);
-        }
-        
-        $ID_PABLO_ROJAS = 1;
         // Funcionario no puede crear productos (solo lectura)
-        $canCreateProducts = ($user->rol !== 'funcionario') && (in_array($user->rol, ['admin', 'secretaria']) || $user->almacen_id == $ID_PABLO_ROJAS);
+        $canCreateProducts = ($user->rol !== 'funcionario') && 
+            (in_array($user->rol, ['admin', 'secretaria']) || 
+             ($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id)));
         
-        // Refrescar los productos ANTES de calcular las cantidades para obtener los valores actualizados de la base de datos
-        foreach ($productos as $producto) {
-            $producto->refresh();
-            // Recargar relaciones para asegurar que estén actualizadas
-            $producto->load('almacen', 'containers');
-        }
-        
-        // Calcular cantidades por contenedor para cada producto (después de refrescar)
-        $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($productos);
-        
-        return view('products.index', compact('productos', 'productosConTransferencias', 'productosContenedoresOrigen', 'ID_PABLO_ROJAS', 'canCreateProducts', 'productosCantidadesPorContenedor'));
+        return view('products.index', compact('productos', 'canCreateProducts'));
     }
 
     /**
@@ -108,15 +40,14 @@ class ProductController extends Controller
     public function create()
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         
-        // Solo permitir crear productos en bodegas que reciben contenedores (Pablo Rojas)
-        if ($user->rol !== 'admin' && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'Los productos solo se pueden crear en bodegas que reciben contenedores. Los productos llegan a esta bodega a través de transferencias.');
+        // Funcionario solo lectura
+        if ($user->rol === 'funcionario') {
+            return redirect()->route('products.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        $warehouses = Warehouse::orderBy('nombre')->get();
-        return view('products.create', compact('warehouses'));
+        // Los productos ahora son globales - todos los usuarios pueden crearlos
+        return view('products.create');
     }
 
     /**
@@ -128,43 +59,43 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1; // AJUSTA este valor si el id de Buenaventura es diferente
         
         // Funcionario solo lectura
         if ($user->rol === 'funcionario') {
             return redirect()->route('products.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        // Solo permitir crear productos en bodegas que reciben contenedores (Pablo Rojas)
-        if ($user->rol !== 'admin' && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'Los productos solo se pueden crear en bodegas que reciben contenedores. Los productos llegan a esta bodega a través de transferencias.');
-        }
-        
-        // Validar que solo se creen productos en Pablo Rojas
-        if ($request->input('almacen_id') != $ID_PABLO_ROJAS) {
-            return back()->withInput()->with('error', 'Los productos solo se pueden crear en bodegas que reciben contenedores. Los productos llegan a otras bodegas a través de transferencias.');
-        }
-        
-        if ($request->input('almacen_id') == $ID_PABLO_ROJAS && $request->input('tipo_medida') !== 'caja') {
-            return back()->withInput()->with('error', 'Solo se permiten Cajas en Pablo Rojas');
+        // Los productos ahora son globales - no requieren almacen_id
+        // Si se especifica almacen_id, debe ser una bodega que recibe contenedores y solo puede ser tipo caja
+        $almacenId = $request->input('almacen_id');
+        if ($almacenId) {
+            if (!Warehouse::bodegaRecibeContenedores($almacenId)) {
+                return back()->withInput()->with('error', 'Solo puedes crear productos en bodegas que reciben contenedores. Los productos globales no requieren bodega específica.');
+            }
+            if ($request->input('tipo_medida') !== 'caja') {
+                $warehouse = Warehouse::find($almacenId);
+                return back()->withInput()->with('error', 'Solo se permiten Cajas en bodegas que reciben contenedores (' . ($warehouse ? $warehouse->nombre : '') . ')');
+            }
         }
         $data = $request->validate([
             'nombre' => 'required|string|max:255',
             'medidas' => 'nullable|string|max:255',
             'estado' => 'nullable|boolean',
-            'almacen_id' => 'required|exists:warehouses,id',
-            'tipo_medida' => 'required|in:unidad,caja',
         ]);
         
-        // Valores por defecto
+        // Valores por defecto - productos globales inician sin stock
         $data['stock'] = 0;
         $data['unidades_por_caja'] = null;
         $data['estado'] = $data['estado'] ?? true;
         $data['precio'] = 0;
+        // Los productos globales no tienen almacen_id específico
+        $data['almacen_id'] = null;
+        // tipo_medida es opcional - se definirá cuando se agregue a contenedor o se transfiera
+        $data['tipo_medida'] = $data['tipo_medida'] ?? null;
         
-        // Crear producto
+        // Crear producto global
         \App\Models\Product::create($data);
-        return redirect()->route('products.index')->with('success', 'Producto creado correctamente. Ahora puedes agregarlo a un contenedor para asignar stock.');
+        return redirect()->route('products.index')->with('success', 'Producto global creado correctamente. El stock se asignará automáticamente cuando se agregue a contenedores o se reciban transferencias.');
     }
 
     /**
@@ -187,7 +118,6 @@ class ProductController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         $product = \App\Models\Product::findOrFail($id);
         
         // Funcionario solo lectura
@@ -195,18 +125,8 @@ class ProductController extends Controller
             return redirect()->route('products.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        // Solo permitir editar productos de bodegas que reciben contenedores (Pablo Rojas)
-        if ($product->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'Los productos de esta bodega no se pueden editar. Solo se pueden editar productos de bodegas que reciben contenedores.');
-        }
-        
-        // Verificar permisos del usuario
-        if ($user->rol !== 'admin' && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'No tienes permiso para editar productos de esta bodega.');
-        }
-        
-        $warehouses = Warehouse::orderBy('nombre')->get();
-        return view('products.edit', compact('product', 'warehouses'));
+        // Los productos son globales - todos los usuarios pueden editarlos
+        return view('products.edit', compact('product'));
     }
 
     /**
@@ -219,7 +139,6 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1; // AJUSTA este valor si el id de Buenaventura es diferente
         $product = \App\Models\Product::findOrFail($id);
         
         // Funcionario solo lectura
@@ -227,32 +146,16 @@ class ProductController extends Controller
             return redirect()->route('products.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        // Solo permitir editar productos de bodegas que reciben contenedores (Pablo Rojas)
-        if ($product->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'Los productos de esta bodega no se pueden editar. Solo se pueden editar productos de bodegas que reciben contenedores.');
-        }
-        
-        // Verificar permisos del usuario
-        if ($user->rol !== 'admin' && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('products.index')->with('error', 'No tienes permiso para editar productos de esta bodega.');
-        }
-        
-        // Validar que solo se actualicen productos en Buenaventura
-        if ($request->input('almacen_id') != $ID_PABLO_ROJAS) {
-            return back()->withInput()->with('error', 'Los productos solo pueden estar en bodegas que reciben contenedores.');
-        }
-        
-        if ($request->input('almacen_id') == $ID_PABLO_ROJAS && $request->input('tipo_medida') !== 'caja') {
-            return back()->withInput()->with('error', 'Solo se permiten Cajas en Pablo Rojas');
-        }
+        // Los productos son globales - todos los usuarios pueden editarlos
         $data = $request->validate([
             'nombre'   => 'required|string|max:255',
             'medidas'  => 'nullable|string|max:255',
             'estado'   => 'nullable|boolean',
-            'almacen_id' => 'required|exists:warehouses,id',
-            'tipo_medida' => 'required|in:unidad,caja',
         ]);
         $data['estado'] = $data['estado'] ?? true;
+        // Los productos son globales - almacen_id y tipo_medida deben ser null
+        $data['almacen_id'] = null;
+        $data['tipo_medida'] = null;
         
         // Actualizar producto
         $product->update($data);
@@ -347,11 +250,10 @@ class ProductController extends Controller
                 }
             }
             
-            // 2. Obtener cantidades de transferencias recibidas (solo para bodegas que NO son Pablo Rojas)
-            // Para Pablo Rojas, solo mostramos las cajas que quedan en el contenedor (ya descontadas)
+            // 2. Obtener cantidades de transferencias recibidas (solo para bodegas que NO reciben contenedores)
+            // Para bodegas que reciben contenedores, solo mostramos las cajas que quedan en el contenedor (ya descontadas)
             // Para otras bodegas, mostramos las cantidades recibidas por transferencia
-            $ID_PABLO_ROJAS = 1;
-            if ($producto->almacen_id != $ID_PABLO_ROJAS) {
+            if ($producto->almacen_id && !Warehouse::bodegaRecibeContenedores($producto->almacen_id)) {
                 $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
                     if ($transfer->warehouse_to_id != $producto->almacen_id) {
                         return false;

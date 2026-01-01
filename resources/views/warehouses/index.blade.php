@@ -41,8 +41,24 @@
         color: #b30000;
     }
     .actions button:hover { opacity: 0.85; }
+    .pagination {
+        margin-top: 20px;
+        justify-content: center;
+    }
+    .pagination .page-link {
+        color: #0066cc;
+        border-color: #0066cc;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #0066cc;
+        border-color: #0066cc;
+    }
+    .pagination .page-link:hover {
+        background-color: #f1f7ff;
+        color: #0066cc;
+    }
 </style>
-<div class="container-fluid" style="padding-top:32px; min-height:88vh;">
+<div class="container-fluid" style="padding-top:32px; padding-bottom:40px; min-height:88vh;">
     <div class="mx-auto" style="max-width:850px;">
       @if(session('success') || session('error') || session('warning'))
 <script>
@@ -100,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <thead>
             <tr>
                 <th>Nombre</th>
+                <th>Ciudad</th>
                 <th>Dirección</th>
                 <th>Acciones</th>
             </tr>
@@ -108,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
         @forelse($warehouses as $warehouse)
             <tr>
                 <td>{{ $warehouse->nombre }}</td>
+                <td>{{ $warehouse->ciudad ?? '-' }}</td>
                 <td>{{ $warehouse->direccion ?? '-' }}</td>
                 <td class="actions">
                     <form action="{{ route('warehouses.edit', $warehouse) }}" method="GET" style="display:inline">
@@ -122,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </tr>
         @empty
             <tr>
-                <td colspan="3" class="text-center text-muted py-5">
+                <td colspan="4" class="text-center text-muted py-5">
                   <i class="bi bi-buildings text-secondary" style="font-size:2.2em;"></i><br>
                   <div class="mt-2">No existen bodegas registradas.</div>
                 </td>
@@ -130,6 +148,11 @@ document.addEventListener('DOMContentLoaded', function() {
         @endforelse
         </tbody>
       </table>
+      
+      <!-- Paginación -->
+      <div class="d-flex justify-content-center mt-4 mb-5 pb-4">
+        {{ $warehouses->links() }}
+      </div>
     </div>
 </div>
 @endsection

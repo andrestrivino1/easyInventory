@@ -17,39 +17,79 @@ class StockController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $warehouses = Warehouse::orderBy('nombre')->get();
         $selectedWarehouseId = $request->get('warehouse_id');
-        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
-        // Funcionario solo ve Pablo Rojas
-        if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_PABLO_ROJAS;
-        } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
-            $selectedWarehouseId = $user->almacen_id;
-        }
-        
-        // Obtener productos
-        if ($selectedWarehouseId) {
-            $products = Product::where('almacen_id', $selectedWarehouseId)
-                ->with(['almacen', 'containers'])
-                ->orderBy('nombre')
-                ->get();
+        // Obtener bodegas según el rol del usuario
+        if (in_array($user->rol, ['admin', 'secretaria'])) {
+            // Admin y secretaria ven todas las bodegas
+            $warehouses = Warehouse::orderBy('nombre')->get();
+        } elseif ($user->rol === 'funcionario') {
+            // Funcionario ve solo sus bodegas asociadas
+            $warehouses = $user->almacenes()->orderBy('nombre')->get();
+            // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
+            if (!$selectedWarehouseId && $warehouses->count() > 0) {
+                $selectedWarehouseId = $warehouses->first()->id;
+            }
+            // Validar que la bodega seleccionada pertenezca a las bodegas del usuario
+            if ($selectedWarehouseId && !$warehouses->pluck('id')->contains($selectedWarehouseId)) {
+                $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
+            }
         } else {
-            $products = Product::with(['almacen', 'containers'])->orderBy('nombre')->get();
+            // Clientes ven solo su bodega
+            $warehouses = collect();
+            if ($user->almacen_id) {
+                $warehouses = collect([$user->almacen]);
+            }
+            if (!$selectedWarehouseId) {
+            $selectedWarehouseId = $user->almacen_id;
+            }
         }
         
-        // Obtener contenedores (solo Pablo Rojas tiene contenedores)
+        // Obtener productos globales (todos los productos sin almacen_id específico)
+        $allProducts = Product::whereNull('almacen_id')
+            ->with(['containers'])
+            ->orderBy('nombre')
+            ->get();
+        
+        // Calcular stock por bodega para cada producto
+        $productosStockPorBodega = $this->calcularStockPorBodega($allProducts, $selectedWarehouseId);
+        
+        // Filtrar productos: solo mostrar los que tienen stock > 0 en la bodega seleccionada
         if ($selectedWarehouseId) {
-            // Si se selecciona Pablo Rojas, mostrar sus contenedores
-            if ($selectedWarehouseId == $ID_PABLO_ROJAS) {
-                $containers = Container::with('products')->orderByDesc('id')->get();
+            $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
+                if ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                    return $stock > 0;
+                }
+                return false;
+            })->values();
+        } else {
+            // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
+            $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
+                if ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    return $stockPorBodega->sum() > 0;
+                }
+                return false;
+            })->values();
+        }
+        
+        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        if ($selectedWarehouseId) {
+            // Si se selecciona una bodega que recibe contenedores, mostrar solo sus contenedores
+            if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
+                $containers = Container::where('warehouse_id', $selectedWarehouseId)
+                    ->with('products')
+                    ->orderByDesc('id')
+                    ->get();
             } else {
                 // Si se selecciona otra bodega, no mostrar contenedores
                 $containers = collect();
             }
         } else {
-            // Si no hay filtro, mostrar todos los contenedores (solo Pablo Rojas tiene)
+            // Si no hay filtro, mostrar todos los contenedores
             $containers = Container::with('products')->orderByDesc('id')->get();
         }
         
@@ -71,8 +111,8 @@ class StockController extends Controller
         // Calcular cantidades por contenedor para cada producto
         $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products);
         
-        // Obtener contenedores de origen desde transferencias recibidas para cada producto
-        $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products);
+        // Obtener contenedores de origen desde transferencias recibidas para cada producto (filtrar por bodega si hay una seleccionada)
+        $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products, $selectedWarehouseId);
         
         // Obtener salidas
         if ($selectedWarehouseId) {
@@ -86,38 +126,79 @@ class StockController extends Controller
                 ->get();
         }
         
-        return view('stock.index', compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen'));
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        return view('stock.index', compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'bodegasQueRecibenContenedores', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen', 'productosStockPorBodega'));
     }
 
     private function getStockData(Request $request)
     {
         $user = Auth::user();
-        $warehouses = Warehouse::orderBy('nombre')->get();
         $selectedWarehouseId = $request->get('warehouse_id');
-        $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
-        // Funcionario solo ve Pablo Rojas
-        if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_PABLO_ROJAS;
-        } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
-            $selectedWarehouseId = $user->almacen_id;
-        }
-        
-        // Obtener productos
-        if ($selectedWarehouseId) {
-            $products = Product::where('almacen_id', $selectedWarehouseId)
-                ->with(['almacen', 'containers'])
-                ->orderBy('nombre')
-                ->get();
+        // Obtener bodegas según el rol del usuario
+        if (in_array($user->rol, ['admin', 'secretaria'])) {
+            // Admin y secretaria ven todas las bodegas
+            $warehouses = Warehouse::orderBy('nombre')->get();
+        } elseif ($user->rol === 'funcionario') {
+            // Funcionario ve solo sus bodegas asociadas
+            $warehouses = $user->almacenes()->orderBy('nombre')->get();
+            // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
+            if (!$selectedWarehouseId && $warehouses->count() > 0) {
+                $selectedWarehouseId = $warehouses->first()->id;
+            }
+            // Validar que la bodega seleccionada pertenezca a las bodegas del usuario
+            if ($selectedWarehouseId && !$warehouses->pluck('id')->contains($selectedWarehouseId)) {
+                $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
+            }
         } else {
-            $products = Product::with(['almacen', 'containers'])->orderBy('nombre')->get();
+            // Clientes ven solo su bodega
+            $warehouses = collect();
+            if ($user->almacen_id) {
+                $warehouses = collect([$user->almacen]);
+            }
+            if (!$selectedWarehouseId) {
+            $selectedWarehouseId = $user->almacen_id;
+            }
         }
         
-        // Obtener contenedores
+        // Obtener productos globales (todos los productos sin almacen_id específico)
+        $allProducts = Product::whereNull('almacen_id')
+            ->with(['containers'])
+            ->orderBy('nombre')
+            ->get();
+        
+        // Calcular stock por bodega para cada producto
+        $productosStockPorBodega = $this->calcularStockPorBodega($allProducts, $selectedWarehouseId);
+        
+        // Filtrar productos: solo mostrar los que tienen stock > 0 en la bodega seleccionada
         if ($selectedWarehouseId) {
-            if ($selectedWarehouseId == $ID_PABLO_ROJAS) {
-                $containers = Container::with('products')->orderByDesc('id')->get();
+            $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
+                if ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                    return $stock > 0;
+                }
+                return false;
+            })->values();
+        } else {
+            // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
+            $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
+                if ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    return $stockPorBodega->sum() > 0;
+                }
+                return false;
+            })->values();
+        }
+        
+        // Obtener contenedores (solo bodegas que reciben contenedores tienen contenedores)
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        if ($selectedWarehouseId) {
+            if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
+                $containers = Container::where('warehouse_id', $selectedWarehouseId)
+                    ->with('products')
+                    ->orderByDesc('id')
+                    ->get();
             } else {
                 $containers = collect();
             }
@@ -147,11 +228,11 @@ class StockController extends Controller
             $product->load('almacen', 'containers');
         }
         
-        // Calcular cantidades por contenedor para cada producto (después de refrescar)
-        $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products);
+        // Calcular cantidades por contenedor para cada producto (filtrar por bodega si hay una seleccionada)
+        $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products, $selectedWarehouseId);
         
-        // Obtener contenedores de origen desde transferencias recibidas para cada producto
-        $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products);
+        // Obtener contenedores de origen desde transferencias recibidas para cada producto (filtrar por bodega si hay una seleccionada)
+        $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products, $selectedWarehouseId);
         
         // Obtener salidas
         if ($selectedWarehouseId) {
@@ -165,7 +246,8 @@ class StockController extends Controller
                 ->get();
         }
         
-        return compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen');
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        return compact('warehouses', 'products', 'containers', 'transferOrders', 'salidas', 'selectedWarehouseId', 'bodegasQueRecibenContenedores', 'productosCantidadesPorContenedor', 'productosContenedoresOrigen', 'productosStockPorBodega');
     }
     
     /**
@@ -173,7 +255,7 @@ class StockController extends Controller
      * 1. Contenedores relacionados directamente (tabla container_product)
      * 2. Transferencias recibidas
      */
-    private function calcularCantidadesPorContenedor($products)
+    private function calcularCantidadesPorContenedor($products, $selectedWarehouseId = null)
     {
         $resultado = collect();
         
@@ -184,8 +266,8 @@ class StockController extends Controller
             }])
             ->get();
         
-        // Obtener todos los contenedores de una vez
-        $allContainers = Container::all()->keyBy('id');
+        // Obtener todos los contenedores de una vez con su warehouse
+        $allContainers = Container::with('warehouse')->get()->keyBy('id');
         
         // Cargar relaciones de contenedores para todos los productos de una vez
         $products->load('containers');
@@ -195,15 +277,33 @@ class StockController extends Controller
             $cantidadesPorContenedor = collect();
             
             // 1. Obtener contenedores relacionados directamente (tabla container_product)
-            // Leer directamente de la base de datos para obtener los valores actualizados
-            $containerProductData = DB::table('container_product')
-                ->where('product_id', $producto->id)
-                ->get();
+            // Filtrar por bodega si hay una seleccionada
+            $containerProductQuery = DB::table('container_product')
+                ->where('product_id', $producto->id);
+            
+            // Si hay una bodega seleccionada, solo contar contenedores de esa bodega
+            if ($selectedWarehouseId) {
+                $containerIds = Container::where('warehouse_id', $selectedWarehouseId)->pluck('id')->toArray();
+                if (!empty($containerIds)) {
+                    $containerProductQuery->whereIn('container_id', $containerIds);
+                } else {
+                    // Si no hay contenedores en esa bodega, continuar con el siguiente producto
+                    $resultado->put($producto->id, $cantidadesPorContenedor);
+                    continue;
+                }
+            }
+            
+            $containerProductData = $containerProductQuery->get();
             
             foreach ($containerProductData as $cp) {
                 $containerId = $cp->container_id;
                 $container = $allContainers->get($containerId);
                 if ($container) {
+                    // Si hay bodega seleccionada, solo incluir si pertenece a esa bodega
+                    if ($selectedWarehouseId && $container->warehouse_id != $selectedWarehouseId) {
+                        continue;
+                    }
+                    
                     $boxes = $cp->boxes ?? 0;
                     $sheetsPerBox = $cp->sheets_per_box ?? 0;
                     $laminas = $boxes * $sheetsPerBox;
@@ -216,13 +316,13 @@ class StockController extends Controller
                 }
             }
             
-            // 2. Obtener cantidades de transferencias recibidas (solo para bodegas que NO son Pablo Rojas)
-            // Para Pablo Rojas, solo mostramos las cajas que quedan en el contenedor (ya descontadas)
+            // 2. Obtener cantidades de transferencias recibidas (solo para bodegas que NO reciben contenedores)
+            // Para bodegas que reciben contenedores, solo mostramos las cajas que quedan en el contenedor (ya descontadas)
             // Para otras bodegas, mostramos las cantidades recibidas por transferencia
-            $ID_PABLO_ROJAS = 1;
-            if ($producto->almacen_id != $ID_PABLO_ROJAS) {
-                $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
-                    if ($transfer->warehouse_to_id != $producto->almacen_id) {
+            // Solo si hay una bodega seleccionada y esa bodega NO recibe contenedores
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, Warehouse::getBodegasQueRecibenContenedores())) {
+                $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto, $selectedWarehouseId) {
+                    if ($transfer->warehouse_to_id != $selectedWarehouseId) {
                         return false;
                     }
                     // Buscar por nombre del producto (ya que el ID puede ser diferente)
@@ -272,7 +372,7 @@ class StockController extends Controller
     /**
      * Obtiene los contenedores de origen desde transferencias recibidas para cada producto
      */
-    private function obtenerContenedoresOrigen($products)
+    private function obtenerContenedoresOrigen($products, $selectedWarehouseId = null)
     {
         $resultado = collect();
         
@@ -284,9 +384,11 @@ class StockController extends Controller
             ->get();
         
         foreach ($products as $producto) {
-            // Filtrar transferencias recibidas para este producto en este almacén
-            $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto) {
-                if ($transfer->warehouse_to_id != $producto->almacen_id) {
+            // Si hay bodega seleccionada, filtrar transferencias recibidas para esa bodega
+            // Si no hay bodega seleccionada, obtener todas las transferencias que contengan este producto
+            $receivedTransfers = $allReceivedTransfers->filter(function($transfer) use ($producto, $selectedWarehouseId) {
+                // Si hay bodega seleccionada, solo transferencias recibidas en esa bodega
+                if ($selectedWarehouseId && $transfer->warehouse_to_id != $selectedWarehouseId) {
                     return false;
                 }
                 // Buscar por nombre del producto (ya que el ID puede ser diferente)
@@ -333,7 +435,7 @@ class StockController extends Controller
         extract($data);
         
         $isExport = true;
-        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'ID_PABLO_ROJAS', 'isExport'));
+        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'bodegasQueRecibenContenedores', 'isExport'));
         
         $warehouseName = $selectedWarehouseId 
             ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
@@ -417,7 +519,8 @@ class StockController extends Controller
         </table>';
         
         // Sección de Contenedores
-        if ($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId) {
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        if (!$selectedWarehouseId || in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
             $html .= '<div class="section-title">SECCIÓN: CONTENEDORES</div>
             <table>
                 <thead>
@@ -496,5 +599,118 @@ class StockController extends Controller
         ];
         
         return response($html, 200, $headers);
+    }
+    
+    /**
+     * Calcula el stock de cada producto por bodega
+     * Para bodegas que reciben contenedores: stock desde container_product
+     * Para otras bodegas: stock desde transferencias recibidas
+     */
+    private function calcularStockPorBodega($products, $selectedWarehouseId = null)
+    {
+        $resultado = collect();
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        
+        // Obtener todas las transferencias recibidas
+        $receivedTransfers = TransferOrder::where('status', 'recibido')
+            ->with(['products' => function($query) {
+                $query->withPivot('quantity', 'container_id');
+            }])
+            ->get();
+        
+        // Obtener todos los datos de container_product con container_id
+        $containerProducts = DB::table('container_product')
+            ->select('container_id', 'product_id', 'boxes', 'sheets_per_box')
+            ->get()
+            ->groupBy('product_id');
+        
+        // Obtener todos los contenedores con su warehouse_id
+        $containersByWarehouse = DB::table('containers')
+            ->select('id', 'warehouse_id')
+            ->get()
+            ->groupBy('warehouse_id');
+        
+        foreach ($products as $product) {
+            $stockPorBodega = collect();
+            
+            // Para cada bodega, calcular el stock
+            $warehouses = Warehouse::all();
+            foreach ($warehouses as $warehouse) {
+                $stock = 0;
+                
+                if (in_array($warehouse->id, $bodegasQueRecibenContenedores)) {
+                    // Bodega que recibe contenedores: stock desde container_product
+                    // Solo contar contenedores asignados a esta bodega específica
+                    $containersInWarehouse = isset($containersByWarehouse[$warehouse->id]) 
+                        ? $containersByWarehouse[$warehouse->id]->pluck('id')->toArray() 
+                        : [];
+                    
+                    if (!empty($containersInWarehouse) && $containerProducts->has($product->id)) {
+                        $cpData = $containerProducts->get($product->id);
+                        foreach ($cpData as $cp) {
+                            // Verificar que el contenedor pertenezca a esta bodega
+                            $containerId = $cp->container_id ?? null;
+                            if ($containerId && in_array($containerId, $containersInWarehouse)) {
+                                $boxes = $cp->boxes ?? 0;
+                                $sheetsPerBox = $cp->sheets_per_box ?? 0;
+                                $stock += $boxes * $sheetsPerBox;
+                            }
+                        }
+                    }
+                } else {
+                    // Otra bodega: stock desde transferencias recibidas
+                    $transfersToWarehouse = $receivedTransfers->filter(function($transfer) use ($warehouse, $product) {
+                        if ($transfer->warehouse_to_id != $warehouse->id) {
+                            return false;
+                        }
+                        return $transfer->products->contains(function($p) use ($product) {
+                            return $p->codigo === $product->codigo && $p->nombre === $product->nombre;
+                        });
+                    });
+                    
+                    foreach ($transfersToWarehouse as $transfer) {
+                        $productInTransfer = $transfer->products->first(function($p) use ($product) {
+                            return $p->codigo === $product->codigo && $p->nombre === $product->nombre;
+                        });
+                        
+                        if ($productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si es tipo caja, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
+                        }
+                    }
+                }
+                
+                // Descontar salidas
+                $salidas = Salida::where('warehouse_id', $warehouse->id)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('codigo', $product->codigo);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('codigo', $product->codigo)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                foreach ($salidas as $salida) {
+                    $productInSalida = $salida->products->first();
+                    if ($productInSalida) {
+                        $quantity = $productInSalida->pivot->quantity;
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock -= $quantity;
+                    }
+                }
+                
+                $stockPorBodega->put($warehouse->id, max(0, $stock));
+            }
+            
+            $resultado->put($product->id, $stockPorBodega);
+        }
+        
+        return $resultado;
     }
 }

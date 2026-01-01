@@ -19,17 +19,21 @@ class TransferOrderController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         
         // Si el usuario no es admin ni secretaria, filtrar por su bodega
         if (!in_array($user->rol, ['admin', 'secretaria'])) {
             $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
-                ->where(function($query) use ($user, $ID_PABLO_ROJAS) {
+                ->where(function($query) use ($user) {
                     // Ver transferencias desde su bodega o hacia su bodega
-                    // Si es funcionario, solo ver Pablo Rojas
+                    // Si es funcionario, ver solo sus bodegas asociadas (que reciben contenedores)
                     if ($user->rol === 'funcionario') {
-                        $query->where('warehouse_from_id', $ID_PABLO_ROJAS)
-                              ->orWhere('warehouse_to_id', $ID_PABLO_ROJAS);
+                        $bodegasIds = $user->almacenes->pluck('id')->toArray();
+                        if (!empty($bodegasIds)) {
+                            $query->whereIn('warehouse_from_id', $bodegasIds)
+                                  ->orWhereIn('warehouse_to_id', $bodegasIds);
+                        } else {
+                            $query->whereRaw('1 = 0'); // No mostrar nada si no tiene bodegas
+                        }
                     } else {
                         $query->where('warehouse_from_id', $user->almacen_id)
                               ->orWhere('warehouse_to_id', $user->almacen_id);
@@ -43,7 +47,8 @@ class TransferOrderController extends Controller
                 ->get();
         }
         
-        $canCreateTransfer = in_array($user->rol, ['admin', 'secretaria']) || $user->almacen_id == $ID_PABLO_ROJAS;
+        $canCreateTransfer = in_array($user->rol, ['admin', 'secretaria']) || 
+            ($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id));
         
         return view('transfer-orders.index', compact('transferOrders', 'canCreateTransfer'));
     }
@@ -56,11 +61,11 @@ class TransferOrderController extends Controller
     public function create()
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         
-        // Solo admin, secretaria o usuarios de Pablo Rojas pueden crear transferencias
-        if (!in_array($user->rol, ['admin', 'secretaria']) && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo la bodega principal puede crear transferencias.');
+        // Solo admin, secretaria o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'secretaria']) && 
+            !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))) {
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
         }
         
         $warehouses = Warehouse::orderBy('nombre')->get();
@@ -78,18 +83,16 @@ class TransferOrderController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
         
-        // Solo admin, secretaria o usuarios de Pablo Rojas pueden crear transferencias
-        if (!in_array($user->rol, ['admin', 'secretaria']) && $user->almacen_id != $ID_PABLO_ROJAS) {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo la bodega principal puede crear transferencias.');
+        // Solo admin, secretaria o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'secretaria']) && 
+            !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))) {
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
         }
         
         $data = $request->validate([
             'warehouse_from_id' => 'required|different:warehouse_to_id|exists:warehouses,id',
             'warehouse_to_id' => 'required|exists:warehouses,id',
-            'salida' => 'required|string|max:255',
-            'destino' => 'required|string|max:255',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.container_id' => 'required|exists:containers,id',
@@ -104,14 +107,14 @@ class TransferOrderController extends Controller
             $productsToAttach = [];
             foreach ($data['products'] as $index => $productData) {
                 // Obtener producto de la bodega de origen
+                // Los productos son globales, buscar solo por ID
                 $product = Product::where('id', $productData['product_id'])
-                    ->where('almacen_id', $data['warehouse_from_id'])
                     ->lockForUpdate()
                     ->first();
                 
                 if (!$product) {
                     DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe en la bodega de origen.")->withInput();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe.")->withInput();
                 }
                 
                 // Validar contenedor
@@ -128,10 +131,11 @@ class TransferOrderController extends Controller
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado.")->withInput();
                 }
                 
-                // Validar que desde Pablo Rojas solo se despachen Cajas
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS && $product->tipo_medida !== 'caja') {
+                // Validar que desde bodegas que reciben contenedores solo se despachen Cajas
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id']) && $product->tipo_medida !== 'caja') {
                     DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas.")->withInput();
+                    $warehouse = Warehouse::find($data['warehouse_from_id']);
+                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde " . ($warehouse ? $warehouse->nombre : 'bodegas que reciben contenedores') . " solo se pueden despachar productos medidos en Cajas.")->withInput();
                 }
                 
                 // Calcular unidades a descontar
@@ -140,31 +144,81 @@ class TransferOrderController extends Controller
                     $unidadesADescontar = $productData['quantity'] * $product->unidades_por_caja;
                 }
                 
-                // Validar stock del producto
-                if ($product->stock < $unidadesADescontar) {
-                    DB::rollBack();
-                    $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
-                        ? floor($product->stock / $product->unidades_por_caja) 
-                        : 0;
-                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$product->stock} unidades).")->withInput();
-                }
-                
-                // Si es desde Pablo Rojas, validar cajas en contenedor
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                // Validar stock según el tipo de bodega
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
+                    // Para bodegas que reciben contenedores, validar cajas en contenedor
                     $pivot = DB::table('container_product')
-                        ->where('container_id', $productData['container_id'])
-                        ->where('product_id', $productData['product_id'])
+                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                        ->where('container_product.container_id', $productData['container_id'])
+                        ->where('container_product.product_id', $productData['product_id'])
+                        ->where('containers.warehouse_id', $data['warehouse_from_id'])
+                        ->select('container_product.boxes')
                         ->lockForUpdate()
                         ->first();
                     
                     if (!$pivot) {
                         DB::rollBack();
-                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor.")->withInput();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
                     }
                     
                     if ($pivot->boxes < $productData['quantity']) {
                         DB::rollBack();
                         return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                    }
+                } else {
+                    // Para otras bodegas, calcular stock desde transferencias recibidas menos salidas
+                    $stock = 0;
+                    
+                    // Sumar transferencias recibidas
+                    $receivedTransfers = TransferOrder::where('status', 'recibido')
+                        ->where('warehouse_to_id', $data['warehouse_from_id'])
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity');
+                        }])
+                        ->get();
+                    
+                    foreach ($receivedTransfers as $transfer) {
+                        $productInTransfer = $transfer->products->first();
+                        if ($productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
+                        }
+                    }
+                    
+                    // Descontar salidas
+                    $salidas = \App\Models\Salida::where('warehouse_id', $data['warehouse_from_id'])
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity');
+                        }])
+                        ->get();
+                    
+                    foreach ($salidas as $salida) {
+                        $productInSalida = $salida->products->first();
+                        if ($productInSalida) {
+                            $quantity = $productInSalida->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock -= $quantity;
+                        }
+                    }
+                    
+                    // Validar stock disponible
+                    if ($stock < $unidadesADescontar) {
+                        DB::rollBack();
+                        $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
+                            ? floor($stock / $product->unidades_por_caja) 
+                            : 0;
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$stock} unidades).")->withInput();
                     }
                 }
                 
@@ -183,12 +237,16 @@ class TransferOrderController extends Controller
                 return back()->with('error', "El conductor seleccionado no existe.")->withInput();
             }
             
+            // Obtener las ciudades de las bodegas
+            $warehouseFrom = Warehouse::find($data['warehouse_from_id']);
+            $warehouseTo = Warehouse::find($data['warehouse_to_id']);
+            
             // Crear la transferencia
             $transfer = TransferOrder::create([
                 'warehouse_from_id' => $data['warehouse_from_id'],
                 'warehouse_to_id' => $data['warehouse_to_id'],
-                'salida' => $data['salida'],
-                'destino' => $data['destino'],
+                'salida' => $warehouseFrom->ciudad ?? $warehouseFrom->nombre,
+                'destino' => $warehouseTo->ciudad ?? $warehouseTo->nombre,
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
@@ -197,8 +255,8 @@ class TransferOrderController extends Controller
             
             // Descontar stock y asociar productos
             foreach ($productsToAttach as $index => $item) {
-                // PASO 1: Descontar del contenedor (solo si es desde Pablo Rojas)
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                // PASO 1: Descontar del contenedor (solo si es desde bodegas que reciben contenedores)
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
                     $rowsAffected = DB::table('container_product')
                         ->where('container_id', $item['container_id'])
                         ->where('product_id', $item['product_id'])
@@ -217,15 +275,9 @@ class TransferOrderController extends Controller
                     ]);
                 }
                 
-                // PASO 2: Descontar del stock del producto
-                $rowsAffected = DB::table('products')
-                    ->where('id', $item['product_id'])
-                    ->decrement('stock', $item['unidades_a_descontar']);
-                
-                if ($rowsAffected === 0) {
-                    DB::rollBack();
-                    return back()->with('error', "Error al descontar del stock para el producto #" . ($index + 1))->withInput();
-                }
+                // PASO 2: Los productos son globales - el stock se calcula dinámicamente
+                // No necesitamos descontar del stock del producto aquí
+                // Solo descontamos del contenedor si es bodega que recibe contenedores (ya hecho arriba)
                 
                 \Log::info('TRANSFER store - Descontado del producto', [
                     'product_id' => $item['product_id'],
@@ -312,8 +364,6 @@ class TransferOrderController extends Controller
         $data = $request->validate([
             'warehouse_from_id' => 'required|different:warehouse_to_id|exists:warehouses,id',
             'warehouse_to_id' => 'required|exists:warehouses,id',
-            'salida' => 'required|string|max:255',
-            'destino' => 'required|string|max:255',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.container_id' => 'required|exists:containers,id',
@@ -324,47 +374,34 @@ class TransferOrderController extends Controller
         
         DB::beginTransaction();
         try {
-            $ID_PABLO_ROJAS = 1;
             $almacenOrigenAnterior = $transferOrder->warehouse_from_id;
             
-            // Restaurar stock de productos anteriores
+            // Los productos son globales - restaurar solo las cajas del contenedor si es necesario
             foreach ($transferOrder->products as $oldProduct) {
                 $prodAnterior = Product::where('id', $oldProduct->id)
-                    ->where('almacen_id', $almacenOrigenAnterior)
                     ->lockForUpdate()
                     ->first();
                 
-                if ($prodAnterior) {
-                    $unidadesARestaurar = $oldProduct->pivot->quantity;
-                    if ($prodAnterior->tipo_medida === 'caja' && $prodAnterior->unidades_por_caja > 0) {
-                        $unidadesARestaurar = $oldProduct->pivot->quantity * $prodAnterior->unidades_por_caja;
-                    }
-                    
-                    DB::table('products')
-                        ->where('id', $prodAnterior->id)
-                        ->increment('stock', $unidadesARestaurar);
-                    
-                    // Si es desde Pablo Rojas, restaurar también las cajas del contenedor
-                    if ($almacenOrigenAnterior == $ID_PABLO_ROJAS && $oldProduct->pivot->container_id) {
+                // Si es desde bodegas que reciben contenedores, restaurar las cajas del contenedor
+                if ($prodAnterior && Warehouse::bodegaRecibeContenedores($almacenOrigenAnterior) && $oldProduct->pivot->container_id) {
                         DB::table('container_product')
                             ->where('container_id', $oldProduct->pivot->container_id)
                             ->where('product_id', $oldProduct->id)
                             ->increment('boxes', $oldProduct->pivot->quantity);
-                    }
                 }
             }
             
             // Validar y preparar nuevos productos
             $productsToAttach = [];
             foreach ($data['products'] as $index => $productData) {
+                // Los productos son globales, buscar solo por ID
                 $product = Product::where('id', $productData['product_id'])
-                    ->where('almacen_id', $data['warehouse_from_id'])
                     ->lockForUpdate()
                     ->first();
                 
                 if (!$product) {
                     DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe en la bodega de origen.")->withInput();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe.")->withInput();
                 }
                 
                 // Validar contenedor
@@ -381,10 +418,11 @@ class TransferOrderController extends Controller
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado.")->withInput();
                 }
                 
-                // Validar que desde Pablo Rojas solo se despachen Cajas
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS && $product->tipo_medida !== 'caja') {
+                // Validar que desde bodegas que reciben contenedores solo se despachen Cajas
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id']) && $product->tipo_medida !== 'caja') {
                     DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde Pablo Rojas solo se pueden despachar productos medidos en Cajas.")->withInput();
+                    $warehouse = Warehouse::find($data['warehouse_from_id']);
+                    return back()->with('error', "Producto #" . ($index + 1) . ": Desde " . ($warehouse ? $warehouse->nombre : 'bodegas que reciben contenedores') . " solo se pueden despachar productos medidos en Cajas.")->withInput();
                 }
                 
                 // Calcular unidades a descontar
@@ -393,27 +431,81 @@ class TransferOrderController extends Controller
                     $unidadesADescontar = $productData['quantity'] * $product->unidades_por_caja;
                 }
                 
-                // Validar stock
-                if ($product->stock < $unidadesADescontar) {
-                    DB::rollBack();
-                    $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
-                        ? floor($product->stock / $product->unidades_por_caja) 
-                        : 0;
-                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas.")->withInput();
-                }
-                
-                // Si es desde Pablo Rojas, validar cajas en contenedor
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                // Validar stock según el tipo de bodega
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
+                    // Para bodegas que reciben contenedores, validar cajas en contenedor
                     $pivot = DB::table('container_product')
-                        ->where('container_id', $productData['container_id'])
-                        ->where('product_id', $productData['product_id'])
+                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                        ->where('container_product.container_id', $productData['container_id'])
+                        ->where('container_product.product_id', $productData['product_id'])
+                        ->where('containers.warehouse_id', $data['warehouse_from_id'])
+                        ->select('container_product.boxes')
                         ->lockForUpdate()
                         ->first();
                     
-                    if (!$pivot || $pivot->boxes < $productData['quantity']) {
+                    if (!$pivot) {
                         DB::rollBack();
-                        $cajasDisponibles = $pivot ? $pivot->boxes : 0;
-                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$cajasDisponibles} cajas.")->withInput();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
+                    }
+                    
+                    if ($pivot->boxes < $productData['quantity']) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                    }
+                } else {
+                    // Para otras bodegas, calcular stock desde transferencias recibidas menos salidas
+                    $stock = 0;
+                    
+                    // Sumar transferencias recibidas
+                    $receivedTransfers = TransferOrder::where('status', 'recibido')
+                        ->where('warehouse_to_id', $data['warehouse_from_id'])
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity');
+                        }])
+                        ->get();
+                    
+                    foreach ($receivedTransfers as $transfer) {
+                        $productInTransfer = $transfer->products->first();
+                        if ($productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
+                        }
+                    }
+                    
+                    // Descontar salidas
+                    $salidas = \App\Models\Salida::where('warehouse_id', $data['warehouse_from_id'])
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity');
+                        }])
+                        ->get();
+                    
+                    foreach ($salidas as $salida) {
+                        $productInSalida = $salida->products->first();
+                        if ($productInSalida) {
+                            $quantity = $productInSalida->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock -= $quantity;
+                        }
+                    }
+                    
+                    // Validar stock disponible
+                    if ($stock < $unidadesADescontar) {
+                        DB::rollBack();
+                        $cajasDisponibles = $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0 
+                            ? floor($stock / $product->unidades_por_caja) 
+                            : 0;
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$stock} unidades).")->withInput();
                     }
                 }
                 
@@ -432,12 +524,16 @@ class TransferOrderController extends Controller
                 return back()->with('error', "El conductor seleccionado no existe.")->withInput();
             }
             
+            // Obtener las ciudades de las bodegas
+            $warehouseFrom = Warehouse::find($data['warehouse_from_id']);
+            $warehouseTo = Warehouse::find($data['warehouse_to_id']);
+            
             // Actualizar la transferencia
             $transferOrder->update([
                 'warehouse_from_id' => $data['warehouse_from_id'],
                 'warehouse_to_id' => $data['warehouse_to_id'],
-                'salida' => $data['salida'],
-                'destino' => $data['destino'],
+                'salida' => $warehouseFrom->ciudad ?? $warehouseFrom->nombre,
+                'destino' => $warehouseTo->ciudad ?? $warehouseTo->nombre,
                 'note' => $data['note'] ?? null,
                 'driver_id' => $data['driver_id'],
             ]);
@@ -445,18 +541,17 @@ class TransferOrderController extends Controller
             // Descontar stock y asociar productos
             $syncData = [];
             foreach ($productsToAttach as $index => $item) {
-                // PASO 1: Descontar del contenedor (solo si es desde Pablo Rojas)
-                if ($data['warehouse_from_id'] == $ID_PABLO_ROJAS) {
+                // PASO 1: Descontar del contenedor (solo si es desde bodegas que reciben contenedores)
+                if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
                     DB::table('container_product')
                         ->where('container_id', $item['container_id'])
                         ->where('product_id', $item['product_id'])
                         ->decrement('boxes', $item['quantity']);
                 }
                 
-                // PASO 2: Descontar del stock del producto
-                DB::table('products')
-                    ->where('id', $item['product_id'])
-                    ->decrement('stock', $item['unidades_a_descontar']);
+                // PASO 2: Los productos son globales - el stock se calcula dinámicamente
+                // No necesitamos descontar del stock del producto aquí
+                // Solo descontamos del contenedor si es bodega que recibe contenedores (ya hecho arriba)
                 
                 $syncData[$item['product_id']] = [
                     'quantity' => $item['quantity'],
@@ -501,32 +596,18 @@ class TransferOrderController extends Controller
         
         DB::beginTransaction();
         try {
-            $ID_PABLO_ROJAS = 1;
-            
-            // Restaurar stock de productos
+            // Los productos son globales - restaurar solo las cajas del contenedor si es necesario
             foreach ($transferOrder->products as $product) {
                 $prod = Product::where('id', $product->id)
-                    ->where('almacen_id', $transferOrder->warehouse_from_id)
                     ->lockForUpdate()
                     ->first();
                 
-                if ($prod) {
-                    $unidadesARestaurar = $product->pivot->quantity;
-                    if ($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
-                        $unidadesARestaurar = $product->pivot->quantity * $prod->unidades_por_caja;
-                    }
-                    
-                    DB::table('products')
-                        ->where('id', $prod->id)
-                        ->increment('stock', $unidadesARestaurar);
-                    
-                    // Si es desde Pablo Rojas, restaurar también las cajas del contenedor
-                    if ($transferOrder->warehouse_from_id == $ID_PABLO_ROJAS && $product->pivot->container_id) {
+                // Si es desde bodegas que reciben contenedores, restaurar las cajas del contenedor
+                if ($prod && Warehouse::bodegaRecibeContenedores($transferOrder->warehouse_from_id) && $product->pivot->container_id) {
                         DB::table('container_product')
                             ->where('container_id', $product->pivot->container_id)
                             ->where('product_id', $product->id)
                             ->increment('boxes', $product->pivot->quantity);
-                    }
                 }
             }
             
@@ -552,8 +633,6 @@ class TransferOrderController extends Controller
     public function confirmReceived(TransferOrder $transferOrder)
     {
         $user = Auth::user();
-        $ID_PABLO_ROJAS = 1;
-        
         // Solo se puede confirmar si la transferencia está en tránsito
         if ($transferOrder->status !== 'en_transito') {
             return redirect()->route('transfer-orders.index')->with('error', 'Esta transferencia ya fue procesada.');
@@ -566,42 +645,14 @@ class TransferOrderController extends Controller
         
         DB::beginTransaction();
         try {
-            foreach ($transferOrder->products as $product) {
-                // Buscar si ya existe un producto con el mismo código en la bodega destino
-                $existingProduct = Product::where('codigo', $product->codigo)
-                    ->where('almacen_id', $transferOrder->warehouse_to_id)
-                    ->first();
-                
-                if ($existingProduct) {
-                    // Si existe, actualizar el stock
-                    $quantity = $product->pivot->quantity;
-                    if ($existingProduct->tipo_medida === 'caja' && $existingProduct->unidades_por_caja > 0) {
-                        $quantity = $product->pivot->quantity * $existingProduct->unidades_por_caja;
-                    }
-                    
-                    DB::table('products')
-                        ->where('id', $existingProduct->id)
-                        ->increment('stock', $quantity);
-                } else {
-                    // Si no existe, crear un nuevo producto
-                    $newProduct = Product::create([
-                        'codigo' => $product->codigo,
-                        'nombre' => $product->nombre,
-                        'medidas' => $product->medidas,
-                        'tipo_medida' => $product->tipo_medida,
-                        'unidades_por_caja' => $product->unidades_por_caja,
-                        'stock' => $product->pivot->quantity * ($product->unidades_por_caja ?? 1),
-                        'almacen_id' => $transferOrder->warehouse_to_id,
-                        'estado' => true,
-                        'precio' => $product->precio ?? 0,
-                    ]);
-                }
-            }
+            // Los productos ahora son globales, no necesitamos crear productos en la bodega destino
+            // El stock se calculará dinámicamente desde las transferencias recibidas
+            // Solo marcamos la transferencia como recibida
             
             $transferOrder->update(['status' => 'recibido']);
             
             DB::commit();
-            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia confirmada correctamente.');
+            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia confirmada correctamente. El stock se calculará automáticamente desde las transferencias recibidas.');
             
         } catch (\Exception $e) {
             DB::rollBack();
@@ -631,5 +682,153 @@ class TransferOrderController extends Controller
     {
         $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
         return view('transfer-orders.pdf', compact('transferOrder', 'showSignatures'));
+    }
+
+    /**
+     * Obtener productos disponibles en una bodega específica
+     */
+    public function getProductsForWarehouse(Request $request, $warehouseId)
+    {
+        $warehouse = Warehouse::findOrFail($warehouseId);
+        $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+        
+        // Obtener todos los productos globales
+        $allProducts = Product::whereNull('almacen_id')
+            ->with(['containers' => function($query) use ($warehouseId) {
+                $query->where('warehouse_id', $warehouseId);
+            }])
+            ->orderBy('nombre')
+            ->get();
+        
+        $productsWithStock = [];
+        
+        foreach ($allProducts as $product) {
+            $stock = 0;
+            
+            if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+                // Bodega que recibe contenedores: stock desde container_product
+                $containerProducts = DB::table('container_product')
+                    ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                    ->where('container_product.product_id', $product->id)
+                    ->where('containers.warehouse_id', $warehouseId)
+                    ->select('container_product.boxes', 'container_product.sheets_per_box')
+                    ->get();
+                
+                foreach ($containerProducts as $cp) {
+                    $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                }
+            } else {
+                // Otra bodega: stock desde transferencias recibidas menos salidas
+                $receivedTransfers = TransferOrder::where('status', 'recibido')
+                    ->where('warehouse_to_id', $warehouseId)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                foreach ($receivedTransfers as $transfer) {
+                    $productInTransfer = $transfer->products->first();
+                    if ($productInTransfer) {
+                        $quantity = $productInTransfer->pivot->quantity;
+                        // Si es tipo caja, convertir a unidades
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock += $quantity;
+                    }
+                }
+                
+                // Descontar salidas
+                $salidas = \App\Models\Salida::where('warehouse_id', $warehouseId)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                foreach ($salidas as $salida) {
+                    $productInSalida = $salida->products->first();
+                    if ($productInSalida) {
+                        $quantity = $productInSalida->pivot->quantity;
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock -= $quantity;
+                    }
+                }
+            }
+            
+            // Solo incluir productos con stock > 0
+            if ($stock > 0) {
+                // Obtener contenedores relacionados con este producto en esta bodega
+                $containers = [];
+                if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+                    $containerProducts = DB::table('container_product')
+                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                        ->where('container_product.product_id', $product->id)
+                        ->where('containers.warehouse_id', $warehouseId)
+                        ->where('container_product.boxes', '>', 0)
+                        ->select('containers.id', 'containers.reference')
+                        ->distinct()
+                        ->get();
+                    
+                    foreach ($containerProducts as $cp) {
+                        $containers[] = [
+                            'id' => $cp->id,
+                            'reference' => $cp->reference
+                        ];
+                    }
+                } else {
+                    // Para otras bodegas, obtener contenedores de transferencias recibidas
+                    $transfers = TransferOrder::where('status', 'recibido')
+                        ->where('warehouse_to_id', $warehouseId)
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('container_id');
+                        }])
+                        ->get();
+                    
+                    $containerIds = [];
+                    foreach ($transfers as $transfer) {
+                        $productInTransfer = $transfer->products->first();
+                        if ($productInTransfer && $productInTransfer->pivot->container_id) {
+                            $containerIds[] = $productInTransfer->pivot->container_id;
+                        }
+                    }
+                    
+                    if (!empty($containerIds)) {
+                        $containersData = \App\Models\Container::whereIn('id', array_unique($containerIds))
+                            ->select('id', 'reference')
+                            ->get();
+                        
+                        foreach ($containersData as $container) {
+                            $containers[] = [
+                                'id' => $container->id,
+                                'reference' => $container->reference
+                            ];
+                        }
+                    }
+                }
+                
+                $productsWithStock[] = [
+                    'id' => $product->id,
+                    'nombre' => $product->nombre,
+                    'codigo' => $product->codigo,
+                    'tipo_medida' => $product->tipo_medida,
+                    'unidades_por_caja' => $product->unidades_por_caja,
+                    'stock' => max(0, $stock),
+                    'containers' => $containers
+                ];
+            }
+        }
+        
+        return response()->json($productsWithStock);
     }
 }

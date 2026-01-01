@@ -26,43 +26,6 @@
     .inventory-table tr:hover {
         background: #f1f7ff;
     }
-    .low-stock {
-        background: #ffdddd;
-        color: #d60000;
-        font-weight: bold;
-        padding: 4px 8px;
-        border-radius: 5px;
-    }
-    .ok-stock {
-        background: #ddffdd;
-        color: #007b00;
-        font-weight: bold;
-        padding: 4px 8px;
-        border-radius: 5px;
-    }
-    .actions button {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        margin-right: 6px;
-    }
-    .btn-edit {
-        background: #1d7ff0;
-        color: white;
-    }
-    .btn-delete {
-        background: #ffb3b3;
-        color: #b30000;
-    }
-    .btn-view {
-        background: #e6e6e6;
-        color: #333;
-    }
-    .actions button:hover {
-        opacity: 0.85;
-    }
 </style>
 
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
@@ -127,138 +90,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Medidas</th>
-                <th>Contenedor</th>
-                <th>Cajas</th>
-                <th>Laminas</th>
-                <th>Bodega</th>
                 <th>Estado</th>
-                @if(isset($canCreateProducts) && $canCreateProducts)
-                <th>Acciones</th>
-                @endif
             </tr>
         </thead>
         <tbody>
-        @foreach($productos as $producto)
-@php
-    // Asegurar que el producto tenga los datos más recientes
-    $producto->refresh();
-    // Calcular cajas para verificar bajo stock
-    $cajasReales = null;
-    $bajoStock = false;
-    if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-        $cajasReales = floor($producto->stock / $producto->unidades_por_caja);
-        $bajoStock = $cajasReales <= 5 && $cajasReales >= 0; // Bajo stock si tiene 5 o menos cajas
-    }
-@endphp
-<tr @if($bajoStock) style="background-color: #fff3cd; border-left: 4px solid #ffc107;" @endif>
-    <td>{{ $producto->codigo }}</td>
-    <td>{{ $producto->nombre }}</td>
-    <td>{{ $producto->medidas ?? '-' }}</td>
-    <td>
-        @php
-            $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($producto->id) 
-                ? $productosCantidadesPorContenedor->get($producto->id) 
-                : collect();
-        @endphp
-        @php
-            $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($producto->id) 
-                ? $productosCantidadesPorContenedor->get($producto->id) 
-                : collect();
-        @endphp
-        @if(isset($ID_PABLO_ROJAS) && $producto->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
-            {{-- Si hay múltiples contenedores, mostrar cada uno en una línea --}}
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-                @foreach($cantidadesPorContenedor as $containerData)
-                    <span style="font-size: 13px;">{{ $containerData['container_reference'] }}</span>
-                @endforeach
-            </div>
-        @else
-            {{-- Si hay un solo contenedor o no hay desglose, mostrar el contenedor normal --}}
-            @php
-                // Contenedores directos del producto (solo para Pablo Rojas)
-                $directContainers = $producto->containers;
-                // Contenedores de origen desde transferencias recibidas
-                $transferContainers = isset($productosContenedoresOrigen) && $productosContenedoresOrigen->has($producto->id) 
-                    ? $productosContenedoresOrigen->get($producto->id) 
-                    : collect();
-                // Combinar ambos (sin duplicados)
-                $allContainers = $directContainers->merge($transferContainers)->unique('id');
-            @endphp
-            @if($allContainers->count() > 0)
-                <span style="font-size: 13px;">{{ $allContainers->first()->reference }}</span>
-            @else
-                <span style="color: #999; font-style: italic;">-</span>
-            @endif
-        @endif
-    </td>
-    <td>
-        @php
-            $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($producto->id) 
-                ? $productosCantidadesPorContenedor->get($producto->id) 
-                : collect();
-            // Reutilizar el cálculo de cajas ya hecho arriba
-        @endphp
-        @if($producto->tipo_medida === 'caja' && $cajasReales !== null)
-            @if(isset($ID_PABLO_ROJAS) && $producto->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
-                {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    @foreach($cantidadesPorContenedor as $containerData)
-                        <div style="font-size: 13px;">
-                            {{ number_format($containerData['cajas'], 0) }} cajas
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                {{-- Si hay un solo contenedor o no hay desglose, mostrar el total --}}
-                <strong @if($bajoStock) style="color: #d32f2f; font-weight: bold;" @endif>{{ number_format($cajasReales, 0) }} cajas</strong>
-                @if($bajoStock)
-                    <span style="color: #d32f2f; font-size: 11px; margin-left: 5px;" title="Bajo stock: 5 o menos cajas">⚠️</span>
+        @forelse($productos as $producto)
+        <tr>
+            <td>{{ $producto->codigo }}</td>
+            <td><strong>{{ $producto->nombre }}</strong></td>
+            <td>{{ $producto->medidas ?? '-' }}</td>
+            <td>
+                @if($producto->estado)
+                    <span style="color: #28a745; font-weight: 500;">Activo</span>
+                @else
+                    <span style="color: #dc3545; font-weight: 500;">Inactivo</span>
                 @endif
-            @endif
-        @else
-            -
-        @endif
-    </td>
-    <td>
-        {{-- Para Pablo Rojas: mostrar stock real y cantidades por contenedor como referencia --}}
-        {{-- Para otras bodegas: solo mostrar stock real (ya descontado por salidas) --}}
-        @if(isset($ID_PABLO_ROJAS) && $producto->almacen_id == $ID_PABLO_ROJAS && $cantidadesPorContenedor->count() > 1)
-            {{-- Si hay múltiples contenedores, mostrar solo las cantidades sin el nombre del contenedor --}}
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-                @foreach($cantidadesPorContenedor as $containerData)
-                    <div style="font-size: 13px;">
-                        {{ number_format($containerData['laminas'], 0) }} láminas
-                    </div>
-                @endforeach
-            </div>
-        @else
-            {{-- Si hay un solo contenedor o no hay desglose, mostrar el total --}}
-            <strong>{{ number_format($producto->stock, 0) }} láminas</strong>
-        @endif
-    </td>
-    <td>{{ $producto->almacen->nombre ?? '-' }}</td>
-    <td>{{ $producto->estado ? 'Activo' : 'Inactivo' }}</td>
-    @if(isset($canCreateProducts) && $canCreateProducts)
-    <td class="actions">
-        @if(isset($ID_PABLO_ROJAS) && $producto->almacen_id == $ID_PABLO_ROJAS)
-            <form action="{{ route('products.edit', $producto) }}" method="GET" style="display:inline">
-                <button type="submit" class="btn-edit" style="margin-right:7px;">Editar</button>
-            </form>
-        @endif
-        @if(isset($productosConTransferencias) && $productosConTransferencias->get($producto->id))
-            <span style="color: #999; font-size: 12px; font-style: italic;" title="Este producto tiene historial de transferencias recibidas. Solo puede desactivarse, no eliminarse.">
-                <i class="bi bi-info-circle"></i> Desactivar
-            </span>
-        @elseif(isset($ID_PABLO_ROJAS) && $producto->almacen_id == $ID_PABLO_ROJAS)
-            <form action="{{ route('products.destroy', $producto) }}" method="POST" style="display:inline">
-                @csrf @method('DELETE')
-                <button type="submit" class="btn-delete">Eliminar</button>
-            </form>
-        @endif
-    </td>
-    @endif
-</tr>
-@endforeach
+            </td>
+        </tr>
+        @empty
+        <tr>
+            <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
+                <i class="bi bi-box" style="font-size: 3em; display: block; margin-bottom: 10px;"></i>
+                <div>No hay productos registrados</div>
+            </td>
+        </tr>
+        @endforelse
         </tbody>
       </table>
     </div>
@@ -287,28 +143,5 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
     
-    // Confirmación de eliminación
-    document.querySelectorAll('form[action*="products"').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            if (form.querySelector('.btn-delete')) {
-                e.preventDefault();
-                Swal.fire({
-                  title: '¿Seguro que deseas eliminar este producto?',
-                  text: 'Esta acción no se puede deshacer.',
-                  icon: 'warning',
-                  showCancelButton: true,
-                  confirmButtonColor: '#d33',
-                  cancelButtonColor: '#3085d6',
-                  confirmButtonText: 'Sí, eliminar',
-                  cancelButtonText: 'Cancelar',
-                  reverseButtons: true
-                }).then((result) => {
-                  if (result.isConfirmed) {
-                    form.submit();
-                  }
-                });
-            }
-        });
-    });
 });
 </script>

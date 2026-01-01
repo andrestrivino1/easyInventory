@@ -125,23 +125,8 @@
       <script>Swal.fire({icon:'error',title:'Error',text:'{{ $errors->first() }}',toast:true,position:'top-end',showConfirmButton:false,timer:3500})</script>
       @endif
       <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
-        <strong>Nota:</strong> El stock y las unidades por caja se asignarán cuando agregues este producto a un contenedor.
+        <strong>Nota:</strong> Los productos ahora son globales y se mostrarán en todas las bodegas. El stock se asignará automáticamente cuando se agreguen a contenedores (bodegas de Buenaventura) o cuando se reciban transferencias (otras bodegas).
       </div>
-      <label for="almacen_id">Bodega*</label>
-      @if($user->rol === 'admin')
-      <select name="almacen_id" id="almacen_id" required>
-        <option value="">Seleccione una bodega</option>
-        @foreach($warehouses as $almacen)
-          <option value="{{ $almacen->id }}" {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
-        @endforeach
-      </select>
-      @else
-      <input type="hidden" name="almacen_id" value="{{ $user->almacen_id }}">
-      <div style="margin-bottom:15px; padding:10px 14px; background:#f4f4f8; border-radius:5px; color:#333; font-size:14px;">
-        {{ $user->almacen->nombre ?? 'Bodega asignada' }}
-      </div>
-      @endif
-      @error('almacen_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="nombre">Nombre*</label>
       <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del producto" value="{{ old('nombre') }}" required>
@@ -151,12 +136,6 @@
       <input type="text" name="medidas" id="medidas" class="@error('medidas') is-invalid @enderror" placeholder="Ej: 100cm x 50cm x 2cm" value="{{ old('medidas') }}">
       @error('medidas') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-      <label for="tipo_medida">Tipo de medida*</label>
-      <select name="tipo_medida" id="tipo_medida" required>
-        <option value="unidad">Unidades</option>
-        <option value="caja" {{ old('tipo_medida') == 'caja' ? 'selected' : '' }}>Cajas</option>
-      </select>
-      @error('tipo_medida') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
       <label for="estado">Estado</label>
       <select name="estado" id="estado">
@@ -172,30 +151,3 @@
 </div>
 @endsection
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var wh = document.getElementById('almacen_id');
-  var tipoSelect = document.getElementById('tipo_medida');
-  if(wh && tipoSelect){
-    wh.addEventListener('change', function() {
-      var pabloRojasOption = null;
-      for(let opt of wh.options) {
-        if(opt.innerText.trim().toLowerCase() === 'pablo rojas' && opt.value) pabloRojasOption = opt.value;
-      }
-      if (wh.value === pabloRojasOption) {
-        if(tipoSelect.value !== 'caja') {
-        tipoSelect.value = 'caja';
-          if(typeof Swal !== 'undefined') {
-            Swal.fire({icon:'info',title:'Solo se permiten Cajas en Pablo Rojas',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
-          }
-        }
-        tipoSelect.options[0].disabled = true;
-      } else {
-        tipoSelect.options[0].disabled = false;
-      }
-    });
-    // Ejecutar al cargar
-    wh.dispatchEvent(new Event('change'));
-  }
-});
-</script>

@@ -106,15 +106,6 @@
       @if(session('error'))
         <div class="alert alert-danger" style="margin-bottom:15px;">{{ session('error') }}</div>
       @endif
-      <label for="almacen_id">Bodega*</label>
-      <select name="almacen_id" id="almacen_id" required>
-        <option value="">Seleccione una bodega</option>
-        @foreach($warehouses as $almacen)
-            <option value="{{ $almacen->id }}" {{ old('almacen_id', $product->almacen_id ?? '') == $almacen->id ? 'selected' : '' }}>{{ $almacen->nombre }}</option>
-        @endforeach
-      </select>
-      @error('almacen_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
       <label for="nombre">Nombre*</label>
       <input type="text" name="nombre" id="nombre" class="@error('nombre') is-invalid @enderror" placeholder="Nombre del producto" value="{{ old('nombre', $product->nombre) }}" required>
       @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
@@ -123,15 +114,8 @@
       <input type="text" name="medidas" id="medidas" class="@error('medidas') is-invalid @enderror" placeholder="Ej: 100cm x 50cm x 2cm" value="{{ old('medidas', $product->medidas) }}">
       @error('medidas') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-      <label for="tipo_medida">Tipo de medida*</label>
-      <select name="tipo_medida" id="tipo_medida" required>
-        <option value="unidad" {{ (old('tipo_medida', $product->tipo_medida)==='unidad') ? 'selected' : '' }}>Unidades</option>
-        <option value="caja" {{ (old('tipo_medida', $product->tipo_medida)==='caja') ? 'selected' : '' }}>Cajas</option>
-      </select>
-      @error('tipo_medida') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
       <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
-        <strong>Nota:</strong> El stock y las unidades por caja se gestionan desde los contenedores asociados.
+        <strong>Nota:</strong> Los productos son globales y se muestran en todas las bodegas. El tipo de medida y stock se definen automáticamente cuando se agregan a contenedores o se reciben por transferencias.
         @if($product->containers->count() > 0)
           <br><strong>Contenedores asociados:</strong> {{ $product->containers->pluck('reference')->join(', ') }}
         @endif
@@ -151,30 +135,3 @@
 </div>
 @endsection
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var wh = document.getElementById('almacen_id');
-    var tipoSelect = document.getElementById('tipo_medida');
-  if(wh && tipoSelect){
-    wh.addEventListener('change', function() {
-    var pabloRojasOption = null;
-    for(let opt of wh.options) {
-        if(opt.innerText.trim().toLowerCase() === 'pablo rojas' && opt.value) pabloRojasOption = opt.value;
-    }
-    if (wh.value === pabloRojasOption) {
-        if(tipoSelect.value !== 'caja') {
-            tipoSelect.value = 'caja';
-          if(typeof Swal !== 'undefined') {
-            Swal.fire({icon:'info',title:'Solo se permiten Cajas en Pablo Rojas',toast:true,position:'top-end',showConfirmButton:false,timer:2000});
-        }
-        }
-        tipoSelect.options[0].disabled = true;
-    } else {
-        tipoSelect.options[0].disabled = false;
-      }
-    });
-    // Ejecutar al cargar
-    wh.dispatchEvent(new Event('change'));
-  }
-});
-</script>

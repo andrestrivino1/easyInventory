@@ -119,8 +119,8 @@
         @forelse($transferOrders as $transfer)
             <tr>
                 <td>{{ $transfer->order_number }}</td>
-                <td>{{ $transfer->from->nombre ?? '-' }}</td>
-                <td>{{ $transfer->to->nombre ?? '-' }}</td>
+                <td>{{ $transfer->from->nombre ?? '-' }}{{ $transfer->from && $transfer->from->ciudad ? ' - ' . $transfer->from->ciudad : '' }}</td>
+                <td>{{ $transfer->to->nombre ?? '-' }}{{ $transfer->to && $transfer->to->ciudad ? ' - ' . $transfer->to->ciudad : '' }}</td>
                 <td>
                     @if($transfer->status == 'en_transito')
                       <span style="background:#ffc107;color:#212529;border-radius:5px;padding:3px 10px;font-size:13px;">En tránsito</span>

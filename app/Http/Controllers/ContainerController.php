@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Container;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class ContainerController extends Controller
 {
     public function index() {
-        $containers = Container::with('products')->orderByDesc('id')->get();
+        $containers = Container::with(['products', 'warehouse'])->orderByDesc('id')->get();
         return view('containers.index', compact('containers'));
     }
     public function create() {
@@ -20,12 +21,15 @@ class ContainerController extends Controller
         if ($user->rol === 'funcionario') {
             return redirect()->route('containers.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
-        // Solo mostrar productos de Pablo Rojas (bodega ID 1) ya que los contenedores solo existen allí
-        $ID_PABLO_ROJAS = 1;
-        $products = \App\Models\Product::where('almacen_id', $ID_PABLO_ROJAS)
+        // Mostrar todos los productos globales
+        $products = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
             ->get();
-        return view('containers.create', compact('products'));
+        // Mostrar solo bodegas que reciben contenedores
+        $warehouses = Warehouse::whereIn('id', Warehouse::getBodegasQueRecibenContenedores())
+            ->orderBy('nombre')
+            ->get();
+        return view('containers.create', compact('products', 'warehouses'));
     }
     public function store(Request $request) {
         $user = Auth::user();
@@ -38,16 +42,23 @@ class ContainerController extends Controller
         $data = $request->validate([
             'reference' => 'required|string|max:100|unique:containers,reference',
             'note' => 'nullable|string|max:255',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.boxes' => 'required|integer|min:0',
             'products.*.sheets_per_box' => 'required|integer|min:1',
         ]);
         
+        // Validar que la bodega seleccionada recibe contenedores
+        if (!Warehouse::bodegaRecibeContenedores($data['warehouse_id'])) {
+            return back()->withInput()->with('error', 'Solo se pueden asignar contenedores a bodegas que reciben contenedores (Buenaventura/Pablo Rojas).');
+        }
+        
         // Crear el contenedor
         $container = Container::create([
             'reference' => $data['reference'],
             'note' => $data['note'] ?? null,
+            'warehouse_id' => $data['warehouse_id'],
         ]);
         
         // Asociar productos con sus cajas y láminas por caja
@@ -61,23 +72,21 @@ class ContainerController extends Controller
         
         $container->products()->sync($syncData);
         
-        // Actualizar stock de productos
+        // Actualizar tipo_medida y unidades_por_caja de productos
+        // Los productos en contenedores siempre son tipo "caja"
         foreach ($data['products'] as $productData) {
             $product = \App\Models\Product::find($productData['product_id']);
             if ($product) {
-                $totalSheets = $productData['boxes'] * $productData['sheets_per_box'];
-                $product->stock += $totalSheets;
-                
-                // Si el producto es tipo caja, actualizar unidades_por_caja
-                if ($product->tipo_medida === 'caja' && $productData['sheets_per_box'] > 0) {
+                // Establecer tipo_medida como "caja" y actualizar unidades_por_caja
+                $product->tipo_medida = 'caja';
+                if ($productData['sheets_per_box'] > 0) {
                     $product->unidades_por_caja = $productData['sheets_per_box'];
                 }
-                
                 $product->save();
             }
         }
         
-        return redirect()->route('containers.index')->with('success','Contenedor creado correctamente y productos actualizados.');
+        return redirect()->route('containers.index')->with('success','Contenedor creado correctamente. El stock se calculará automáticamente desde los contenedores.');
     }
     public function edit(Container $container) {
         $user = Auth::user();
@@ -88,12 +97,15 @@ class ContainerController extends Controller
         }
         
         $container->load('products');
-        // Solo mostrar productos de Pablo Rojas (bodega ID 1) ya que los contenedores solo existen allí
-        $ID_PABLO_ROJAS = 1;
-        $products = \App\Models\Product::where('almacen_id', $ID_PABLO_ROJAS)
+        // Mostrar todos los productos globales
+        $products = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
             ->get();
-        return view('containers.edit', compact('container', 'products'));
+        // Mostrar solo bodegas que reciben contenedores
+        $warehouses = Warehouse::whereIn('id', Warehouse::getBodegasQueRecibenContenedores())
+            ->orderBy('nombre')
+            ->get();
+        return view('containers.edit', compact('container', 'products', 'warehouses'));
     }
     public function update(Request $request, Container $container) {
         $user = Auth::user();
@@ -112,17 +124,6 @@ class ContainerController extends Controller
             'products.*.sheets_per_box' => 'required|integer|min:1',
         ]);
         
-        // Restaurar stock de productos anteriores
-        foreach ($container->products as $oldProduct) {
-            $pivot = $oldProduct->pivot;
-            $totalSheets = $pivot->boxes * $pivot->sheets_per_box;
-            $product = \App\Models\Product::find($oldProduct->id);
-            if ($product && $product->stock >= $totalSheets) {
-                $product->stock -= $totalSheets;
-                $product->save();
-            }
-        }
-        
         // Actualizar contenedor
         $container->update([
             'reference' => $data['reference'],
@@ -139,22 +140,18 @@ class ContainerController extends Controller
         }
         $container->products()->sync($syncData);
         
-        // Actualizar stock de productos nuevos
+        // Actualizar unidades_por_caja de productos (el stock se calcula dinámicamente desde contenedores)
         foreach ($data['products'] as $productData) {
             $product = \App\Models\Product::find($productData['product_id']);
             if ($product) {
-                $totalSheets = $productData['boxes'] * $productData['sheets_per_box'];
-                $product->stock += $totalSheets;
-                
                 if ($product->tipo_medida === 'caja' && $productData['sheets_per_box'] > 0) {
                     $product->unidades_por_caja = $productData['sheets_per_box'];
+                    $product->save();
                 }
-                
-                $product->save();
             }
         }
         
-        return redirect()->route('containers.index')->with('success','Contenedor actualizado correctamente.');
+        return redirect()->route('containers.index')->with('success','Contenedor actualizado correctamente. El stock se calculará automáticamente desde los contenedores.');
     }
     public function destroy(Container $container) {
         $user = Auth::user();
@@ -164,18 +161,9 @@ class ContainerController extends Controller
             return redirect()->route('containers.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        // Restaurar stock de productos antes de eliminar
-        foreach ($container->products as $product) {
-            $pivot = $product->pivot;
-            $totalSheets = $pivot->boxes * $pivot->sheets_per_box;
-            $prod = \App\Models\Product::find($product->id);
-            if ($prod && $prod->stock >= $totalSheets) {
-                $prod->stock -= $totalSheets;
-                $prod->save();
-            }
-        }
+        // El stock se calcula dinámicamente desde contenedores, no necesitamos restaurarlo
         $container->delete();
-        return redirect()->route('containers.index')->with('success','Contenedor eliminado correctamente y stock restaurado.');
+        return redirect()->route('containers.index')->with('success','Contenedor eliminado correctamente. El stock se actualizará automáticamente.');
     }
 
     public function export(Container $container)
