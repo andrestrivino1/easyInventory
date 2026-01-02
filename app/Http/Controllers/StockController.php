@@ -20,22 +20,57 @@ class StockController extends Controller
         $selectedWarehouseId = $request->get('warehouse_id');
         
         // Obtener bodegas según el rol del usuario
-        if (in_array($user->rol, ['admin', 'secretaria'])) {
-            // Admin y secretaria ven todas las bodegas
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            // Admin y funcionario ven todas las bodegas
             $warehouses = Warehouse::orderBy('nombre')->get();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario ve solo sus bodegas asociadas
-            $warehouses = $user->almacenes()->orderBy('nombre')->get();
+            // Funcionario ve todas las bodegas (como secretaria)
+            $warehouses = Warehouse::orderBy('nombre')->get();
             // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
             if (!$selectedWarehouseId && $warehouses->count() > 0) {
                 $selectedWarehouseId = $warehouses->first()->id;
             }
-            // Validar que la bodega seleccionada pertenezca a las bodegas del usuario
-            if ($selectedWarehouseId && !$warehouses->pluck('id')->contains($selectedWarehouseId)) {
+            // Validar que la bodega seleccionada sea de Buenaventura
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasBuenaventuraIds)) {
+                $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
+            }
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven sus bodegas asignadas + bodegas de Buenaventura que les hicieron transferencias
+            $bodegasAsignadas = $user->almacenes()->get();
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            
+            // Obtener bodegas de Buenaventura que les hicieron transferencias recibidas
+            $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+            if (!empty($bodegasAsignadasIds)) {
+                $bodegasBuenaventuraConTransferencias = \App\Models\TransferOrder::whereIn('warehouse_from_id', $bodegasBuenaventuraIds)
+                    ->whereIn('warehouse_to_id', $bodegasAsignadasIds)
+                    ->where('status', 'recibido')
+                    ->distinct()
+                    ->pluck('warehouse_from_id')
+                    ->toArray();
+                
+                $bodegasBuenaventuraVisibles = Warehouse::whereIn('id', $bodegasBuenaventuraConTransferencias)
+                    ->orderBy('nombre')
+                    ->get();
+            } else {
+                $bodegasBuenaventuraVisibles = collect();
+            }
+            
+            // Combinar bodegas asignadas + bodegas de Buenaventura con transferencias
+            $warehouses = $bodegasAsignadas->merge($bodegasBuenaventuraVisibles)->unique('id')->sortBy('nombre')->values();
+            
+            // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
+            if (!$selectedWarehouseId && $warehouses->count() > 0) {
+                $selectedWarehouseId = $warehouses->first()->id;
+            }
+            // Validar que la bodega seleccionada esté en las bodegas visibles
+            $bodegasVisiblesIds = $warehouses->pluck('id')->toArray();
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasVisiblesIds)) {
                 $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
             }
         } else {
-            // Clientes ven solo su bodega
+            // Otros roles ven solo su bodega (mantener compatibilidad)
             $warehouses = collect();
             if ($user->almacen_id) {
                 $warehouses = collect([$user->almacen]);
@@ -89,13 +124,37 @@ class StockController extends Controller
         foreach ($containerProductData as $cp) {
             $product = $allProducts->firstWhere('id', $cp->product_id);
             if ($product) {
+                // Calcular stock real descontando salidas
+                $stockInicial = $cp->boxes * $cp->sheets_per_box;
+                
+                // Descontar salidas de esta bodega para este producto
+                $salidas = Salida::where('warehouse_id', $cp->warehouse_id)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                $salidasDescontadas = 0;
+                foreach ($salidas as $salida) {
+                    $productInSalida = $salida->products->first();
+                    if ($productInSalida) {
+                        // Las salidas ya se guardan en láminas (unidades)
+                        $salidasDescontadas += $productInSalida->pivot->quantity;
+                    }
+                }
+                
+                $stockFinal = max(0, $stockInicial - $salidasDescontadas);
+                
                 // Crear un objeto producto con información del contenedor
                 $productCopy = clone $product;
                 $productCopy->container_id = $cp->container_id;
                 $productCopy->container_reference = $cp->reference;
                 $productCopy->container_warehouse_id = $cp->warehouse_id;
                 $productCopy->cajas_en_contenedor = $cp->boxes;
-                $productCopy->laminas_en_contenedor = $cp->boxes * $cp->sheets_per_box;
+                $productCopy->laminas_en_contenedor = $stockFinal; // Stock después de descontar salidas
                 $productsWithContainers->push($productCopy);
             }
         }
@@ -185,22 +244,57 @@ class StockController extends Controller
         $selectedWarehouseId = $request->get('warehouse_id');
         
         // Obtener bodegas según el rol del usuario
-        if (in_array($user->rol, ['admin', 'secretaria'])) {
-            // Admin y secretaria ven todas las bodegas
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            // Admin y funcionario ven todas las bodegas
             $warehouses = Warehouse::orderBy('nombre')->get();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario ve solo sus bodegas asociadas
-            $warehouses = $user->almacenes()->orderBy('nombre')->get();
+            // Funcionario ve todas las bodegas (como secretaria)
+            $warehouses = Warehouse::orderBy('nombre')->get();
             // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
             if (!$selectedWarehouseId && $warehouses->count() > 0) {
                 $selectedWarehouseId = $warehouses->first()->id;
             }
-            // Validar que la bodega seleccionada pertenezca a las bodegas del usuario
-            if ($selectedWarehouseId && !$warehouses->pluck('id')->contains($selectedWarehouseId)) {
+            // Validar que la bodega seleccionada sea de Buenaventura
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasBuenaventuraIds)) {
+                $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
+            }
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven sus bodegas asignadas + bodegas de Buenaventura que les hicieron transferencias
+            $bodegasAsignadas = $user->almacenes()->get();
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            
+            // Obtener bodegas de Buenaventura que les hicieron transferencias recibidas
+            $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+            if (!empty($bodegasAsignadasIds)) {
+                $bodegasBuenaventuraConTransferencias = \App\Models\TransferOrder::whereIn('warehouse_from_id', $bodegasBuenaventuraIds)
+                    ->whereIn('warehouse_to_id', $bodegasAsignadasIds)
+                    ->where('status', 'recibido')
+                    ->distinct()
+                    ->pluck('warehouse_from_id')
+                    ->toArray();
+                
+                $bodegasBuenaventuraVisibles = Warehouse::whereIn('id', $bodegasBuenaventuraConTransferencias)
+                    ->orderBy('nombre')
+                    ->get();
+            } else {
+                $bodegasBuenaventuraVisibles = collect();
+            }
+            
+            // Combinar bodegas asignadas + bodegas de Buenaventura con transferencias
+            $warehouses = $bodegasAsignadas->merge($bodegasBuenaventuraVisibles)->unique('id')->sortBy('nombre')->values();
+            
+            // Si no hay bodega seleccionada y tiene bodegas, seleccionar la primera
+            if (!$selectedWarehouseId && $warehouses->count() > 0) {
+                $selectedWarehouseId = $warehouses->first()->id;
+            }
+            // Validar que la bodega seleccionada esté en las bodegas visibles
+            $bodegasVisiblesIds = $warehouses->pluck('id')->toArray();
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasVisiblesIds)) {
                 $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
             }
         } else {
-            // Clientes ven solo su bodega
+            // Otros roles ven solo su bodega (mantener compatibilidad)
             $warehouses = collect();
             if ($user->almacen_id) {
                 $warehouses = collect([$user->almacen]);
@@ -254,13 +348,37 @@ class StockController extends Controller
         foreach ($containerProductData as $cp) {
             $product = $allProducts->firstWhere('id', $cp->product_id);
             if ($product) {
+                // Calcular stock real descontando salidas
+                $stockInicial = $cp->boxes * $cp->sheets_per_box;
+                
+                // Descontar salidas de esta bodega para este producto
+                $salidas = Salida::where('warehouse_id', $cp->warehouse_id)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                $salidasDescontadas = 0;
+                foreach ($salidas as $salida) {
+                    $productInSalida = $salida->products->first();
+                    if ($productInSalida) {
+                        // Las salidas ya se guardan en láminas (unidades)
+                        $salidasDescontadas += $productInSalida->pivot->quantity;
+                    }
+                }
+                
+                $stockFinal = max(0, $stockInicial - $salidasDescontadas);
+                
                 // Crear un objeto producto con información del contenedor
                 $productCopy = clone $product;
                 $productCopy->container_id = $cp->container_id;
                 $productCopy->container_reference = $cp->reference;
                 $productCopy->container_warehouse_id = $cp->warehouse_id;
                 $productCopy->cajas_en_contenedor = $cp->boxes;
-                $productCopy->laminas_en_contenedor = $cp->boxes * $cp->sheets_per_box;
+                $productCopy->laminas_en_contenedor = $stockFinal; // Stock después de descontar salidas
                 $productsWithContainers->push($productCopy);
             }
         }
@@ -806,10 +924,9 @@ class StockController extends Controller
                 foreach ($salidas as $salida) {
                     $productInSalida = $salida->products->first();
                     if ($productInSalida) {
+                        // Las salidas ya se guardan en láminas (unidades), no en cajas
+                        // No necesitamos convertir porque la cantidad ya está en unidades
                         $quantity = $productInSalida->pivot->quantity;
-                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                            $quantity = $quantity * $product->unidades_por_caja;
-                        }
                         $stock -= $quantity;
                     }
                 }

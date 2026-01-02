@@ -15,11 +15,22 @@ class DriverController extends Controller
 
     public function create()
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        // Solo admin y funcionarios pueden crear conductores
+        if (!in_array($user->rol, ['admin', 'funcionario'])) {
+            return redirect()->route('drivers.index')->with('error', 'No tienes permiso para realizar esta acción.');
+        }
         return view('drivers.create');
     }
 
     public function store(Request $request)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        // Solo admin y funcionarios pueden crear conductores
+        if (!in_array($user->rol, ['admin', 'funcionario'])) {
+            return redirect()->route('drivers.index')->with('error', 'No tienes permiso para realizar esta acción.');
+        }
+        
         $data = $request->validate([
             'name' => 'required|string|max:100',
             'identity' => 'required|string|max:20|unique:drivers,identity',
@@ -33,11 +44,21 @@ class DriverController extends Controller
 
     public function edit(Driver $driver)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        // Solo admin y funcionarios pueden editar conductores
+        if (!in_array($user->rol, ['admin', 'funcionario'])) {
+            return redirect()->route('drivers.index')->with('error', 'No tienes permiso para realizar esta acción.');
+        }
         return view('drivers.edit', compact('driver'));
     }
 
     public function update(Request $request, Driver $driver)
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        // Solo admin y funcionarios pueden editar conductores
+        if (!in_array($user->rol, ['admin', 'funcionario'])) {
+            return redirect()->route('drivers.index')->with('error', 'No tienes permiso para realizar esta acción.');
+        }
         $data = $request->validate([
             'name' => 'required|string|max:100',
             'identity' => 'required|string|max:20|unique:drivers,identity,' . $driver->id,

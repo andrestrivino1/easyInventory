@@ -61,15 +61,9 @@
 </style>
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1400px;">
-      @php
-          $user = Auth::user();
-          $canCreateSalida = $user && $user->rol !== 'funcionario';
-      @endphp
-      @if($canCreateSalida)
       <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
         <a href="{{ route('salidas.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nueva salida</a>
       </div>
-      @endif
       <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold;">Salidas</h2>
       
       <!-- Campo de búsqueda -->

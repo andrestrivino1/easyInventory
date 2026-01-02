@@ -276,9 +276,7 @@
             <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
             <li><a class="nav-link" href="{{ route('salidas.index') }}"><i class="bi bi-box-arrow-right"></i> Salidas</a></li>
             @if($isPabloRojas || $isFuncionario)
-            @if(!$isFuncionario)
             <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Conductores</a></li>
-            @endif
             <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> Contenedores</a></li>
             @endif
             <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> Stock</a></li>

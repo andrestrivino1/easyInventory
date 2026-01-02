@@ -14,31 +14,57 @@ class WelcomeController extends Controller
         if (!$user) {
             return redirect()->route('login');
         }
-        $isAdmin = $user && in_array($user->rol, ['admin', 'secretaria']);
+        $isAdmin = $user && in_array($user->rol, ['admin', 'funcionario']);
         $ID_PABLO_ROJAS = 1;
         
         // Productos
         if ($isAdmin) {
             $productos = Product::all();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve productos de Pablo Rojas
-            $productos = Product::where('almacen_id', $ID_PABLO_ROJAS)->get();
+            // Funcionario ve todos los productos (como secretaria)
+            $productos = Product::all();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven productos de sus bodegas asignadas
+            $bodegasAsignadas = $user->almacenes()->get();
+            $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+            if (empty($bodegasAsignadasIds)) {
+                $bodegasAsignadasIds = [];
+            }
+            $productos = Product::whereIn('almacen_id', $bodegasAsignadasIds)->get();
         } else {
             $productos = Product::where('almacen_id', $user->almacen_id)->get();
         }
         $totalProductos = $productos->count();
         $bajoStock = $productos->where('stock', '<', 5)->count();
         // Bodegas
-        $totalBodegas = $isAdmin ? Warehouse::count() : 1;
+        if ($isAdmin) {
+            $totalBodegas = Warehouse::count();
+        } elseif ($user->rol === 'funcionario') {
+            // Funcionario ve todas las bodegas (como secretaria)
+            $totalBodegas = Warehouse::count();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven sus bodegas asignadas
+            $totalBodegas = $user->almacenes()->count();
+        } else {
+            $totalBodegas = 1;
+        }
         // Transferencias
         if ($isAdmin) {
             $transito = TransferOrder::where('status','en_transito')->count();
         } elseif ($user->rol === 'funcionario') {
-            // Funcionario solo ve transferencias relacionadas con Pablo Rojas
+            // Funcionario ve todas las transferencias (como secretaria)
+            $transito = TransferOrder::where('status','en_transito')->count();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven transferencias relacionadas con sus bodegas asignadas
+            $bodegasAsignadas = $user->almacenes()->get();
+            $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+            if (empty($bodegasAsignadasIds)) {
+                $bodegasAsignadasIds = [];
+            }
             $transito = TransferOrder::where('status', 'en_transito')
-                ->where(function($q) use($ID_PABLO_ROJAS) {
-                    $q->where('warehouse_from_id', $ID_PABLO_ROJAS)
-                      ->orWhere('warehouse_to_id', $ID_PABLO_ROJAS);
+                ->where(function($q) use($bodegasAsignadasIds) {
+                    $q->whereIn('warehouse_from_id', $bodegasAsignadasIds)
+                      ->orWhereIn('warehouse_to_id', $bodegasAsignadasIds);
                 })
                 ->count();
         } else {

@@ -75,13 +75,18 @@
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1400px;">
       @php
-          $user = Auth::user();
+          // El usuario viene del controlador con las relaciones cargadas
+          if (!isset($user)) {
+              $user = Auth::user();
+              // Si es funcionario, cargar la relación almacenes
+              if ($user && $user->rol === 'funcionario' && !$user->relationLoaded('almacenes')) {
+                  $user->load('almacenes');
+              }
+          }
           $ID_PABLO_ROJAS = 1;
-          // Solo admin, secretaria o usuarios de Pablo Rojas pueden crear transferencias
-          // Las demás bodegas solo reciben transferencias
+          // Admin, funcionario o usuarios de Pablo Rojas pueden crear transferencias
           $canCreateTransfer = $user && 
-                               $user->rol !== 'funcionario' && 
-                               (in_array($user->rol, ['admin', 'secretaria']) || $user->almacen_id == $ID_PABLO_ROJAS);
+                               (in_array($user->rol, ['admin', 'funcionario']) || $user->almacen_id == $ID_PABLO_ROJAS);
       @endphp
       @if($canCreateTransfer)
       <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
@@ -169,7 +174,6 @@
                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->driver->identity ?? '-' }}</td>
                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->driver->vehicle_plate ?? '-' }}</td>
                         <td rowspan="{{ $productCount }}" class="actions" style="white-space:nowrap; vertical-align: middle;">
-                            @php $user = Auth::user(); @endphp
                             <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
                                 @if($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito','Pending','pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
                                     <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit">Editar</a>
@@ -179,7 +183,18 @@
                                     </form>
                                 @endif
                                 <a href="{{ route('transfer-orders.print', $transfer) }}" class="btn btn-outline-secondary" title="Imprimir" style="padding: 5px 9px; vertical-align:middle;" target="_blank"><i class="bi bi-printer"></i></a>
-                                @if($user->rol !== 'funcionario' && $transfer->status == 'en_transito' && $user && $user->almacen_id == $transfer->warehouse_to_id)
+                                @php
+                                    $canConfirmTransfer = false;
+                                    if ($transfer->status == 'en_transito' && $user) {
+                                        // Admin y funcionario pueden confirmar desde cualquier lugar
+                                        if (in_array($user->rol, ['admin', 'funcionario'])) {
+                                            $canConfirmTransfer = true;
+                                        } else {
+                                            $canConfirmTransfer = $user->almacen_id == $transfer->warehouse_to_id;
+                                        }
+                                    }
+                                @endphp
+                                @if($canConfirmTransfer)
                                     <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline; margin:0;">
                                         @csrf
                                         <button type="submit" class="btn btn-success" style="padding: 5px 9px; font-size: 12px;">Confirmar recibido</button>

@@ -62,7 +62,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,secretaria,clientes,funcionario',
+            'rol' => 'required|in:admin,clientes,funcionario',
             'password' => 'required|string|min:6|confirmed',
         ];
         
@@ -71,27 +71,42 @@ class UserController extends Controller
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
         } elseif ($request->rol === 'clientes') {
-            $rules['almacen_id'] = 'required|exists:warehouses,id';
+            $rules['almacenes'] = 'required|array|min:1';
+            $rules['almacenes.*'] = 'exists:warehouses,id';
         }
-        // admin y secretaria no requieren almacen_id (pueden ver todos)
+        // admin no requiere almacen_id (puede ver todos)
         
         $data = $request->validate($rules);
+        
+        // Validar que funcionarios solo seleccionen bodegas de Buenaventura
+        if ($request->rol === 'funcionario' && isset($request->almacenes)) {
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            $almacenesSeleccionados = $request->almacenes;
+            
+            foreach ($almacenesSeleccionados as $almacenId) {
+                if (!in_array($almacenId, $bodegasBuenaventuraIds)) {
+                    return back()->withErrors(['almacenes' => 'Los funcionarios solo pueden seleccionar bodegas de Buenaventura.'])->withInput();
+                }
+            }
+        }
+        
         $data['password'] = Hash::make($data['password']);
         $data['name'] = $data['email']; // Generar name automáticamente desde email
         
         // Guardar almacenes según el rol
         $almacenes = null;
-        if ($request->rol === 'funcionario') {
+        if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
             $almacenes = $request->almacenes;
             unset($data['almacenes']);
+            $data['almacen_id'] = null; // Funcionarios y clientes usan relación many-to-many
         } elseif ($request->rol !== 'clientes') {
-            $data['almacen_id'] = null; // admin y secretaria no tienen almacen_id
+            $data['almacen_id'] = null; // admin no tiene almacen_id
         }
         
         $usuario = User::create($data);
         
-        // Sincronizar almacenes para funcionarios
-        if ($request->rol === 'funcionario' && $almacenes) {
+        // Sincronizar almacenes para funcionarios y clientes
+        if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
         
@@ -137,7 +152,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email,'.$usuario->id,
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,secretaria,clientes,funcionario',
+            'rol' => 'required|in:admin,clientes,funcionario',
             'password' => 'nullable|string|min:6|confirmed',
         ];
         
@@ -146,11 +161,25 @@ class UserController extends Controller
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
         } elseif ($request->rol === 'clientes') {
-            $rules['almacen_id'] = 'required|exists:warehouses,id';
+            $rules['almacenes'] = 'required|array|min:1';
+            $rules['almacenes.*'] = 'exists:warehouses,id';
         }
-        // admin y secretaria no requieren almacen_id
+        // admin no requiere almacen_id
         
         $data = $request->validate($rules);
+        
+        // Validar que funcionarios solo seleccionen bodegas de Buenaventura
+        if ($request->rol === 'funcionario' && isset($request->almacenes)) {
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            $almacenesSeleccionados = $request->almacenes;
+            
+            foreach ($almacenesSeleccionados as $almacenId) {
+                if (!in_array($almacenId, $bodegasBuenaventuraIds)) {
+                    return back()->withErrors(['almacenes' => 'Los funcionarios solo pueden seleccionar bodegas de Buenaventura.'])->withInput();
+                }
+            }
+        }
+        
         $data['name'] = $data['email']; // Generar name automáticamente desde email
         
         // Manejar contraseña
@@ -162,23 +191,20 @@ class UserController extends Controller
         
         // Guardar almacenes según el rol
         $almacenes = null;
-        if ($request->rol === 'funcionario') {
+        if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
             $almacenes = $request->almacenes;
             unset($data['almacenes']);
-            $data['almacen_id'] = null; // Funcionarios no usan almacen_id
+            $data['almacen_id'] = null; // Funcionarios y clientes usan relación many-to-many
         } elseif ($request->rol !== 'clientes') {
-            $data['almacen_id'] = null; // admin y secretaria no tienen almacen_id
-            // Limpiar relación pivot si cambiaron de funcionario a otro rol
-            $usuario->almacenes()->detach();
-        } else {
-            // Si es cliente, limpiar relación pivot si tenía alguna
+            $data['almacen_id'] = null; // admin no tiene almacen_id
+            // Limpiar relación pivot si cambiaron de funcionario/cliente a otro rol
             $usuario->almacenes()->detach();
         }
         
         $usuario->update($data);
         
-        // Sincronizar almacenes para funcionarios
-        if ($request->rol === 'funcionario' && $almacenes) {
+        // Sincronizar almacenes para funcionarios y clientes
+        if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
         

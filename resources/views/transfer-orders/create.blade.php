@@ -355,12 +355,21 @@ function loadContainersForProduct(index) {
                 const option = document.createElement('option');
                 option.value = container.id;
                 option.textContent = container.reference;
+                // Guardar información del contenedor en los atributos data
+                option.setAttribute('data-stock', container.stock || 0);
+                option.setAttribute('data-boxes', container.boxes || 0);
                 containerSelect.appendChild(option);
             });
+            
+            // Agregar event listener para actualizar stock cuando cambie el contenedor
+            containerSelect.onchange = function() {
+                updateStockForContainer(index);
+            };
             
             // Si solo hay un contenedor, seleccionarlo automáticamente
             if (containers.length === 1) {
                 containerSelect.value = containers[0].id;
+                updateStockForContainer(index);
             }
         } else {
             const option = document.createElement('option');
@@ -370,20 +379,28 @@ function loadContainersForProduct(index) {
             containerSelect.appendChild(option);
         }
         
-        // Actualizar información de stock
-        const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
-        const tipo = selectedOption.getAttribute('data-tipo');
-        const unidadesPorCaja = parseInt(selectedOption.getAttribute('data-unidades')) || 1;
-        
-        if (cajasEnContenedor > 0) {
-            // Si tiene cajas específicas del contenedor, mostrar esas
-            const stockContenedor = cajasEnContenedor * unidadesPorCaja;
-            stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${cajasEnContenedor} cajas disponibles)`;
-        } else if (tipo === 'caja' && unidadesPorCaja > 0) {
-            const cajasDisponibles = Math.floor(stock / unidadesPorCaja);
-            stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)`;
+        // Actualizar información de stock inicial (si hay un contenedor seleccionado)
+        if (containerSelect.value) {
+            updateStockForContainer(index);
         } else {
-            stockInfo.innerHTML = `Stock: ${stock} unidades`;
+            // Si no hay contenedor seleccionado, mostrar stock del producto (si tiene un solo contenedor)
+            const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
+            const tipo = selectedOption.getAttribute('data-tipo');
+            const unidadesPorCaja = parseInt(selectedOption.getAttribute('data-unidades')) || 1;
+            
+            if (cajasEnContenedor > 0 && containers.length === 1) {
+                // Si tiene un solo contenedor, mostrar su stock
+                const stockContenedor = cajasEnContenedor * unidadesPorCaja;
+                stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${cajasEnContenedor} cajas disponibles)`;
+            } else if (containers.length > 1) {
+                // Si hay múltiples contenedores, pedir que seleccione uno
+                stockInfo.innerHTML = `Seleccione un contenedor para ver el stock disponible`;
+            } else if (tipo === 'caja' && unidadesPorCaja > 0) {
+                const cajasDisponibles = Math.floor(stock / unidadesPorCaja);
+                stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)`;
+            } else {
+                stockInfo.innerHTML = `Stock: ${stock} unidades`;
+            }
         }
         
         updateProductInfo(index);
@@ -393,6 +410,40 @@ function loadContainersForProduct(index) {
     }
 }
 
+function updateStockForContainer(index) {
+    const containerSelect = document.getElementById(`container-select-${index}`);
+    const stockInfo = document.getElementById(`stock-info-${index}`);
+    const productSelect = document.getElementById(`product-select-${index}`);
+    
+    if (!containerSelect || !stockInfo || !productSelect) return;
+    
+    const selectedContainerOption = containerSelect.selectedOptions[0];
+    if (!selectedContainerOption || !selectedContainerOption.value) return;
+    
+    const productOption = productSelect.selectedOptions[0];
+    if (!productOption) return;
+    
+    const tipo = productOption.getAttribute('data-tipo') || '';
+    const unidadesPorCaja = parseInt(productOption.getAttribute('data-unidades')) || 1;
+    
+    // Obtener stock y cajas del contenedor seleccionado
+    const stockContenedor = parseInt(selectedContainerOption.getAttribute('data-stock')) || 0;
+    const boxesContenedor = parseInt(selectedContainerOption.getAttribute('data-boxes')) || 0;
+    
+    // Actualizar información de stock
+    if (boxesContenedor > 0 && unidadesPorCaja > 0) {
+        stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${boxesContenedor} cajas disponibles)`;
+    } else if (tipo === 'caja' && unidadesPorCaja > 0) {
+        const cajasDisponibles = Math.floor(stockContenedor / unidadesPorCaja);
+        stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${cajasDisponibles} cajas disponibles)`;
+    } else {
+        stockInfo.innerHTML = `Stock: ${stockContenedor} unidades`;
+    }
+    
+    // Actualizar también la información de cantidad requerida
+    updateProductInfo(index);
+}
+
 function updateProductInfo(index) {
     const quantityInput = document.getElementById(`quantity-${index}`);
     const stockInfo = document.getElementById(`stock-info-${index}`);
@@ -400,22 +451,38 @@ function updateProductInfo(index) {
     if (!quantityInput || !stockInfo) return;
     
     const productSelect = document.getElementById(`product-select-${index}`);
+    const containerSelect = document.getElementById(`container-select-${index}`);
     if (!productSelect || !productSelect.value) return;
     
-    const selectedOption = productSelect.selectedOptions[0];
-    if (selectedOption) {
-        const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
-        const tipo = selectedOption.getAttribute('data-tipo');
-        const unidadesPorCaja = parseInt(selectedOption.getAttribute('data-unidades')) || 1;
-        const quantity = parseInt(quantityInput.value) || 0;
-        
-        if (tipo === 'caja' && unidadesPorCaja > 0) {
-            const cajasDisponibles = Math.floor(stock / unidadesPorCaja);
-            const unidadesRequeridas = quantity * unidadesPorCaja;
-            stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)<br>Requiere: ${unidadesRequeridas} unidades`;
-        } else {
-            stockInfo.innerHTML = `Stock: ${stock} unidades`;
+    const productOption = productSelect.selectedOptions[0];
+    if (!productOption) return;
+    
+    const tipo = productOption.getAttribute('data-tipo') || '';
+    const unidadesPorCaja = parseInt(productOption.getAttribute('data-unidades')) || 1;
+    const quantity = parseInt(quantityInput.value) || 0;
+    
+    // Si hay un contenedor seleccionado, usar su stock específico
+    let stock = 0;
+    let boxes = 0;
+    
+    if (containerSelect && containerSelect.value) {
+        const containerOption = containerSelect.selectedOptions[0];
+        if (containerOption) {
+            stock = parseInt(containerOption.getAttribute('data-stock')) || 0;
+            boxes = parseInt(containerOption.getAttribute('data-boxes')) || 0;
         }
+    } else {
+        // Si no hay contenedor seleccionado, usar stock del producto
+        stock = parseInt(productOption.getAttribute('data-stock')) || 0;
+    }
+    
+    if (tipo === 'caja' && unidadesPorCaja > 0) {
+        const cajasDisponibles = boxes > 0 ? boxes : Math.floor(stock / unidadesPorCaja);
+        const unidadesRequeridas = quantity * unidadesPorCaja;
+        stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)<br>Requiere: ${unidadesRequeridas} unidades`;
+    } else {
+        const unidadesRequeridas = quantity;
+        stockInfo.innerHTML = `Stock: ${stock} unidades<br>Requiere: ${unidadesRequeridas} unidades`;
     }
 }
 

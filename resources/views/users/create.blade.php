@@ -46,7 +46,6 @@
           <label for="rol">Rol *</label>
           <select id="rol" name="rol" required>
               <option value="clientes" {{ old('rol')=='clientes' ? 'selected':'' }}>Clientes</option>
-              <option value="secretaria" {{ old('rol')=='secretaria' ? 'selected':'' }}>Secretaria</option>
               <option value="funcionario" {{ old('rol')=='funcionario' ? 'selected':'' }}>Funcionario</option>
               <option value="admin" {{ old('rol')=='admin' ? 'selected':'' }}>Administrador</option>
           </select>
@@ -63,7 +62,7 @@
           @error('almacen_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
         <div class="form-group" id="bodega-multiple-group" style="display:none;">
-          <label>Bodegas *</label>
+          <label id="bodega-multiple-label">Bodegas *</label>
           <div class="checkbox-group">
               @foreach ($almacenes as $almacen)
                   <div class="checkbox-item">
@@ -115,10 +114,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (rol === 'clientes') {
-            bodegaSimpleGroup.style.display = 'block';
-            almacenId.setAttribute('required', 'required');
-        } else if (rol === 'funcionario') {
             bodegaMultipleGroup.style.display = 'block';
+            document.getElementById('bodega-multiple-label').textContent = 'Bodegas *';
             // Validar que al menos un checkbox esté seleccionado
             validationHandler = function(e) {
                 const checked = bodegaMultipleGroup.querySelectorAll('input[type="checkbox"]:checked');
@@ -129,8 +126,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             form.addEventListener('submit', validationHandler);
+        } else if (rol === 'funcionario') {
+            bodegaMultipleGroup.style.display = 'block';
+            document.getElementById('bodega-multiple-label').textContent = 'Bodegas de Buenaventura *';
+            // Filtrar solo bodegas de Buenaventura
+            const bodegasBuenaventuraIds = @json(\App\Models\Warehouse::getBodegasBuenaventuraIds());
+            checkboxes.forEach(cb => {
+                if (bodegasBuenaventuraIds.includes(parseInt(cb.value))) {
+                    cb.closest('.checkbox-item').style.display = 'flex';
+                } else {
+                    cb.closest('.checkbox-item').style.display = 'none';
+                    cb.checked = false;
+                }
+            });
+            // Validar que al menos un checkbox esté seleccionado
+            validationHandler = function(e) {
+                const checked = bodegaMultipleGroup.querySelectorAll('input[type="checkbox"]:checked');
+                if (checked.length === 0) {
+                    e.preventDefault();
+                    alert('Debes seleccionar al menos una bodega de Buenaventura');
+                    return false;
+                }
+            };
+            form.addEventListener('submit', validationHandler);
         }
-        // admin y secretaria no muestran campos de bodega
+        // admin no muestra campos de bodega
     }
     
     rolSelect.addEventListener('change', toggleBodegaFields);

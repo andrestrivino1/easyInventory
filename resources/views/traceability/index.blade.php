@@ -138,7 +138,7 @@
                     </div>
                     @php
                         $user = Auth::user();
-                        $isAdmin = $user && in_array($user->rol, ['admin', 'secretaria']);
+                        $isAdmin = $user && $user->rol === 'admin';
                         $isFuncionario = $user && $user->rol === 'funcionario';
                         $canExport = $user && $user->rol === 'admin'; // Solo admin puede descargar
                     @endphp

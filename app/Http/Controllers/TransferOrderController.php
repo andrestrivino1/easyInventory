@@ -20,37 +20,32 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
         
-        // Si el usuario no es admin ni secretaria, filtrar por su bodega
-        if (!in_array($user->rol, ['admin', 'secretaria'])) {
+        // Cargar relación almacenes si es funcionario
+        if ($user->rol === 'funcionario' && !$user->relationLoaded('almacenes')) {
+            $user->load('almacenes');
+        }
+        
+        // Admin y funcionario ven todas las transferencias
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
             $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
-                ->where(function($query) use ($user) {
-                    // Ver transferencias desde su bodega o hacia su bodega
-                    // Si es funcionario, ver solo sus bodegas asociadas (que reciben contenedores)
-                    if ($user->rol === 'funcionario') {
-                        $bodegasIds = $user->almacenes->pluck('id')->toArray();
-                        if (!empty($bodegasIds)) {
-                            $query->whereIn('warehouse_from_id', $bodegasIds)
-                                  ->orWhereIn('warehouse_to_id', $bodegasIds);
-                        } else {
-                            $query->whereRaw('1 = 0'); // No mostrar nada si no tiene bodegas
-                        }
-                    } else {
-                        $query->where('warehouse_from_id', $user->almacen_id)
-                              ->orWhere('warehouse_to_id', $user->almacen_id);
-                    }
-                })
                 ->orderByDesc('date')
                 ->get();
         } else {
+            // Otros roles filtran por su bodega
             $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+                ->where(function($query) use ($user) {
+                    $query->where('warehouse_from_id', $user->almacen_id)
+                          ->orWhere('warehouse_to_id', $user->almacen_id);
+                })
                 ->orderByDesc('date')
                 ->get();
         }
         
-        $canCreateTransfer = in_array($user->rol, ['admin', 'secretaria']) || 
+        $canCreateTransfer = in_array($user->rol, ['admin', 'funcionario']) || 
             ($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id));
         
-        return view('transfer-orders.index', compact('transferOrders', 'canCreateTransfer'));
+        // Pasar el usuario con las relaciones cargadas a la vista
+        return view('transfer-orders.index', compact('transferOrders', 'canCreateTransfer', 'user'));
     }
 
     /**
@@ -62,8 +57,8 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
         
-        // Solo admin, secretaria o usuarios de bodegas que reciben contenedores pueden crear transferencias
-        if (!in_array($user->rol, ['admin', 'secretaria']) && 
+        // Admin, funcionario o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'funcionario']) && 
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
         }
@@ -84,8 +79,8 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
         
-        // Solo admin, secretaria o usuarios de bodegas que reciben contenedores pueden crear transferencias
-        if (!in_array($user->rol, ['admin', 'secretaria']) && 
+        // Admin, funcionario o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        if (!in_array($user->rol, ['admin', 'funcionario']) && 
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
         }
@@ -204,10 +199,9 @@ class TransferOrderController extends Controller
                     foreach ($salidas as $salida) {
                         $productInSalida = $salida->products->first();
                         if ($productInSalida) {
+                            // Las salidas ya se guardan en láminas (unidades), no en cajas
+                            // No necesitamos convertir porque la cantidad ya está en unidades
                             $quantity = $productInSalida->pivot->quantity;
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
-                            }
                             $stock -= $quantity;
                         }
                     }
@@ -491,10 +485,9 @@ class TransferOrderController extends Controller
                     foreach ($salidas as $salida) {
                         $productInSalida = $salida->products->first();
                         if ($productInSalida) {
+                            // Las salidas ya se guardan en láminas (unidades), no en cajas
+                            // No necesitamos convertir porque la cantidad ya está en unidades
                             $quantity = $productInSalida->pivot->quantity;
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
-                            }
                             $stock -= $quantity;
                         }
                     }
@@ -638,9 +631,22 @@ class TransferOrderController extends Controller
             return redirect()->route('transfer-orders.index')->with('error', 'Esta transferencia ya fue procesada.');
         }
         
-        // Solo se puede confirmar en la bodega destino
-        if ($user->rol !== 'admin' && $user->almacen_id != $transferOrder->warehouse_to_id) {
-            return redirect()->route('transfer-orders.index')->with('error', 'Solo se puede confirmar la recepción en la bodega destino.');
+        // Admin y funcionario pueden confirmar desde cualquier lugar
+        $canConfirm = false;
+        $errorMessage = 'Solo se puede confirmar la recepción en la bodega destino.';
+        
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            $canConfirm = true;
+        } else {
+            // Otros roles solo pueden confirmar si es su bodega
+            $canConfirm = $user->almacen_id == $transferOrder->warehouse_to_id;
+            if (!$canConfirm) {
+                $errorMessage = 'Solo puedes confirmar transferencias hacia tu bodega asignada.';
+            }
+        }
+        
+        if (!$canConfirm) {
+            return redirect()->route('transfer-orders.index')->with('error', $errorMessage);
         }
         
         DB::beginTransaction();
@@ -717,6 +723,26 @@ class TransferOrderController extends Controller
                 foreach ($containerProducts as $cp) {
                     $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
                 }
+                
+                // Descontar salidas para bodegas que reciben contenedores
+                $salidas = \App\Models\Salida::where('warehouse_id', $warehouseId)
+                    ->whereHas('products', function($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with(['products' => function($query) use ($product) {
+                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    }])
+                    ->get();
+                
+                foreach ($salidas as $salida) {
+                    $productInSalida = $salida->products->first();
+                    if ($productInSalida) {
+                        // Las salidas ya se guardan en láminas (unidades), no en cajas
+                        // No necesitamos convertir porque la cantidad ya está en unidades
+                        $quantity = $productInSalida->pivot->quantity;
+                        $stock -= $quantity;
+                    }
+                }
             } else {
                 // Otra bodega: stock desde transferencias recibidas menos salidas
                 $receivedTransfers = TransferOrder::where('status', 'recibido')
@@ -774,9 +800,26 @@ class TransferOrderController extends Controller
                     ->get();
                 
                 // Crear una entrada por cada contenedor con stock
+                // Cada entrada debe mostrar el stock específico de su contenedor
+                // Calcular stock total sin descontar para distribución proporcional de salidas
+                $stockTotalSinDescontar = 0;
+                foreach ($containerProducts as $cp2) {
+                    $stockTotalSinDescontar += ($cp2->boxes ?? 0) * ($cp2->sheets_per_box ?? 0);
+                }
+                
                 foreach ($containerProducts as $cp) {
                     $stockContenedor = ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
                     if ($stockContenedor > 0) {
+                        // Calcular el stock del contenedor descontando salidas proporcionalmente
+                        $stockContenedorFinal = $stockContenedor;
+                        if ($stockTotalSinDescontar > 0 && $stock < $stockTotalSinDescontar) {
+                            // Hay salidas, calcular proporción
+                            $salidasTotales = $stockTotalSinDescontar - $stock;
+                            $proporcion = $stockContenedor / $stockTotalSinDescontar;
+                            $salidasDelContenedor = $salidasTotales * $proporcion;
+                            $stockContenedorFinal = max(0, $stockContenedor - $salidasDelContenedor);
+                        }
+                        
                         $productsWithStock[] = [
                             'id' => $product->id,
                             'nombre' => $product->nombre,
@@ -784,11 +827,14 @@ class TransferOrderController extends Controller
                             'medidas' => $product->medidas,
                             'tipo_medida' => $product->tipo_medida,
                             'unidades_por_caja' => $product->unidades_por_caja,
-                            'stock' => $stockContenedor,
+                            'stock' => $stockContenedorFinal, // Stock específico del contenedor (descontando salidas proporcionalmente)
                             'cajas_en_contenedor' => $cp->boxes,
+                            'sheets_per_box' => $cp->sheets_per_box,
                             'containers' => [[
                                 'id' => $cp->container_id,
-                                'reference' => $cp->reference
+                                'reference' => $cp->reference,
+                                'stock' => $stockContenedorFinal,
+                                'boxes' => $cp->boxes
                             ]]
                         ];
                     }

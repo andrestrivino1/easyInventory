@@ -102,13 +102,13 @@
                 <td>{{ $user->email }}</td>
                 <td>{{ $user->telefono ?? '-' }}</td>
                 <td>
-                    @if($user->rol === 'funcionario')
+                    @if($user->rol === 'funcionario' || $user->rol === 'clientes')
                         @if($user->almacenes->count() > 0)
                             {{ $user->almacenes->map(function($almacen) { return $almacen->nombre . ($almacen->ciudad ? ' - ' . $almacen->ciudad : ''); })->join(', ') }}
                         @else
                             -
                         @endif
-                    @elseif($user->rol === 'admin' || $user->rol === 'secretaria')
+                    @elseif($user->rol === 'admin')
                         Todas
                     @else
                         {{ $user->almacen ? $user->almacen->nombre . ($user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '') : '-' }}

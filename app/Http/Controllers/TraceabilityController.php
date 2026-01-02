@@ -26,13 +26,15 @@ class TraceabilityController extends Controller
         
         $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
-        // Funcionario solo ve Buenaventura
-        if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_PABLO_ROJAS;
-            // Filtrar productos solo de Buenaventura
-            $products = Product::where('almacen_id', $ID_PABLO_ROJAS)->orderBy('nombre')->get();
-        } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
+        // Admin y funcionario ven todas las bodegas
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            // No filtrar, ver todos los productos
+            if (!$selectedWarehouseId) {
+                $products = Product::orderBy('nombre')->get();
+            } else {
+                $products = Product::where('almacen_id', $selectedWarehouseId)->orderBy('nombre')->get();
+            }
+        } elseif ($user->rol !== 'admin' && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
             // Filtrar productos solo de la bodega del usuario
             $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();
@@ -280,13 +282,15 @@ class TraceabilityController extends Controller
         
         $ID_PABLO_ROJAS = 1;
         
-        // Si el usuario no es admin ni secretaria, filtrar automáticamente por su bodega
-        // Funcionario solo ve Buenaventura
-        if ($user->rol === 'funcionario') {
-            $selectedWarehouseId = $ID_PABLO_ROJAS;
-            // Filtrar productos solo de Buenaventura
-            $products = Product::where('almacen_id', $ID_PABLO_ROJAS)->orderBy('nombre')->get();
-        } elseif (!in_array($user->rol, ['admin', 'secretaria']) && !$selectedWarehouseId) {
+        // Admin y funcionario ven todas las bodegas
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            // No filtrar, ver todos los productos
+            if (!$selectedWarehouseId) {
+                $products = Product::orderBy('nombre')->get();
+            } else {
+                $products = Product::where('almacen_id', $selectedWarehouseId)->orderBy('nombre')->get();
+            }
+        } elseif ($user->rol !== 'admin' && !$selectedWarehouseId) {
             $selectedWarehouseId = $user->almacen_id;
             // Filtrar productos solo de la bodega del usuario
             $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();

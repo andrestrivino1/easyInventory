@@ -81,4 +81,29 @@ class Warehouse extends Model
         
         return $warehouse->recibeContenedores();
     }
+
+    /**
+     * Obtiene todas las bodegas de Buenaventura
+     */
+    public static function getBodegasBuenaventura()
+    {
+        $pabloRojasId = 1;
+        
+        return static::where(function($query) use ($pabloRojasId) {
+                $query->where('id', $pabloRojasId)
+                      ->orWhere('nombre', 'LIKE', '%Pablo Rojas%')
+                      ->orWhere('nombre', 'LIKE', '%Buenaventura%')
+                      ->orWhere('ciudad', 'LIKE', '%Buenaventura%');
+            })
+            ->orderBy('nombre')
+            ->get();
+    }
+
+    /**
+     * Obtiene los IDs de todas las bodegas de Buenaventura
+     */
+    public static function getBodegasBuenaventuraIds()
+    {
+        return static::getBodegasBuenaventura()->pluck('id')->toArray();
+    }
 }

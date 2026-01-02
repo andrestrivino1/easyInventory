@@ -26,7 +26,7 @@ class ProductController extends Controller
         
         // Funcionario no puede crear productos (solo lectura)
         $canCreateProducts = ($user->rol !== 'funcionario') && 
-            (in_array($user->rol, ['admin', 'secretaria']) || 
+            ($user->rol === 'admin' || 
              ($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id)));
         
         return view('products.index', compact('productos', 'canCreateProducts'));

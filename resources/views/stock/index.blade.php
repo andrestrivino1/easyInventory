@@ -79,8 +79,9 @@
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 @php
                     $user = Auth::user();
-                    $isAdmin = $user && in_array($user->rol, ['admin', 'secretaria']);
+                    $isAdmin = $user && $user->rol === 'admin';
                     $isFuncionario = $user && $user->rol === 'funcionario';
+                    $isCliente = $user && $user->rol === 'clientes';
                     $canExport = $user && $user->rol === 'admin'; // Solo admin puede descargar
                 @endphp
                 @if($isAdmin)
@@ -95,7 +96,7 @@
                         @endforeach
                     </select>
                 </form>
-                @elseif($isFuncionario && $warehouses->count() > 1)
+                @elseif(($isFuncionario || $isCliente) && $warehouses->count() > 1)
                 <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
                     <label for="warehouse_id">Filtrar por Bodega:</label>
                     <select name="warehouse_id" id="warehouse_id" onchange="this.form.submit()">
@@ -110,7 +111,7 @@
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <label>Bodega:</label>
                     <span style="font-weight: 500; color: #333;">
-                        @if($isFuncionario && $warehouses->count() > 0)
+                        @if(($isFuncionario || $isCliente) && $warehouses->count() > 0)
                             {{ $warehouses->first()->nombre }}{{ $warehouses->first()->ciudad ? ' - ' . $warehouses->first()->ciudad : '' }}
                         @else
                             {{ $user->almacen->nombre ?? 'N/A' }}{{ $user->almacen && $user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '' }}
@@ -391,8 +392,20 @@
                     @forelse($transferOrders as $transfer)
                     <tr>
                         <td>{{ $transfer->order_number }}</td>
-                        <td>{{ $transfer->from->nombre ?? '-' }}</td>
-                        <td>{{ $transfer->to->nombre ?? '-' }}</td>
+                        <td>
+                            @if($transfer->from)
+                                {{ $transfer->from->nombre }}{{ $transfer->from->ciudad ? ' - ' . $transfer->from->ciudad : '' }}
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td>
+                            @if($transfer->to)
+                                {{ $transfer->to->nombre }}{{ $transfer->to->ciudad ? ' - ' . $transfer->to->ciudad : '' }}
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td>
                             @if($transfer->status == 'en_transito')
                                 <span style="background:#ffc107;color:#212529;border-radius:5px;padding:3px 10px;font-size:13px;">En tránsito</span>
@@ -457,7 +470,13 @@
                     @forelse($salidas as $salida)
                     <tr>
                         <td>{{ $salida->salida_number }}</td>
-                        <td>{{ $salida->warehouse->nombre ?? '-' }}</td>
+                        <td>
+                            @if($salida->warehouse)
+                                {{ $salida->warehouse->nombre }}{{ $salida->warehouse->ciudad ? ' - ' . $salida->warehouse->ciudad : '' }}
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td>{{ $salida->fecha->format('d/m/Y') }}</td>
                         <td>{{ $salida->a_nombre_de }}</td>
                         <td>{{ $salida->nit_cedula }}</td>
