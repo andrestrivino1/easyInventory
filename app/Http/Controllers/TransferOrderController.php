@@ -20,8 +20,8 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
         
-        // Cargar relación almacenes si es funcionario
-        if ($user->rol === 'funcionario' && !$user->relationLoaded('almacenes')) {
+        // Cargar relación almacenes si es funcionario o cliente
+        if (in_array($user->rol, ['funcionario', 'clientes']) && !$user->relationLoaded('almacenes')) {
             $user->load('almacenes');
         }
         
@@ -30,6 +30,22 @@ class TransferOrderController extends Controller
             $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
                 ->orderByDesc('date')
                 ->get();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven transferencias hacia sus bodegas asignadas
+            $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
+            if (empty($bodegasAsignadasIds)) {
+                $bodegasAsignadasIds = [];
+            }
+            
+            if (!empty($bodegasAsignadasIds)) {
+                $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+                    ->whereIn('warehouse_to_id', $bodegasAsignadasIds)
+                    ->orderByDesc('date')
+                    ->get();
+            } else {
+                // Si no tiene bodegas asignadas, no mostrar transferencias
+                $transferOrders = collect();
+            }
         } else {
             // Otros roles filtran por su bodega
             $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
@@ -637,6 +653,16 @@ class TransferOrderController extends Controller
         
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             $canConfirm = true;
+        } elseif ($user->rol === 'clientes') {
+            // Clientes pueden confirmar si la bodega destino está en sus bodegas asignadas
+            if (!$user->relationLoaded('almacenes')) {
+                $user->load('almacenes');
+            }
+            $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
+            $canConfirm = in_array($transferOrder->warehouse_to_id, $bodegasAsignadasIds);
+            if (!$canConfirm) {
+                $errorMessage = 'Solo puedes confirmar transferencias hacia tus bodegas asignadas.';
+            }
         } else {
             // Otros roles solo pueden confirmar si es su bodega
             $canConfirm = $user->almacen_id == $transferOrder->warehouse_to_id;

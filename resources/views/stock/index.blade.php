@@ -481,10 +481,21 @@
                         <td>{{ $salida->a_nombre_de }}</td>
                         <td>{{ $salida->nit_cedula }}</td>
                         <td>
+                            @php
+                                $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+                                $isBuenaventura = in_array($salida->warehouse_id, $bodegasBuenaventuraIds);
+                            @endphp
                             @foreach($salida->products as $prod)
                                 <div style="font-size: 13px; margin-bottom: 4px;">
                                     <strong>{{ $prod->nombre }}</strong>
-                                    <span style="color: #666;">({{ $prod->pivot->quantity }} láminas)</span>
+                                    @if($isBuenaventura && $prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)
+                                        @php
+                                            $cajas = floor($prod->pivot->quantity / $prod->unidades_por_caja);
+                                        @endphp
+                                        <span style="color: #666;">({{ $cajas }} cajas)</span>
+                                    @else
+                                        <span style="color: #666;">({{ $prod->pivot->quantity }} láminas)</span>
+                                    @endif
                                 </div>
                             @endforeach
                         </td>

@@ -154,11 +154,31 @@
                             @endforeach
                         </select>
                     </div>
+                    @elseif($user->rol === 'clientes' && $warehouses->count() > 1)
+                    <div class="filter-group">
+                        <label for="warehouse_id">Bodega:</label>
+                        <select name="warehouse_id" id="warehouse_id">
+                            <option value="">Todas mis bodegas</option>
+                            @foreach($warehouses as $warehouse)
+                                <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
+                                    {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                     @else
                     <div class="filter-group">
                         <label>Bodega:</label>
-                        <span style="font-weight: 500; color: #333; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; display: inline-block;">{{ $isFuncionario ? 'Pablo Rojas' : ($user->almacen->nombre ?? 'N/A') }}</span>
-                        <input type="hidden" name="warehouse_id" value="{{ $isFuncionario ? 1 : $user->almacen_id }}">
+                        <span style="font-weight: 500; color: #333; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; display: inline-block;">
+                            @if($isFuncionario)
+                                Pablo Rojas
+                            @elseif($user->rol === 'clientes' && $warehouses->count() == 1)
+                                {{ $warehouses->first()->nombre }}{{ $warehouses->first()->ciudad ? ' - ' . $warehouses->first()->ciudad : '' }}
+                            @else
+                                {{ $user->almacen->nombre ?? 'N/A' }}
+                            @endif
+                        </span>
+                        <input type="hidden" name="warehouse_id" value="{{ $isFuncionario ? 1 : ($user->rol === 'clientes' && $warehouses->count() == 1 ? $warehouses->first()->id : $user->almacen_id) }}">
                     </div>
                     @endif
                     <div class="filter-group">

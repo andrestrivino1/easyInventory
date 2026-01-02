@@ -17,34 +17,62 @@ class TraceabilityController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $warehouses = Warehouse::orderBy('nombre')->get();
-        $products = Product::orderBy('nombre')->get();
         $selectedProductId = $request->get('product_id');
         $selectedWarehouseId = $request->get('warehouse_id');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         
-        $ID_PABLO_ROJAS = 1;
-        
-        // Admin y funcionario ven todas las bodegas
+        // Obtener bodegas según el rol del usuario
+        $allowedWarehouseIds = [];
         if (in_array($user->rol, ['admin', 'funcionario'])) {
-            // No filtrar, ver todos los productos
-            if (!$selectedWarehouseId) {
-                $products = Product::orderBy('nombre')->get();
-            } else {
-                $products = Product::where('almacen_id', $selectedWarehouseId)->orderBy('nombre')->get();
+            // Admin y funcionario ven todas las bodegas
+            $warehouses = Warehouse::orderBy('nombre')->get();
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven solo sus bodegas asignadas
+            if (!$user->relationLoaded('almacenes')) {
+                $user->load('almacenes');
             }
-        } elseif ($user->rol !== 'admin' && !$selectedWarehouseId) {
-            $selectedWarehouseId = $user->almacen_id;
-            // Filtrar productos solo de la bodega del usuario
-            $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();
+            $allowedWarehouseIds = $user->almacenes->pluck('id')->toArray();
+            $warehouses = $user->almacenes->sortBy('nombre')->values();
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+            
+            // Si no hay bodega seleccionada y tiene bodegas asignadas, usar la primera
+            if (!$selectedWarehouseId && !empty($allowedWarehouseIds)) {
+                $selectedWarehouseId = $allowedWarehouseIds[0];
+            }
+        } else {
+            // Otros roles ven solo su bodega
+            $allowedWarehouseIds = [$user->almacen_id];
+            $warehouses = collect([$user->almacen]);
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+            
+            if (!$selectedWarehouseId) {
+                $selectedWarehouseId = $user->almacen_id;
+            }
+        }
+        
+        // Validar que la bodega seleccionada esté permitida
+        if ($selectedWarehouseId && !empty($allowedWarehouseIds) && !in_array($selectedWarehouseId, $allowedWarehouseIds)) {
+            $selectedWarehouseId = !empty($allowedWarehouseIds) ? $allowedWarehouseIds[0] : null;
         }
         
         $movements = collect();
         
         // Obtener entradas desde contenedores
-        $containers = Container::with('products')->get();
+        // Filtrar contenedores por bodegas permitidas
+        $containersQuery = Container::with('products');
+        if (!empty($allowedWarehouseIds)) {
+            $containersQuery->whereIn('warehouse_id', $allowedWarehouseIds);
+        }
+        $containers = $containersQuery->get();
+        
         foreach ($containers as $container) {
+            // Filtrar por bodega del contenedor si está seleccionado
+            if ($selectedWarehouseId && $container->warehouse_id != $selectedWarehouseId) {
+                continue;
+            }
+            
             foreach ($container->products as $product) {
                 // Filtrar por producto si está seleccionado
                 if ($selectedProductId && $product->id != $selectedProductId) {
@@ -52,15 +80,6 @@ class TraceabilityController extends Controller
                 }
                 
                 $totalSheets = $product->pivot->boxes * $product->pivot->sheets_per_box;
-                
-                // Obtener la bodega del producto
-                $productModel = Product::find($product->id);
-                if (!$productModel) continue;
-                
-                // Filtrar por almacén si está seleccionado
-                if ($selectedWarehouseId && $productModel->almacen_id != $selectedWarehouseId) {
-                    continue;
-                }
                 
                 // Filtrar por fecha si está seleccionada
                 // Usar la fecha del pivot si existe, sino usar fecha actual
@@ -83,8 +102,8 @@ class TraceabilityController extends Controller
                     'product_code' => $product->codigo,
                     'product_medidas' => $product->medidas ?? '-',
                     'quantity' => $totalSheets,
-                    'warehouse_id' => $productModel->almacen_id,
-                    'warehouse_name' => $productModel->almacen->nombre ?? '-',
+                    'warehouse_id' => $container->warehouse_id,
+                    'warehouse_name' => $container->warehouse->nombre ?? '-',
                     'reference' => $container->reference,
                     'reference_type' => 'Contenedor',
                     'note' => $container->note,
@@ -95,7 +114,15 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas y entradas desde transferencias
-        $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])->get();
+        // Filtrar transferencias por bodegas permitidas
+        $transferOrdersQuery = TransferOrder::with(['from', 'to', 'products', 'driver']);
+        if (!empty($allowedWarehouseIds)) {
+            $transferOrdersQuery->where(function($query) use ($allowedWarehouseIds) {
+                $query->whereIn('warehouse_from_id', $allowedWarehouseIds)
+                      ->orWhereIn('warehouse_to_id', $allowedWarehouseIds);
+            });
+        }
+        $transferOrders = $transferOrdersQuery->get();
         foreach ($transferOrders as $transfer) {
             foreach ($transfer->products as $product) {
                 // Filtrar por producto si está seleccionado
@@ -182,7 +209,13 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas del módulo Salidas
-        $salidas = Salida::with(['warehouse', 'products'])->get();
+        // Filtrar salidas por bodegas permitidas
+        $salidasQuery = Salida::with(['warehouse', 'products']);
+        if (!empty($allowedWarehouseIds)) {
+            $salidasQuery->whereIn('warehouse_id', $allowedWarehouseIds);
+        }
+        $salidas = $salidasQuery->get();
+        
         foreach ($salidas as $salida) {
             foreach ($salida->products as $product) {
                 // Filtrar por producto si está seleccionado
@@ -273,42 +306,66 @@ class TraceabilityController extends Controller
     private function getTraceabilityData(Request $request)
     {
         $user = Auth::user();
-        $warehouses = Warehouse::orderBy('nombre')->get();
-        $products = Product::orderBy('nombre')->get();
         $selectedProductId = $request->get('product_id');
         $selectedWarehouseId = $request->get('warehouse_id');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         
-        $ID_PABLO_ROJAS = 1;
-        
-        // Admin y funcionario ven todas las bodegas
+        // Obtener bodegas según el rol del usuario (misma lógica que index)
+        $allowedWarehouseIds = [];
         if (in_array($user->rol, ['admin', 'funcionario'])) {
-            // No filtrar, ver todos los productos
-            if (!$selectedWarehouseId) {
-                $products = Product::orderBy('nombre')->get();
-            } else {
-                $products = Product::where('almacen_id', $selectedWarehouseId)->orderBy('nombre')->get();
+            // Admin y funcionario ven todas las bodegas
+            $warehouses = Warehouse::orderBy('nombre')->get();
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes ven solo sus bodegas asignadas
+            if (!$user->relationLoaded('almacenes')) {
+                $user->load('almacenes');
             }
-        } elseif ($user->rol !== 'admin' && !$selectedWarehouseId) {
-            $selectedWarehouseId = $user->almacen_id;
-            // Filtrar productos solo de la bodega del usuario
-            $products = Product::where('almacen_id', $user->almacen_id)->orderBy('nombre')->get();
+            $allowedWarehouseIds = $user->almacenes->pluck('id')->toArray();
+            $warehouses = $user->almacenes->sortBy('nombre')->values();
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+            
+            // Si no hay bodega seleccionada y tiene bodegas asignadas, usar la primera
+            if (!$selectedWarehouseId && !empty($allowedWarehouseIds)) {
+                $selectedWarehouseId = $allowedWarehouseIds[0];
+            }
+        } else {
+            // Otros roles ven solo su bodega
+            $allowedWarehouseIds = [$user->almacen_id];
+            $warehouses = collect([$user->almacen]);
+            $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
+            
+            if (!$selectedWarehouseId) {
+                $selectedWarehouseId = $user->almacen_id;
+            }
+        }
+        
+        // Validar que la bodega seleccionada esté permitida
+        if ($selectedWarehouseId && !empty($allowedWarehouseIds) && !in_array($selectedWarehouseId, $allowedWarehouseIds)) {
+            $selectedWarehouseId = !empty($allowedWarehouseIds) ? $allowedWarehouseIds[0] : null;
         }
         
         $movements = collect();
         
         // Obtener entradas desde contenedores
-        $containers = Container::with('products')->get();
+        // Filtrar contenedores por bodegas permitidas
+        $containersQuery = Container::with('products');
+        if (!empty($allowedWarehouseIds)) {
+            $containersQuery->whereIn('warehouse_id', $allowedWarehouseIds);
+        }
+        $containers = $containersQuery->get();
+        
         foreach ($containers as $container) {
+            // Filtrar por bodega del contenedor si está seleccionado
+            if ($selectedWarehouseId && $container->warehouse_id != $selectedWarehouseId) {
+                continue;
+            }
+            
             foreach ($container->products as $product) {
                 if ($selectedProductId && $product->id != $selectedProductId) continue;
                 
                 $totalSheets = $product->pivot->boxes * $product->pivot->sheets_per_box;
-                $productModel = Product::find($product->id);
-                if (!$productModel) continue;
-                
-                if ($selectedWarehouseId && $productModel->almacen_id != $selectedWarehouseId) continue;
                 
                 // Usar la fecha del pivot si existe, sino usar fecha actual
                 $containerDate = $product->pivot->created_at ?? now();
@@ -330,8 +387,8 @@ class TraceabilityController extends Controller
                     'product_code' => $product->codigo,
                     'product_medidas' => $product->medidas ?? '-',
                     'quantity' => $totalSheets,
-                    'warehouse_id' => $productModel->almacen_id,
-                    'warehouse_name' => $productModel->almacen->nombre ?? '-',
+                    'warehouse_id' => $container->warehouse_id,
+                    'warehouse_name' => $container->warehouse->nombre ?? '-',
                     'reference' => $container->reference,
                     'reference_type' => 'Contenedor',
                     'note' => $container->note,
@@ -342,7 +399,15 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas y entradas desde transferencias
-        $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])->get();
+        // Filtrar transferencias por bodegas permitidas
+        $transferOrdersQuery = TransferOrder::with(['from', 'to', 'products', 'driver']);
+        if (!empty($allowedWarehouseIds)) {
+            $transferOrdersQuery->where(function($query) use ($allowedWarehouseIds) {
+                $query->whereIn('warehouse_from_id', $allowedWarehouseIds)
+                      ->orWhereIn('warehouse_to_id', $allowedWarehouseIds);
+            });
+        }
+        $transferOrders = $transferOrdersQuery->get();
         foreach ($transferOrders as $transfer) {
             foreach ($transfer->products as $product) {
                 if ($selectedProductId && $product->id != $selectedProductId) continue;
@@ -421,7 +486,13 @@ class TraceabilityController extends Controller
         }
         
         // Obtener salidas del módulo Salidas
-        $salidas = Salida::with(['warehouse', 'products'])->get();
+        // Filtrar salidas por bodegas permitidas
+        $salidasQuery = Salida::with(['warehouse', 'products']);
+        if (!empty($allowedWarehouseIds)) {
+            $salidasQuery->whereIn('warehouse_id', $allowedWarehouseIds);
+        }
+        $salidas = $salidasQuery->get();
+        
         foreach ($salidas as $salida) {
             foreach ($salida->products as $product) {
                 if ($selectedProductId && $product->id != $selectedProductId) continue;

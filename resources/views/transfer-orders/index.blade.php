@@ -78,8 +78,8 @@
           // El usuario viene del controlador con las relaciones cargadas
           if (!isset($user)) {
               $user = Auth::user();
-              // Si es funcionario, cargar la relación almacenes
-              if ($user && $user->rol === 'funcionario' && !$user->relationLoaded('almacenes')) {
+              // Si es funcionario o cliente, cargar la relación almacenes
+              if ($user && in_array($user->rol, ['funcionario', 'clientes']) && !$user->relationLoaded('almacenes')) {
                   $user->load('almacenes');
               }
           }
@@ -189,6 +189,13 @@
                                         // Admin y funcionario pueden confirmar desde cualquier lugar
                                         if (in_array($user->rol, ['admin', 'funcionario'])) {
                                             $canConfirmTransfer = true;
+                                        } elseif ($user->rol === 'clientes') {
+                                            // Clientes pueden confirmar si la bodega destino está en sus bodegas asignadas
+                                            if (!$user->relationLoaded('almacenes')) {
+                                                $user->load('almacenes');
+                                            }
+                                            $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
+                                            $canConfirmTransfer = in_array($transfer->warehouse_to_id, $bodegasAsignadasIds);
                                         } else {
                                             $canConfirmTransfer = $user->almacen_id == $transfer->warehouse_to_id;
                                         }

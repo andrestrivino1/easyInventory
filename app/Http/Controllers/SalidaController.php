@@ -175,6 +175,13 @@ class SalidaController extends Controller
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto seleccionado no existe.")->withInput();
                 }
                 
+                // Validar que para bodegas de Buenaventura solo se permitan productos tipo "caja"
+                $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+                if (in_array($data['warehouse_id'], $bodegasBuenaventuraIds) && $product->tipo_medida !== 'caja') {
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Las bodegas de Buenaventura solo pueden dar salida a productos medidos en cajas.")->withInput();
+                }
+                
                 // Calcular stock real de la bodega
                 $stock = 0;
                 
@@ -233,26 +240,43 @@ class SalidaController extends Controller
                     }
                 }
                 
-                // Validar stock suficiente
-                // Las salidas siempre se hacen en láminas (unidades), no en cajas
-                $quantity = $productData['quantity']; // Esta cantidad es en láminas (unidades)
+                // Determinar si la bodega es de Buenaventura
+                $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+                $isBuenaventura = in_array($data['warehouse_id'], $bodegasBuenaventuraIds);
                 
+                // Convertir cantidad según el tipo de bodega
+                $quantity = $productData['quantity'];
+                if ($isBuenaventura) {
+                    // Para Buenaventura: la cantidad viene en cajas, convertir a láminas
+                    if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                        $quantity = $quantity * $product->unidades_por_caja;
+                    }
+                }
+                // Para otras bodegas: la cantidad ya viene en láminas (unidades)
+                
+                // Validar stock suficiente
                 if ($stock < $quantity) {
                     DB::rollBack();
-                    // Mostrar stock disponible en láminas
+                    // Mostrar stock disponible según el tipo de bodega
                     $laminasDisponibles = $stock;
-                    if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                    if ($isBuenaventura && $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
                         $cajasDisponibles = floor($stock / $product->unidades_por_caja);
-                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas ({$cajasDisponibles} cajas). Solicitado: {$quantity} láminas.")->withInput();
+                        $cajasSolicitadas = $productData['quantity'];
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$laminasDisponibles} láminas). Solicitado: {$cajasSolicitadas} cajas.")->withInput();
                     } else {
-                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas. Solicitado: {$quantity} láminas.")->withInput();
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $cajasDisponibles = floor($stock / $product->unidades_por_caja);
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas ({$cajasDisponibles} cajas). Solicitado: {$quantity} láminas.")->withInput();
+                        } else {
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas. Solicitado: {$quantity} láminas.")->withInput();
+                        }
                     }
                 }
                 
                 $productsToAttach[] = [
                     'product_id' => $productData['product_id'],
                     'container_id' => null, // Las salidas no requieren contenedor
-                    'quantity' => $quantity, // Cantidad en láminas (unidades)
+                    'quantity' => $quantity, // Cantidad en láminas (unidades) - siempre se guarda en láminas
                 ];
             }
             
@@ -449,13 +473,21 @@ class SalidaController extends Controller
         }
         
         // Obtener todos los productos globales (sin almacen_id específico)
-        $allProducts = Product::whereNull('almacen_id')
-            ->orderBy('nombre')
-            ->get();
+        $allProductsQuery = Product::whereNull('almacen_id');
+        
+        // Si la bodega es de Buenaventura, solo mostrar productos tipo "caja"
+        $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+        if (in_array($warehouseId, $bodegasBuenaventuraIds)) {
+            $allProductsQuery->where('tipo_medida', 'caja');
+        }
+        
+        $allProducts = $allProductsQuery->orderBy('nombre')->get();
         
         \Log::info('getProductsForWarehouse - Productos encontrados', [
             'total_productos' => $allProducts->count(),
-            'bodega_recibe_contenedores' => in_array($warehouseId, $bodegasQueRecibenContenedores)
+            'bodega_recibe_contenedores' => in_array($warehouseId, $bodegasQueRecibenContenedores),
+            'bodega_buenaventura' => in_array($warehouseId, $bodegasBuenaventuraIds),
+            'filtro_tipo_caja' => in_array($warehouseId, $bodegasBuenaventuraIds)
         ]);
         
         $productsWithStock = [];
@@ -477,63 +509,189 @@ class SalidaController extends Controller
                 }
             } else {
                 // Otra bodega: stock desde transferencias recibidas menos salidas
-                $receivedTransfers = TransferOrder::where('status', 'recibido')
-                    ->where('warehouse_to_id', $warehouseId)
-                    ->whereHas('products', function($query) use ($product) {
-                        $query->where('products.id', $product->id);
-                    })
-                    ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity');
-                    }])
+                // Usar consulta directa a la tabla pivot para mayor confiabilidad
+                $receivedQuantities = DB::table('transfer_order_products')
+                    ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+                    ->where('transfer_orders.status', 'recibido')
+                    ->where('transfer_orders.warehouse_to_id', $warehouseId)
+                    ->where('transfer_order_products.product_id', $product->id)
+                    ->select('transfer_order_products.quantity', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
                     ->get();
                 
-                foreach ($receivedTransfers as $transfer) {
-                    $productInTransfer = $transfer->products->first();
-                    if ($productInTransfer) {
-                        $quantity = $productInTransfer->pivot->quantity;
-                        // Si es tipo caja, convertir a unidades
-                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                            $quantity = $quantity * $product->unidades_por_caja;
-                        }
-                        $stock += $quantity;
+                \Log::info('getProductsForWarehouse - Transferencias recibidas (consulta directa)', [
+                    'product_id' => $product->id,
+                    'product_nombre' => $product->nombre,
+                    'warehouse_id' => $warehouseId,
+                    'transferencias_count' => $receivedQuantities->count(),
+                    'transferencias' => $receivedQuantities->map(function($t) {
+                        return [
+                            'transfer_id' => $t->transfer_id,
+                            'order_number' => $t->order_number,
+                            'quantity' => $t->quantity
+                        ];
+                    })->toArray()
+                ]);
+                
+                // Sumar cantidades recibidas
+                foreach ($receivedQuantities as $received) {
+                    $quantity = $received->quantity;
+                    // Si es tipo caja, convertir a unidades
+                    if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                        $quantity = $quantity * $product->unidades_por_caja;
                     }
+                    $stock += $quantity;
+                    
+                    \Log::info('getProductsForWarehouse - Transferencia procesada', [
+                        'transfer_id' => $received->transfer_id,
+                        'transfer_order_number' => $received->order_number,
+                        'product_id' => $product->id,
+                        'quantity_original' => $received->quantity,
+                        'quantity_en_unidades' => $quantity,
+                        'stock_acumulado' => $stock
+                    ]);
                 }
                 
-                // Descontar salidas
-                $salidas = Salida::where('warehouse_id', $warehouseId)
-                    ->whereHas('products', function($query) use ($product) {
-                        $query->where('products.id', $product->id);
-                    })
-                    ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity');
-                    }])
+                // Descontar salidas usando consulta directa
+                $salidasQuantities = DB::table('salida_products')
+                    ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                    ->where('salidas.warehouse_id', $warehouseId)
+                    ->where('salida_products.product_id', $product->id)
+                    ->select('salida_products.quantity', 'salidas.id as salida_id')
                     ->get();
                 
-                foreach ($salidas as $salida) {
-                    $productInSalida = $salida->products->first();
-                    if ($productInSalida) {
-                        $quantity = $productInSalida->pivot->quantity;
-                        $stock -= $quantity;
-                    }
+                \Log::info('getProductsForWarehouse - Salidas encontradas (consulta directa)', [
+                    'product_id' => $product->id,
+                    'warehouse_id' => $warehouseId,
+                    'salidas_count' => $salidasQuantities->count(),
+                    'salidas' => $salidasQuantities->map(function($s) {
+                        return [
+                            'salida_id' => $s->salida_id,
+                            'quantity' => $s->quantity
+                        ];
+                    })->toArray()
+                ]);
+                
+                foreach ($salidasQuantities as $salida) {
+                    // Las salidas ya se guardan en láminas (unidades), no en cajas
+                    $quantity = $salida->quantity;
+                    $stock -= $quantity;
+                    
+                    \Log::info('getProductsForWarehouse - Salida descontada', [
+                        'salida_id' => $salida->salida_id,
+                        'product_id' => $product->id,
+                        'quantity_descontada' => $quantity,
+                        'stock_restante' => $stock
+                    ]);
                 }
             }
             
-            // Solo incluir productos con stock mayor a 0
-            if ($stock > 0) {
+            // Asegurarse de que el stock sea al menos 0 (no negativo)
+            $finalStock = max(0, $stock);
+            
+            // Verificar si hay transferencias recibidas para este producto
+            $hasReceivedTransfers = false;
+            if (!in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+                $hasReceivedTransfers = DB::table('transfer_order_products')
+                    ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+                    ->where('transfer_orders.status', 'recibido')
+                    ->where('transfer_orders.warehouse_to_id', $warehouseId)
+                    ->where('transfer_order_products.product_id', $product->id)
+                    ->exists();
+            }
+            
+            \Log::info('getProductsForWarehouse - Resumen producto', [
+                'product_id' => $product->id,
+                'product_nombre' => $product->nombre,
+                'product_codigo' => $product->codigo,
+                'stock_calculado' => $stock,
+                'stock_final' => $finalStock,
+                'warehouse_id' => $warehouseId,
+                'tipo_medida' => $product->tipo_medida,
+                'unidades_por_caja' => $product->unidades_por_caja ?? 1,
+                'has_received_transfers' => $hasReceivedTransfers
+            ]);
+            
+            // Incluir productos con stock > 0
+            // Si el stock es 0 pero hay transferencias recibidas, también incluirlo para diagnóstico
+            // (esto ayuda a identificar problemas donde las salidas descontaron más de lo recibido)
+            if ($finalStock > 0 || ($hasReceivedTransfers && $finalStock == 0)) {
                 $productsWithStock[] = [
                     'id' => $product->id,
                     'nombre' => $product->nombre,
                     'codigo' => $product->codigo,
-                    'stock' => $stock,
+                    'medidas' => $product->medidas ?? '',
+                    'stock' => $finalStock,
                     'tipo_medida' => $product->tipo_medida,
                     'unidades_por_caja' => $product->unidades_por_caja ?? 1,
                 ];
+                
+                if ($finalStock == 0 && $hasReceivedTransfers) {
+                    \Log::warning('getProductsForWarehouse - Producto incluido con stock 0 pero tiene transferencias recibidas', [
+                        'product_id' => $product->id,
+                        'product_nombre' => $product->nombre,
+                        'warehouse_id' => $warehouseId,
+                        'stock_calculado' => $stock
+                    ]);
+                }
+            } else {
+                \Log::warning('getProductsForWarehouse - Producto excluido', [
+                    'product_id' => $product->id,
+                    'product_nombre' => $product->nombre,
+                    'stock_calculado' => $stock,
+                    'warehouse_id' => $warehouseId,
+                    'has_received_transfers' => $hasReceivedTransfers
+                ]);
             }
         }
         
-        \Log::info('getProductsForWarehouse - Resultado', [
+        // Verificar transferencias recibidas para esta bodega (para debugging)
+        $allReceivedTransfers = DB::table('transfer_orders')
+            ->where('status', 'recibido')
+            ->where('warehouse_to_id', $warehouseId)
+            ->select('id', 'order_number', 'warehouse_to_id', 'status', 'date')
+            ->get();
+        
+        $transferProducts = DB::table('transfer_order_products')
+            ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+            ->where('transfer_orders.status', 'recibido')
+            ->where('transfer_orders.warehouse_to_id', $warehouseId)
+            ->select('transfer_order_products.product_id', 'transfer_order_products.quantity', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
+            ->get();
+        
+        \Log::info('getProductsForWarehouse - Resultado final', [
             'productos_con_stock' => count($productsWithStock),
-            'warehouse_id' => $warehouseId
+            'total_productos_globales' => $allProducts->count(),
+            'warehouse_id' => $warehouseId,
+            'warehouse_nombre' => $warehouse->nombre,
+            'bodega_recibe_contenedores' => in_array($warehouseId, $bodegasQueRecibenContenedores),
+            'transferencias_recibidas_count' => $allReceivedTransfers->count(),
+            'transferencias_recibidas' => $allReceivedTransfers->map(function($t) {
+                return [
+                    'id' => $t->id,
+                    'order_number' => $t->order_number,
+                    'date' => $t->date
+                ];
+            })->toArray(),
+            'productos_en_transferencias' => $transferProducts->groupBy('product_id')->map(function($group) {
+                return [
+                    'product_id' => $group->first()->product_id,
+                    'total_quantity' => $group->sum('quantity'),
+                    'transfers' => $group->map(function($t) {
+                        return [
+                            'transfer_id' => $t->transfer_id,
+                            'order_number' => $t->order_number,
+                            'quantity' => $t->quantity
+                        ];
+                    })->toArray()
+                ];
+            })->values()->toArray(),
+            'productos' => array_map(function($p) {
+                return [
+                    'id' => $p['id'],
+                    'nombre' => $p['nombre'],
+                    'stock' => $p['stock']
+                ];
+            }, $productsWithStock)
         ]);
         
         return response()->json($productsWithStock);

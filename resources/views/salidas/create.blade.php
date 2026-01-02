@@ -123,25 +123,34 @@ body .form-bg {
             $isAdmin = $user->rol === 'admin';
             $isCliente = $user->rol === 'clientes';
             $isFuncionario = $user->rol === 'funcionario';
+            
+            // Determinar si la bodega es de Buenaventura
+            $isBuenaventura = false;
+            $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+            if ($isCliente && $warehouses->count() == 1) {
+                $isBuenaventura = in_array($warehouses->first()->id, $bodegasBuenaventuraIds);
+            } elseif (!$isAdmin && !$isCliente && !$isFuncionario) {
+                $isBuenaventura = in_array($user->almacen_id, $bodegasBuenaventuraIds);
+            }
         @endphp
 
         @if($isAdmin || ($isCliente && $warehouses->count() > 1) || ($isFuncionario && $warehouses->count() > 1))
         <label for="warehouse_id">Bodega*</label>
-        <select name="warehouse_id" id="warehouse_id" required onchange="loadProductsForWarehouse()">
+        <select name="warehouse_id" id="warehouse_id" required onchange="updateWarehouseType(); loadProductsForWarehouse();">
             <option value="">Seleccione</option>
             @foreach($warehouses as $wh)
-            <option value="{{ $wh->id }}" {{ old('warehouse_id') == $wh->id ? 'selected' : '' }}>
+            <option value="{{ $wh->id }}" data-is-buenaventura="{{ in_array($wh->id, $bodegasBuenaventuraIds) ? 'true' : 'false' }}" {{ old('warehouse_id') == $wh->id ? 'selected' : '' }}>
                 {{ $wh->nombre }}{{ $wh->ciudad ? ' - ' . $wh->ciudad : '' }}
             </option>
             @endforeach
         </select>
         @error('warehouse_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
         @elseif($isCliente && $warehouses->count() == 1)
-        <input type="hidden" name="warehouse_id" value="{{ $warehouses->first()->id }}">
+        <input type="hidden" name="warehouse_id" id="warehouse_id" value="{{ $warehouses->first()->id }}">
         <label>Bodega</label>
         <input type="text" value="{{ $warehouses->first()->nombre }}{{ $warehouses->first()->ciudad ? ' - ' . $warehouses->first()->ciudad : '' }}" readonly style="background:#e9ecef; pointer-events:none;">
         @else
-        <input type="hidden" name="warehouse_id" value="{{ $user->almacen_id }}">
+        <input type="hidden" name="warehouse_id" id="warehouse_id" value="{{ $user->almacen_id }}">
         <label>Bodega</label>
         <input type="text" value="{{ $user->almacen->nombre ?? 'N/A' }}" readonly style="background:#e9ecef; pointer-events:none;">
         @endif
@@ -184,22 +193,73 @@ body .form-bg {
 <script>
 let productIndex = 0;
 let availableProducts = @json($products ?? []);
+let isBuenaventura = @json($isBuenaventura ?? false);
+let bodegasBuenaventuraIds = @json($bodegasBuenaventuraIds ?? []);
 
-// Cargar productos cuando cambie la bodega
-async function loadProductsForWarehouse() {
-    // Buscar bodega en select o en input hidden
+// Función para actualizar los labels según el tipo de bodega
+function updateWarehouseType() {
     const warehouseSelect = document.getElementById('warehouse_id');
-    let warehouseId = null;
+    if (!warehouseSelect || warehouseSelect.tagName !== 'SELECT') return;
     
-    if (warehouseSelect) {
-        if (warehouseSelect.tagName === 'SELECT') {
-            warehouseId = warehouseSelect.value;
-        } else if (warehouseSelect.tagName === 'INPUT') {
-            warehouseId = warehouseSelect.value;
+    const selectedOption = warehouseSelect.options[warehouseSelect.selectedIndex];
+    const isBuenaventura = selectedOption ? selectedOption.getAttribute('data-is-buenaventura') === 'true' : false;
+    
+    // Actualizar labels de cantidad en todos los productos
+    const quantityLabels = document.querySelectorAll('[id^="quantity-label-"]');
+    const quantityInputs = document.querySelectorAll('[id^="quantity-"]');
+    
+    quantityLabels.forEach(label => {
+        if (isBuenaventura) {
+            label.textContent = 'Cantidad (en cajas)*';
+        } else {
+            label.textContent = 'Cantidad (en láminas)*';
+        }
+    });
+    
+    quantityInputs.forEach(input => {
+        if (input.id.startsWith('quantity-')) {
+            input.setAttribute('data-is-buenaventura', isBuenaventura);
+            if (isBuenaventura) {
+                input.placeholder = 'Cantidad en cajas';
+            } else {
+                input.placeholder = 'Cantidad en láminas';
+            }
+            // Actualizar info del producto si hay uno seleccionado
+            const index = input.id.replace('quantity-', '');
+            updateProductInfo(parseInt(index));
+        }
+    });
+}
+
+// Hacer la función disponible globalmente
+window.loadProductsForWarehouse = async function() {
+    // Buscar bodega en select o en input hidden
+    let warehouseId = null;
+    const warehouseElement = document.getElementById('warehouse_id');
+    
+    if (warehouseElement) {
+        if (warehouseElement.tagName === 'SELECT') {
+            warehouseId = warehouseElement.value;
+            console.log('Bodega encontrada en SELECT:', warehouseId);
+        } else if (warehouseElement.tagName === 'INPUT') {
+            warehouseId = warehouseElement.value;
+            console.log('Bodega encontrada en INPUT hidden:', warehouseId);
+        } else {
+            console.warn('Elemento warehouse_id encontrado pero tipo desconocido:', warehouseElement.tagName);
+        }
+    } else {
+        // Intentar buscar por name attribute como fallback
+        const warehouseByName = document.querySelector('input[name="warehouse_id"], select[name="warehouse_id"]');
+        if (warehouseByName) {
+            warehouseId = warehouseByName.value;
+            console.log('Bodega encontrada por name attribute:', warehouseId);
+        } else {
+            console.error('No se encontró el elemento warehouse_id ni por ID ni por name');
         }
     }
     
-    if (!warehouseId) {
+    if (!warehouseId || warehouseId === '') {
+        console.warn('No hay bodega seleccionada o el valor está vacío');
         availableProducts = [];
         updateProductSelects();
         // Limpiar productos existentes
@@ -217,32 +277,55 @@ async function loadProductsForWarehouse() {
     
     try {
         const url = `{{ route('salidas.get-products', ':id') }}`.replace(':id', warehouseId);
-        console.log('Cargando productos para bodega:', warehouseId, 'URL:', url);
+        console.log('=== INICIO CARGA PRODUCTOS ===');
+        console.log('Bodega ID:', warehouseId);
+        console.log('URL:', url);
+        console.log('Timestamp:', new Date().toISOString());
         
         const response = await fetch(url);
-        console.log('Respuesta recibida:', response.status, response.statusText);
+        console.log('Respuesta HTTP:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: Object.fromEntries(response.headers.entries())
+        });
         
         if (!response.ok) {
             if (response.status === 403) {
+                console.error('ERROR 403: No tienes permiso para ver productos de esta bodega.');
                 alert('No tienes permiso para ver productos de esta bodega.');
             } else {
                 const errorText = await response.text();
-                console.error('Error en respuesta:', errorText);
+                console.error('Error en respuesta:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: errorText
+                });
                 alert('Error al cargar productos. Por favor, recarga la página e intenta nuevamente.');
             }
             availableProducts = [];
             updateProductSelects();
+            console.log('=== FIN CARGA PRODUCTOS (ERROR) ===');
             return;
         }
         
         availableProducts = await response.json();
-        console.log('Productos cargados:', availableProducts.length, availableProducts);
+        console.log('=== PRODUCTOS CARGADOS ===');
+        console.log('Total productos:', availableProducts.length);
+        console.log('Productos detallados:', availableProducts);
         
         if (availableProducts.length === 0) {
+            console.warn('ADVERTENCIA: No hay productos con stock disponible para esta bodega');
             alert('Esta bodega no tiene productos con stock disponible.');
+        } else {
+            console.log('Productos disponibles para seleccionar:');
+            availableProducts.forEach((p, index) => {
+                console.log(`  ${index + 1}. ${p.nombre} (${p.codigo}) - Stock: ${p.stock}`);
+            });
         }
         
         updateProductSelects();
+        console.log('=== FIN CARGA PRODUCTOS (ÉXITO) ===');
         
         // Limpiar selecciones de productos cuando cambie la bodega
         const productSelects = document.querySelectorAll('select[id^="product-select-"]');
@@ -258,7 +341,7 @@ async function loadProductsForWarehouse() {
         availableProducts = [];
         updateProductSelects();
     }
-}
+};
 
 function updateProductSelects() {
     const productSelects = document.querySelectorAll('select[id^="product-select-"]');
@@ -273,10 +356,13 @@ function updateProductSelects() {
         availableProducts.forEach(product => {
             const option = document.createElement('option');
             option.value = product.id;
-            option.textContent = `${product.nombre} (${product.codigo}) - Stock: ${product.stock}`;
+            // Incluir medidas si están disponibles
+            const medidasText = product.medidas ? ` - ${product.medidas}` : '';
+            option.textContent = `${product.nombre} (${product.codigo})${medidasText} - Stock: ${product.stock}`;
             option.setAttribute('data-tipo', product.tipo_medida || '');
             option.setAttribute('data-stock', product.stock);
             option.setAttribute('data-unidades', product.unidades_por_caja || 1);
+            option.setAttribute('data-medidas', product.medidas || '');
             
             // Restaurar selección si existe
             if (currentValue && product.id == currentValue) {
@@ -299,6 +385,22 @@ function addProduct() {
     productItem.className = 'product-item';
     productItem.id = `product-${productIndex}`;
     
+    // Determinar si es bodega de Buenaventura
+    const warehouseElement = document.getElementById('warehouse_id');
+    let currentIsBuenaventura = isBuenaventura;
+    if (warehouseElement) {
+        if (warehouseElement.tagName === 'SELECT' && warehouseElement.value) {
+            const selectedOption = warehouseElement.options[warehouseElement.selectedIndex];
+            currentIsBuenaventura = selectedOption ? selectedOption.getAttribute('data-is-buenaventura') === 'true' : false;
+        } else if (warehouseElement.tagName === 'INPUT' && warehouseElement.value) {
+            const currentWarehouseId = parseInt(warehouseElement.value);
+            currentIsBuenaventura = bodegasBuenaventuraIds.includes(currentWarehouseId);
+        }
+    }
+    
+    const cantidadLabel = currentIsBuenaventura ? 'Cantidad (en cajas)*' : 'Cantidad (en láminas)*';
+    const cantidadPlaceholder = currentIsBuenaventura ? 'Cantidad en cajas' : 'Cantidad en láminas';
+    
     productItem.innerHTML = `
         <div class="product-item-header">
             <span class="product-item-title">Producto #${productIndex + 1}</span>
@@ -313,8 +415,8 @@ function addProduct() {
                 <div class="stock-info" id="stock-info-${productIndex}"></div>
             </div>
             <div>
-                <label for="products[${productIndex}][quantity]">Cantidad (en láminas)*</label>
-                <input type="number" name="products[${productIndex}][quantity]" id="quantity-${productIndex}" min="1" value="1" required oninput="updateProductInfo(${productIndex})" placeholder="Cantidad en láminas">
+                <label for="products[${productIndex}][quantity]" id="quantity-label-${productIndex}">${cantidadLabel}</label>
+                <input type="number" name="products[${productIndex}][quantity]" id="quantity-${productIndex}" min="1" value="1" required oninput="updateProductInfo(${productIndex})" placeholder="${cantidadPlaceholder}" data-is-buenaventura="${currentIsBuenaventura}">
             </div>
         </div>
     `;
@@ -327,10 +429,13 @@ function addProduct() {
         availableProducts.forEach(product => {
             const option = document.createElement('option');
             option.value = product.id;
-            option.textContent = `${product.nombre} (${product.codigo}) - Stock: ${product.stock}`;
+            // Incluir medidas si están disponibles
+            const medidasText = product.medidas ? ` - ${product.medidas}` : '';
+            option.textContent = `${product.nombre} (${product.codigo})${medidasText} - Stock: ${product.stock}`;
             option.setAttribute('data-tipo', product.tipo_medida || '');
             option.setAttribute('data-stock', product.stock);
             option.setAttribute('data-unidades', product.unidades_por_caja || 1);
+            option.setAttribute('data-medidas', product.medidas || '');
             select.appendChild(option);
         });
     }
@@ -363,23 +468,39 @@ function updateProductInfo(index) {
     
     if (!productSelect || !quantityInput) return;
     
+    // Verificar si es bodega de Buenaventura
+    const isBuenaventura = quantityInput.getAttribute('data-is-buenaventura') === 'true';
+    
     const selectedOption = productSelect.selectedOptions[0];
     if (selectedOption && selectedOption.value) {
         const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
         const tipo = selectedOption.getAttribute('data-tipo');
         const unidades = parseInt(selectedOption.getAttribute('data-unidades')) || 1;
-        const quantity = parseInt(quantityInput.value) || 0; // Cantidad en láminas
+        const quantity = parseInt(quantityInput.value) || 0;
         
-        // La cantidad ingresada ya está en láminas (unidades)
-        const laminasRequeridas = quantity;
-        
-        if (stockInfo) {
-            if (laminasRequeridas > stock) {
-                const cajas = tipo === 'caja' && unidades > 0 ? Math.floor(stock / unidades) : 0;
-                stockInfo.innerHTML = `<span style="color: #dc3545; font-weight: bold;">⚠️ Stock insuficiente. Disponible: ${stock} láminas${cajas > 0 ? ` (${cajas} cajas)` : ''}</span>`;
-            } else {
-                const cajas = tipo === 'caja' && unidades > 0 ? Math.floor(stock / unidades) : 0;
-                stockInfo.innerHTML = `<span style="color: #28a745">✓ Stock disponible: ${stock} láminas${cajas > 0 ? ` (${cajas} cajas)` : ''}</span>`;
+        if (isBuenaventura) {
+            // Para Buenaventura: cantidad ingresada es en cajas, convertir a láminas para validar
+            const laminasRequeridas = quantity * unidades;
+            const cajasDisponibles = tipo === 'caja' && unidades > 0 ? Math.floor(stock / unidades) : 0;
+            
+            if (stockInfo) {
+                if (laminasRequeridas > stock) {
+                    stockInfo.innerHTML = `<span style="color: #dc3545; font-weight: bold;">⚠️ Stock insuficiente. Disponible: ${cajasDisponibles} cajas (${stock} láminas)</span>`;
+                } else {
+                    stockInfo.innerHTML = `<span style="color: #28a745">✓ Stock disponible: ${cajasDisponibles} cajas (${stock} láminas)</span>`;
+                }
+            }
+        } else {
+            // Para otras bodegas: cantidad ingresada es en láminas
+            const laminasRequeridas = quantity;
+            const cajas = tipo === 'caja' && unidades > 0 ? Math.floor(stock / unidades) : 0;
+            
+            if (stockInfo) {
+                if (laminasRequeridas > stock) {
+                    stockInfo.innerHTML = `<span style="color: #dc3545; font-weight: bold;">⚠️ Stock insuficiente. Disponible: ${stock} láminas${cajas > 0 ? ` (${cajas} cajas)` : ''}</span>`;
+                } else {
+                    stockInfo.innerHTML = `<span style="color: #28a745">✓ Stock disponible: ${stock} láminas${cajas > 0 ? ` (${cajas} cajas)` : ''}</span>`;
+                }
             }
         }
     } else {
@@ -390,18 +511,36 @@ function updateProductInfo(index) {
 
 // Cargar productos al iniciar si hay una bodega seleccionada
 document.addEventListener('DOMContentLoaded', function() {
-    // Buscar bodega en select o en input hidden
-    const warehouseSelect = document.getElementById('warehouse_id');
-    let warehouseId = null;
+    console.log('DOMContentLoaded - Iniciando carga de productos');
     
-    if (warehouseSelect) {
-        warehouseId = warehouseSelect.value;
-    }
-    
-    if (warehouseId) {
-        console.log('Cargando productos iniciales para bodega:', warehouseId);
-        loadProductsForWarehouse();
-    }
+    // Esperar un momento para asegurar que el DOM esté completamente cargado
+    setTimeout(function() {
+        // Buscar bodega en select o en input hidden
+        let warehouseId = null;
+        const warehouseElement = document.getElementById('warehouse_id');
+        
+        if (warehouseElement) {
+            warehouseId = warehouseElement.value;
+            console.log('Bodega encontrada:', warehouseId, 'Tipo:', warehouseElement.tagName);
+        } else {
+            // Intentar buscar por name attribute como fallback
+            const warehouseByName = document.querySelector('input[name="warehouse_id"], select[name="warehouse_id"]');
+            if (warehouseByName) {
+                warehouseId = warehouseByName.value;
+                console.log('Bodega encontrada por name attribute:', warehouseId);
+            } else {
+                console.warn('No se encontró el elemento warehouse_id');
+            }
+        }
+        
+        if (warehouseId && warehouseId !== '') {
+            console.log('Cargando productos iniciales para bodega:', warehouseId);
+            updateWarehouseType();
+            loadProductsForWarehouse();
+        } else {
+            console.log('No hay bodega seleccionada inicialmente o el valor está vacío');
+        }
+    }, 100); // Pequeño delay para asegurar que el DOM esté listo
 });
 </script>
 @endsection
