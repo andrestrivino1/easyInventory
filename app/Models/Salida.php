@@ -15,6 +15,7 @@ class Salida extends Model
         'salida_number',
         'warehouse_id',
         'user_id',
+        'driver_id',
         'fecha',
         'a_nombre_de',
         'nit_cedula',
@@ -56,5 +57,10 @@ class Salida extends Model
     public function user()
     {
         return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
+
+    public function driver()
+    {
+        return $this->belongsTo(\App\Models\Driver::class, 'driver_id');
     }
 }

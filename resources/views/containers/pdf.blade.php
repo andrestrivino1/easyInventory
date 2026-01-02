@@ -22,7 +22,19 @@
 </head>
 <body>
     <div style="width:100%;text-align:center;margin-top:14px;margin-bottom:18px;">
-        <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" style="max-width:180px;max-height:80px;">
+        @php
+            $logoPath = public_path('logo.png');
+            $logoBase64 = '';
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            }
+        @endphp
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" style="max-width:180px;max-height:80px;">
+        @else
+            <img src="{{ asset('logo.png') }}" style="max-width:180px;max-height:80px;">
+        @endif
     </div>
     @if(!isset($isExport) || !$isExport)
     <div class="no-print" style="text-align:right;margin-top:18px;">

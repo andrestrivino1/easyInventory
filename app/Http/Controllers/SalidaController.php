@@ -105,7 +105,8 @@ class SalidaController extends Controller
             $warehouses = collect([$user->almacen]);
         }
         
-        return view('salidas.create', compact('products', 'warehouses'));
+        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        return view('salidas.create', compact('products', 'warehouses', 'drivers'));
     }
 
     /**
@@ -126,6 +127,7 @@ class SalidaController extends Controller
             'note' => 'nullable|string|max:500',
             'aprobo' => 'nullable|string|max:255',
             'ciudad_destino' => 'nullable|string|max:255',
+            'driver_id' => 'nullable|exists:drivers,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -290,6 +292,7 @@ class SalidaController extends Controller
             $salida = Salida::create([
                 'warehouse_id' => $data['warehouse_id'],
                 'user_id' => $user->id, // Guardar el usuario que crea la salida
+                'driver_id' => $data['driver_id'] ?? null,
                 'fecha' => $data['fecha'],
                 'a_nombre_de' => $data['a_nombre_de'],
                 'nit_cedula' => $data['nit_cedula'],
@@ -408,7 +411,7 @@ class SalidaController extends Controller
         
         $salida->load(['warehouse', 'products' => function($query) {
             $query->withPivot('quantity', 'container_id');
-        }, 'user']);
+        }, 'user', 'driver']);
         
         $isExport = true;
         $currentUser = $user;
@@ -422,20 +425,70 @@ class SalidaController extends Controller
      */
     public function print(Salida $salida)
     {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return redirect()->route('login');
+            }
+            
+            // Validar que el usuario tenga acceso a esta salida
+            if ($user->rol !== 'admin' && $salida->warehouse_id != $user->almacen_id) {
+                return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
+            }
+            
+            $salida->load(['warehouse', 'products' => function($query) {
+                $query->withPivot('quantity', 'container_id');
+            }, 'user']);
+            
+            $isExport = false;
+            $currentUser = $user;
+            return view('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
+        } catch (\Exception $e) {
+            \Log::error('SALIDA print - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'salida_id' => $salida->id ?? null
+            ]);
+            return redirect()->route('salidas.index')->with('error', 'Error al cargar la salida: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Models\Salida  $salida
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Salida $salida)
+    {
         $user = Auth::user();
         
-        // Validar que el usuario tenga acceso a esta salida
-        if ($user->rol !== 'admin' && $salida->warehouse_id != $user->almacen_id) {
-            return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
+        // Solo admin puede eliminar salidas
+        if ($user->rol !== 'admin') {
+            return redirect()->route('salidas.index')->with('error', 'No tienes permiso para eliminar salidas.');
         }
         
-        $salida->load(['warehouse', 'products' => function($query) {
-            $query->withPivot('quantity', 'container_id');
-        }, 'user']);
-        
-        $isExport = false;
-        $currentUser = $user;
-        return view('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
+        DB::beginTransaction();
+        try {
+            // El stock se calcula dinámicamente, así que solo necesitamos eliminar la salida
+            // No necesitamos restaurar stock porque se calcula desde transferencias recibidas menos salidas
+            $salida->delete();
+            
+            DB::commit();
+            return redirect()->route('salidas.index')->with('success', 'Salida eliminada correctamente.');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('SALIDA destroy - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'salida_id' => $salida->id ?? null
+            ]);
+            return back()->with('error', "Error al eliminar la salida: " . $e->getMessage());
+        }
     }
 
     /**

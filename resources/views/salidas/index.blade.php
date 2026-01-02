@@ -57,7 +57,20 @@
 }
 .btn-view {background: #1d7ff0; color: white;}
 .btn-print {background: #6c757d; color: white;}
-.actions a:hover { opacity: 0.85; }
+.btn-delete {background: #ffb3b3; color: #b30000;}
+.actions a:hover, .actions button:hover { opacity: 0.85; }
+.actions form {
+    display: inline-block;
+    margin: 0;
+}
+.actions button {
+    padding: 5px 9px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
 </style>
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1400px;">
@@ -118,6 +131,12 @@
                     <div style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
                         <a href="{{ route('salidas.show', $salida) }}" class="btn-view">Ver</a>
                         <a href="{{ route('salidas.print', $salida) }}" class="btn-print" target="_blank"><i class="bi bi-printer"></i></a>
+                        @if(Auth::user()->rol === 'admin')
+                            <form action="{{ route('salidas.destroy', $salida) }}" method="POST" style="display:inline; margin:0;">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="btn-delete">Eliminar</button>
+                            </form>
+                        @endif
                     </div>
                 </td>
             </tr>
@@ -153,6 +172,27 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+    
+    // Confirmación de eliminación
+    document.querySelectorAll('form[action*="salidas/"][method="POST"] button.btn-delete').forEach(function(btn) {
+        btn.closest('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Eliminar salida?',
+                text: '¡Esta acción no puede deshacerse!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#e12d39',
+                cancelButtonColor: '#6c757d'
+            }).then((result) => {
+                if(result.isConfirmed) {
+                    e.target.submit();
+                }
+            });
+        });
+    });
     
     @if(session('success'))
     Swal.fire({icon:'success',title:'',text:'{{ session('success') }}',toast:true,position:'top-end',showConfirmButton:false,timer:2900 });

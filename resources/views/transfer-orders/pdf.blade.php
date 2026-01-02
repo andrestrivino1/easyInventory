@@ -131,7 +131,19 @@
     <!-- Header con logo y datos de empresa -->
     <div class="header">
         <div class="logo-section">
-            <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @php
+                $logoPath = public_path('logo.png');
+                $logoBase64 = '';
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+            @endphp
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @else
+                <img src="{{ asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @endif
             <div class="company-info">
                 <div class="company-name">VIDRIOS J&P S.A.S.</div>
                 <div>NIT: 901.701.161-4</div>
@@ -196,7 +208,7 @@
     <div class="info-grid">
         <div class="info-box">
             <div class="info-label">CIUDAD DESTINO</div>
-            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $transferOrder->ciudad_destino ?? '' }}</div>
+            <div class="info-value">{{ $transferOrder->to->ciudad ?? ($transferOrder->ciudad_destino ?? '-') }}</div>
         </div>
         <div class="info-box">
             <div class="info-label">ESTADO</div>

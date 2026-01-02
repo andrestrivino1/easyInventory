@@ -133,7 +133,25 @@
     <!-- Header con logo y datos de empresa -->
     <div class="header">
         <div class="logo-section">
-            <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @php
+                try {
+                    $logoPath = public_path('logo.png');
+                    $logoBase64 = '';
+                    if (file_exists($logoPath) && is_readable($logoPath)) {
+                        $logoData = @file_get_contents($logoPath);
+                        if ($logoData !== false) {
+                            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $logoBase64 = '';
+                }
+            @endphp
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @else
+                <img src="{{ asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            @endif
             <div class="company-info">
                 <div class="company-name">VIDRIOS J&P S.A.S.</div>
                 <div>NIT: 901.701.161-4</div>
@@ -152,7 +170,7 @@
     <div class="info-grid">
         <div class="info-box">
             <div class="info-label">ELABORO</div>
-            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $currentUser->nombre_completo ?? $currentUser->name ?? '' }}</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ isset($currentUser) ? ($currentUser->nombre_completo ?? $currentUser->name ?? '') : '' }}</div>
         </div>
         <div class="info-box">
             <div class="info-label">APROBO</div>
@@ -203,8 +221,13 @@
 
     <!-- Tabla de productos -->
     @php
-        $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
-        $isBuenaventura = in_array($salida->warehouse_id, $bodegasBuenaventuraIds);
+        try {
+            $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+            $isBuenaventura = in_array($salida->warehouse_id ?? 0, $bodegasBuenaventuraIds);
+        } catch (\Exception $e) {
+            $bodegasBuenaventuraIds = [];
+            $isBuenaventura = false;
+        }
         $totalCantidad = 0;
     @endphp
     <table class="products-table">
@@ -253,6 +276,31 @@
     @if($salida->note)
     <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 11px;">
         <strong>OBSERVACIONES:</strong> {{ $salida->note }}
+    </div>
+    @endif
+
+    <!-- Información del conductor -->
+    @if($salida->driver)
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">CONDUCTOR</div>
+            <div class="info-value">{{ $salida->driver->name ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">CÉDULA</div>
+            <div class="info-value">{{ $salida->driver->identity ?? '-' }}</div>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">PLACA VEHÍCULO</div>
+            <div class="info-value">{{ $salida->driver->vehicle_plate ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">TELÉFONO</div>
+            <div class="info-value">{{ $salida->driver->phone ?? '-' }}</div>
+        </div>
     </div>
     @endif
 

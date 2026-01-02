@@ -175,6 +175,17 @@ body .form-bg {
         <input type="text" name="ciudad_destino" id="ciudad_destino" value="{{ old('ciudad_destino') }}" placeholder="Ciudad destino (opcional)">
         @error('ciudad_destino') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <label for="driver_id">Conductor</label>
+        <select name="driver_id" id="driver_id" class="form-control">
+            <option value="">Seleccione un conductor (opcional)</option>
+            @foreach($drivers as $driver)
+                <option value="{{ $driver->id }}" {{ old('driver_id') == $driver->id ? 'selected' : '' }}>
+                    {{ $driver->name }} - {{ $driver->identity }}
+                </option>
+            @endforeach
+        </select>
+        @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
         <div style="margin-top: 20px; margin-bottom: 10px;">
             <label style="margin-bottom: 10px;">Productos a dar salida*</label>
             <button type="button" class="btn-add-product" onclick="addProduct()">+ Agregar Producto</button>
