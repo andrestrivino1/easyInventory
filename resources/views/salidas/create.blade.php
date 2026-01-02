@@ -167,6 +167,14 @@ body .form-bg {
         <input type="text" name="nit_cedula" id="nit_cedula" value="{{ old('nit_cedula') }}" placeholder="NIT o Cédula" required>
         @error('nit_cedula') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <label for="aprobo">Aprobó</label>
+        <input type="text" name="aprobo" id="aprobo" value="{{ old('aprobo') }}" placeholder="Nombre de quien aprueba (opcional)">
+        @error('aprobo') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="ciudad_destino">Ciudad Destino</label>
+        <input type="text" name="ciudad_destino" id="ciudad_destino" value="{{ old('ciudad_destino') }}" placeholder="Ciudad destino (opcional)">
+        @error('ciudad_destino') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
         <div style="margin-top: 20px; margin-bottom: 10px;">
             <label style="margin-bottom: 10px;">Productos a dar salida*</label>
             <button type="button" class="btn-add-product" onclick="addProduct()">+ Agregar Producto</button>

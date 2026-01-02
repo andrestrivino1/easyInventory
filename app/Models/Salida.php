@@ -14,10 +14,13 @@ class Salida extends Model
     protected $fillable = [
         'salida_number',
         'warehouse_id',
+        'user_id',
         'fecha',
         'a_nombre_de',
         'nit_cedula',
         'note',
+        'aprobo',
+        'ciudad_destino',
     ];
 
     protected $casts = [
@@ -48,5 +51,10 @@ class Salida extends Model
         return $this->belongsToMany(Product::class, 'salida_products')
             ->withPivot('quantity', 'container_id')
             ->withTimestamps();
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
 }

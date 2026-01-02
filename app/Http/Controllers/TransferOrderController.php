@@ -110,6 +110,8 @@ class TransferOrderController extends Controller
             'products.*.quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
             'driver_id' => 'required|exists:drivers,id',
+            'aprobo' => 'nullable|string|max:255',
+            'ciudad_destino' => 'nullable|string|max:255',
         ]);
         
         DB::beginTransaction();
@@ -261,6 +263,8 @@ class TransferOrderController extends Controller
                 'date' => now(),
                 'note' => $data['note'] ?? null,
                 'driver_id' => $data['driver_id'],
+                'aprobo' => $data['aprobo'] ?? null,
+                'ciudad_destino' => $data['ciudad_destino'] ?? null,
             ]);
             
             // Descontar stock y asociar productos
@@ -596,6 +600,7 @@ class TransferOrderController extends Controller
     public function destroy(TransferOrder $transferOrder)
     {
         $user = Auth::user();
+        // Admin puede eliminar cualquier transferencia, otros solo las de su bodega
         if ($user->rol !== 'admin' && $transferOrder->warehouse_from_id !== $user->almacen_id) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para eliminar esta transferencia.');
         }
@@ -702,8 +707,14 @@ class TransferOrderController extends Controller
      */
     public function export(TransferOrder $transferOrder)
     {
+        $user = Auth::user();
+        $transferOrder->load(['from', 'to', 'products' => function($query) {
+            $query->withPivot('quantity', 'container_id');
+        }, 'driver']);
         $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
-        $pdf = \PDF::loadView('transfer-orders.pdf', compact('transferOrder', 'showSignatures'));
+        $currentUser = $user;
+        $isExport = true;
+        $pdf = \PDF::loadView('transfer-orders.pdf', compact('transferOrder', 'showSignatures', 'currentUser', 'isExport'));
         return $pdf->download("transferencia_{$transferOrder->id}.pdf");
     }
 
@@ -712,8 +723,14 @@ class TransferOrderController extends Controller
      */
     public function print(TransferOrder $transferOrder)
     {
+        $user = Auth::user();
+        $transferOrder->load(['from', 'to', 'products' => function($query) {
+            $query->withPivot('quantity', 'container_id');
+        }, 'driver']);
         $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
-        return view('transfer-orders.pdf', compact('transferOrder', 'showSignatures'));
+        $currentUser = $user;
+        $isExport = false;
+        return view('transfer-orders.pdf', compact('transferOrder', 'showSignatures', 'currentUser', 'isExport'));
     }
 
     /**

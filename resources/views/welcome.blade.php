@@ -30,7 +30,7 @@
           <p>Bajo stock</p>
         </div>
         <div class="icon"><i class="bi bi-exclamation-triangle"></i></div>
-        <a href="{{ route('products.index') }}" class="small-box-footer text-dark">Ver detalles <i class="bi bi-arrow-right-circle"></i></a>
+        <a href="{{ route('stock.index') }}" class="small-box-footer text-dark">Ver detalles <i class="bi bi-arrow-right-circle"></i></a>
       </div>
     </div>
     <div class="col-lg-3 col-xs-6">

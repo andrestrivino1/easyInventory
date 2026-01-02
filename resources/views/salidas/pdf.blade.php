@@ -2,94 +2,274 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Salida #{{ $salida->salida_number }}</title>
+    <title>Orden de Salida #{{ $salida->salida_number }}</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 14px; color: #232323; margin: 0 32px; }
-        .title { font-size: 20px; font-weight: bold; margin-top: 25px; margin-bottom: 8px; }
-        .subtitle { color: #007bff; font-size: 16px; margin-bottom: 18px; }
-        .label { color: #666; font-size: 13px; font-weight: bold; }
-        table {border-collapse: collapse;width:100%;margin-bottom:25px;}
-        th, td {border: 1px solid #ccc;padding: 8px;text-align: left;font-size:14px;}
-        th {background: #edf5ff;}
-        .footer {margin-top:35px; text-align:right; font-size:13px;color:#777;}
-        .firma {margin-top:60px;border-top:1px solid #aaa;width:180px;text-align:center;color:#666;font-size:12px;padding-top:6px;}
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            color: #232323; 
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-section img {
+            max-width: 80px;
+            max-height: 80px;
+        }
+        .company-info {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .company-info .company-name {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .title-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .main-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .products-table th {
+            background: #0066cc;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12px;
+            border: 1px solid #004499;
+        }
+        .products-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        .products-table tbody tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .total-row {
+            background: #e6f2ff !important;
+            font-weight: bold;
+        }
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 60px;
+        }
+        .signature-box {
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .signature-label {
+            font-weight: bold;
+            margin-bottom: 50px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: right;
+            font-size: 11px;
+            color: #777;
+        }
         @media print {
-            body { margin:0; }
+            body { margin: 0; padding: 15px; }
             .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
-    <div style="width:100%;text-align:center;margin-top:14px;margin-bottom:18px;">
-        <img src="{{ (isset($isExport) && $isExport) ? public_path('logo.png') : asset('logo.png') }}" style="max-width:180px;max-height:80px;">
-    </div>
     @if(!isset($isExport) || !$isExport)
-    <div class="no-print" style="text-align:right;margin-top:18px;">
-        <a href="{{ route('salidas.export', $salida) }}" target="_blank" style="background:#178aff;color:white;padding:7px 15px;border-radius:5px;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:24px;"><i class="bi bi-file-earmark-pdf" style="margin-right:4px;"></i>Descargar PDF</a>
+    <div class="no-print" style="text-align:right;margin-bottom:20px;">
+        <a href="{{ route('salidas.export', $salida) }}" target="_blank" style="background:#178aff;color:white;padding:7px 15px;border-radius:5px;text-decoration:none;font-size:14px;font-weight:500;"><i class="bi bi-file-earmark-pdf" style="margin-right:4px;"></i>Descargar PDF</a>
         <button onclick="window.print()" style="background:#6c757d;color:white;padding:7px 16px;font-size:14px;font-weight:500;border:none;border-radius:5px;margin-left:6px;">Imprimir</button>
     </div>
     @endif
-    <div class="title">Salida #{{ $salida->salida_number }}</div>
-    <div class="subtitle">Fecha: {{ $salida->fecha->format('d/m/Y') }}</div>
 
-    <table style="margin-bottom:15px;">
-        <tr>
-            <td class="label">Bodega:</td>
-            <td>{{ $salida->warehouse->nombre ?? '-' }}</td>
-            <td class="label">A nombre de:</td>
-            <td>{{ $salida->a_nombre_de }}</td>
-        </tr>
-        <tr>
-            <td class="label">NIT/Cédula:</td>
-            <td>{{ $salida->nit_cedula }}</td>
-            <td class="label">Fecha:</td>
-            <td>{{ $salida->fecha->format('d/m/Y') }}</td>
-        </tr>
-    </table>
+    <!-- Header con logo y datos de empresa -->
+    <div class="header">
+        <div class="logo-section">
+            <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            <div class="company-info">
+                <div class="company-name">VIDRIOS J&P S.A.S.</div>
+                <div>NIT: 901.701.161-4</div>
+            </div>
+        </div>
+    </div>
 
-    <table>
+    <!-- Título principal -->
+    <div class="title-section">
+        <div class="main-title">ORDEN DE SALIDA DE INVENTARIO</div>
+        <div style="font-size: 13px; margin-top: 5px;">VIDRIOS JYP SAS</div>
+        <div style="font-size: 12px; color: #666;">NIT: 901.701.161-4</div>
+    </div>
+
+    <!-- Información de elaboración y aprobación -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">ELABORO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $currentUser->nombre_completo ?? $currentUser->name ?? '' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">APROBO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $salida->aprobo ?? '' }}</div>
+        </div>
+    </div>
+
+    <!-- Información de orden y bodega -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">ORDEN DE CARGUE No.</div>
+            <div class="info-value">{{ $salida->salida_number }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">BODEGA DE CARGUE</div>
+            <div class="info-value">
+                @php
+                    $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+                    $isBuenaventura = in_array($salida->warehouse_id, $bodegasBuenaventuraIds);
+                @endphp
+                {{ $isBuenaventura ? 'Buenaventura' : ($salida->warehouse->nombre ?? '-') }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">FECHA</div>
+            <div class="info-value">{{ $salida->fecha->format('d/m/Y') }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">A NOMBRE DE</div>
+            <div class="info-value">{{ $salida->a_nombre_de }}</div>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">NIT/CÉDULA</div>
+            <div class="info-value">{{ $salida->nit_cedula }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">CIUDAD DESTINO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $salida->ciudad_destino ?? '' }}</div>
+        </div>
+    </div>
+
+    <!-- Tabla de productos -->
+    @php
+        $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+        $isBuenaventura = in_array($salida->warehouse_id, $bodegasBuenaventuraIds);
+        $totalCantidad = 0;
+    @endphp
+    <table class="products-table">
         <thead>
             <tr>
-                <th>Producto</th>
-                <th>Medidas</th>
-                <th>Cantidad (Láminas)</th>
+                <th>PRODUCTO</th>
+                <th>CONTENEDOR</th>
+                <th>CANTIDAD</th>
             </tr>
         </thead>
         <tbody>
         @foreach($salida->products as $prod)
             @php
-                // La cantidad ingresada siempre está en láminas (unidades)
                 $laminas = $prod->pivot->quantity;
+                $containerId = $prod->pivot->container_id ?? null;
+                $container = null;
                 
-                // Calcular cajas equivalentes si el producto es tipo caja (solo para referencia)
-                $cajasEquivalentes = null;
-                if ($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
-                    $cajasEquivalentes = floor($laminas / $prod->unidades_por_caja);
+                if ($containerId) {
+                    $container = \App\Models\Container::find($containerId);
+                }
+                
+                // Determinar cantidad a mostrar
+                if ($isBuenaventura && $prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
+                    $cantidadMostrar = floor($laminas / $prod->unidades_por_caja);
+                    $unidadMostrar = 'cajas';
+                    $totalCantidad += $cantidadMostrar;
+                } else {
+                    $cantidadMostrar = $laminas;
+                    $unidadMostrar = 'láminas';
+                    $totalCantidad += $cantidadMostrar;
                 }
             @endphp
             <tr>
-                <td>{{ $prod->nombre }} ({{ $prod->codigo }})</td>
-                <td>{{ $prod->medidas ?? '-' }}</td>
-                <td>
-                    {{ number_format($laminas, 0) }} láminas
-                    @if($cajasEquivalentes !== null && $cajasEquivalentes > 0)
-                        <br><small style="color: #666;">({{ $cajasEquivalentes }} cajas)</small>
-                    @endif
-                </td>
+                <td>{{ $prod->nombre }}@if($prod->medidas) - {{ $prod->medidas }}@endif</td>
+                <td style="text-align: center;">{{ $container ? $container->reference : '-' }}</td>
+                <td style="text-align: center; font-weight: bold;">{{ number_format($cantidadMostrar, 0) }}</td>
             </tr>
         @endforeach
+        <tr class="total-row">
+            <td colspan="2" style="text-align: right; padding-right: 15px;"><strong>TOTAL</strong></td>
+            <td style="text-align: center;"><strong>{{ number_format($totalCantidad, 0) }}</strong></td>
+        </tr>
         </tbody>
     </table>
 
     @if($salida->note)
-    <div style="margin-top:20px; padding:10px; background:#f8f9fa; border-radius:6px;">
-        <strong>Notas:</strong> {{ $salida->note }}
+    <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 11px;">
+        <strong>OBSERVACIONES:</strong> {{ $salida->note }}
     </div>
     @endif
+
+    <!-- Firmas -->
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-label">FIRMA CONDUCTOR</div>
+            <div style="height: 50px;"></div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-label">FIRMA BODEGA</div>
+            <div style="height: 50px;"></div>
+        </div>
+    </div>
 
     <div class="footer">
         <div>Generado el {{ now()->format('d/m/Y H:i') }}</div>
     </div>
 </body>
 </html>
-

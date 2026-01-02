@@ -124,6 +124,8 @@ class SalidaController extends Controller
             'a_nombre_de' => 'required|string|max:255',
             'nit_cedula' => 'required|string|max:255',
             'note' => 'nullable|string|max:500',
+            'aprobo' => 'nullable|string|max:255',
+            'ciudad_destino' => 'nullable|string|max:255',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -184,6 +186,7 @@ class SalidaController extends Controller
                 
                 // Calcular stock real de la bodega
                 $stock = 0;
+                $containerId = null;
                 
                 if (in_array($data['warehouse_id'], $bodegasQueRecibenContenedores)) {
                     // Bodega que recibe contenedores: stock desde container_product
@@ -191,33 +194,36 @@ class SalidaController extends Controller
                         ->join('containers', 'container_product.container_id', '=', 'containers.id')
                         ->where('container_product.product_id', $product->id)
                         ->where('containers.warehouse_id', $data['warehouse_id'])
-                        ->select('container_product.boxes', 'container_product.sheets_per_box')
-                        ->get();
+                        ->where('container_product.boxes', '>', 0)
+                        ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box')
+                        ->orderBy('container_product.container_id')
+                        ->first();
                     
-                    foreach ($containerProducts as $cp) {
-                        $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                    if ($containerProducts) {
+                        $stock = ($containerProducts->boxes ?? 0) * ($containerProducts->sheets_per_box ?? 0);
+                        $containerId = $containerProducts->container_id;
                     }
                 } else {
                     // Otra bodega: stock desde transferencias recibidas menos salidas
-                    $receivedTransfers = TransferOrder::where('status', 'recibido')
-                        ->where('warehouse_to_id', $data['warehouse_id'])
-                        ->whereHas('products', function($query) use ($product) {
-                            $query->where('products.id', $product->id);
-                        })
-                        ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
-                        }])
+                    // Usar consulta directa a la tabla pivot para obtener container_id
+                    $receivedQuantities = DB::table('transfer_order_products')
+                        ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+                        ->where('transfer_orders.status', 'recibido')
+                        ->where('transfer_orders.warehouse_to_id', $data['warehouse_id'])
+                        ->where('transfer_order_products.product_id', $product->id)
+                        ->select('transfer_order_products.quantity', 'transfer_order_products.container_id', 'transfer_orders.id as transfer_id')
                         ->get();
                     
-                    foreach ($receivedTransfers as $transfer) {
-                        $productInTransfer = $transfer->products->first();
-                        if ($productInTransfer) {
-                            $quantity = $productInTransfer->pivot->quantity;
-                            // Si es tipo caja, convertir a unidades
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
-                            }
-                            $stock += $quantity;
+                    foreach ($receivedQuantities as $received) {
+                        $quantity = $received->quantity;
+                        // Si es tipo caja, convertir a unidades
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock += $quantity;
+                        // Obtener el container_id de la primera transferencia que tenga stock y container_id
+                        if ($containerId === null && $received->container_id) {
+                            $containerId = $received->container_id;
                         }
                     }
                     
@@ -275,7 +281,7 @@ class SalidaController extends Controller
                 
                 $productsToAttach[] = [
                     'product_id' => $productData['product_id'],
-                    'container_id' => null, // Las salidas no requieren contenedor
+                    'container_id' => $containerId, // Obtener el contenedor del producto
                     'quantity' => $quantity, // Cantidad en láminas (unidades) - siempre se guarda en láminas
                 ];
             }
@@ -283,10 +289,13 @@ class SalidaController extends Controller
             // Crear la salida
             $salida = Salida::create([
                 'warehouse_id' => $data['warehouse_id'],
+                'user_id' => $user->id, // Guardar el usuario que crea la salida
                 'fecha' => $data['fecha'],
                 'a_nombre_de' => $data['a_nombre_de'],
                 'nit_cedula' => $data['nit_cedula'],
                 'note' => $data['note'] ?? null,
+                'aprobo' => $data['aprobo'] ?? null,
+                'ciudad_destino' => $data['ciudad_destino'] ?? null,
             ]);
             
             // Asociar productos a la salida
@@ -308,7 +317,8 @@ class SalidaController extends Controller
                         'product_id' => $product->id,
                         'product_nombre' => $product->nombre,
                         'warehouse_id' => $data['warehouse_id'],
-                        'quantity' => $item['quantity']
+                        'quantity' => $item['quantity'],
+                        'container_id' => $item['container_id']
                     ]);
                 } catch (\Exception $e) {
                     DB::rollBack();
@@ -396,10 +406,13 @@ class SalidaController extends Controller
             }
         }
         
-        $salida->load(['warehouse', 'products']);
+        $salida->load(['warehouse', 'products' => function($query) {
+            $query->withPivot('quantity', 'container_id');
+        }, 'user']);
         
         $isExport = true;
-        $pdf = Pdf::loadView('salidas.pdf', compact('salida', 'isExport'));
+        $currentUser = $user;
+        $pdf = Pdf::loadView('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
         $filename = 'Salida-' . $salida->salida_number . '.pdf';
         return $pdf->download($filename);
     }
@@ -416,10 +429,13 @@ class SalidaController extends Controller
             return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
         }
         
-        $salida->load(['warehouse', 'products']);
+        $salida->load(['warehouse', 'products' => function($query) {
+            $query->withPivot('quantity', 'container_id');
+        }, 'user']);
         
         $isExport = false;
-        return view('salidas.pdf', compact('salida', 'isExport'));
+        $currentUser = $user;
+        return view('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
     }
 
     /**

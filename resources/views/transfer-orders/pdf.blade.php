@@ -4,183 +4,303 @@
     <meta charset="UTF-8">
     <title>Orden de Transferencia</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 14px; color: #232323; margin: 0 32px; }
-        .title { font-size: 20px; font-weight: bold; margin-top: 25px; margin-bottom: 8px; }
-        .subtitle { color: #007bff; font-size: 16px; margin-bottom: 18px; }
-        .label { color: #666; font-size: 13px; font-weight: bold; }
-        table {border-collapse: collapse;width:100%;margin-bottom:25px;}
-        th, td {border: 1px solid #ccc;padding: 8px;text-align: left;font-size:14px;}
-        th {background: #edf5ff;}
-        .badge { display:inline-block; padding:2px 11px; border-radius:5px; font-size:13px; font-weight: bold;}
-        .transito {background:#ffc107;color:#212529;}
-        .recibido {background:#4caf50;color:white;}
-        .footer {margin-top:35px; text-align:right; font-size:13px;color:#777;}
-        .firma {margin-top:60px;border-top:1px solid #aaa;width:180px;text-align:center;color:#666;font-size:12px;padding-top:6px;}
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            color: #232323; 
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-section img {
+            max-width: 80px;
+            max-height: 80px;
+        }
+        .company-info {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .company-info .company-name {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .title-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .main-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            border: 1px solid #ddd;
+            padding: 12px;
+            background: #f9f9f9;
+        }
+        .info-label {
+            font-weight: bold;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .info-value {
+            font-size: 13px;
+            color: #232323;
+        }
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .products-table th {
+            background: #edf5ff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .products-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            font-size: 12px;
+        }
+        .total-row {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+        .signature-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 40px;
+            margin-top: 60px;
+        }
+        .signature-box {
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .signature-label {
+            font-weight: bold;
+            margin-bottom: 50px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: right;
+            font-size: 11px;
+            color: #777;
+        }
         @media print {
-            body { margin:0; }
+            body { margin: 0; padding: 15px; }
             .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
-    <div style="width:100%;text-align:center;margin-top:14px;margin-bottom:18px;">
-        <img src="{{ (isset($isExport) && $isExport) ? public_path('logo.png') : asset('logo.png') }}" style="max-width:180px;max-height:80px;">
-    </div>
     @if(!isset($isExport) || !$isExport)
-    <div class="no-print" style="text-align:right;margin-top:18px;">
-        <a href="{{ route('transfer-orders.export', $transferOrder) }}" target="_blank" style="background:#178aff;color:white;padding:7px 15px;border-radius:5px;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:24px;"><i class="bi bi-file-earmark-pdf" style="margin-right:4px;"></i>Descargar PDF</a>
+    <div class="no-print" style="text-align:right;margin-bottom:20px;">
+        <a href="{{ route('transfer-orders.export', $transferOrder) }}" target="_blank" style="background:#178aff;color:white;padding:7px 15px;border-radius:5px;text-decoration:none;font-size:14px;font-weight:500;"><i class="bi bi-file-earmark-pdf" style="margin-right:4px;"></i>Descargar PDF</a>
         <button onclick="window.print()" style="background:#6c757d;color:white;padding:7px 16px;font-size:14px;font-weight:500;border:none;border-radius:5px;margin-left:6px;">Imprimir</button>
     </div>
     @endif
-    <div class="title">Orden de Transferencia #{{ $transferOrder->order_number }}</div>
-    <div class="subtitle">Fecha: {{ $transferOrder->date->setTimezone(config('app.timezone'))->format('d/m/Y h:i A') }}</div>
 
-    <table style="margin-bottom:15px;">
-        <tr>
-            <td class="label">Bodega Origen:</td>
-            <td>{{ $transferOrder->from->nombre }}</td>
-            <td class="label">Bodega Destino:</td>
-            <td>{{ $transferOrder->to->nombre }}</td>
-        </tr>
-        <tr>
-            <td class="label">Salida (Ciudad):</td>
-            <td>{{ $transferOrder->salida ?? '-' }}</td>
-            <td class="label">Destino (Ciudad):</td>
-            <td>{{ $transferOrder->destino ?? '-' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Estado:</td>
-            <td colspan="3">
+    <!-- Header con logo y datos de empresa -->
+    <div class="header">
+        <div class="logo-section">
+            <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+            <div class="company-info">
+                <div class="company-name">VIDRIOS J&P S.A.S.</div>
+                <div>NIT: 901.701.161-4</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Título principal -->
+    <div class="title-section">
+        <div class="main-title">ORDEN DE TRANSFERENCIA</div>
+        <div style="font-size: 13px; margin-top: 5px;">VIDRIOS JYP SAS</div>
+        <div style="font-size: 12px; color: #666;">NIT: 901.701.161-4</div>
+    </div>
+
+    <!-- Información de elaboración y aprobación -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">ELABORO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $currentUser->nombre_completo ?? $currentUser->name ?? '' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">APROBO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $transferOrder->aprobo ?? '' }}</div>
+        </div>
+    </div>
+
+    <!-- Información de orden y bodegas -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">ORDEN DE TRANSFERENCIA No.</div>
+            <div class="info-value">{{ $transferOrder->order_number }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">FECHA</div>
+            <div class="info-value">{{ $transferOrder->date->format('d/m/Y') }}</div>
+        </div>
+    </div>
+
+    <!-- Información de bodegas -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">BODEGA ORIGEN</div>
+            <div class="info-value">
+                @php
+                    $bodegasBuenaventuraIds = \App\Models\Warehouse::getBodegasBuenaventuraIds();
+                    $isBuenaventuraFrom = in_array($transferOrder->warehouse_from_id, $bodegasBuenaventuraIds);
+                @endphp
+                {{ $isBuenaventuraFrom ? 'Buenaventura' : ($transferOrder->from->nombre ?? '-') }}
+            </div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">BODEGA DESTINO</div>
+            <div class="info-value">
+                @php
+                    $isBuenaventuraTo = in_array($transferOrder->warehouse_to_id, $bodegasBuenaventuraIds);
+                @endphp
+                {{ $isBuenaventuraTo ? 'Buenaventura' : ($transferOrder->to->nombre ?? '-') }}
+            </div>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">CIUDAD DESTINO</div>
+            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $transferOrder->ciudad_destino ?? '' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">ESTADO</div>
+            <div class="info-value">
                 @if($transferOrder->status == 'en_transito')
-                    <span class="badge transito">En tránsito</span>
+                    <span style="background:#ffc107;color:#212529;padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">En tránsito</span>
                 @elseif($transferOrder->status == 'recibido')
-                    <span class="badge recibido">Recibido</span>
+                    <span style="background:#4caf50;color:white;padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">Recibido</span>
                 @else
-                    <span class="badge">{{ ucfirst($transferOrder->status) }}</span>
+                    <span style="padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">{{ ucfirst($transferOrder->status) }}</span>
                 @endif
-            </td>
-        </tr>
-    </table>
+            </div>
+        </div>
+    </div>
 
-    <table>
+    <!-- Tabla de productos -->
+    <table class="products-table">
         <thead>
             <tr>
-                <th>Producto</th>
-                <th>Medidas</th>
-                <th>Contenedor</th>
-                <th>Cajas</th>
-                <th>Unidades</th>
+                <th>PRODUCTO</th>
+                <th>CONTENEDOR</th>
+                <th>CAJAS</th>
+                <th>UNIDADES</th>
             </tr>
         </thead>
         <tbody>
         @foreach($transferOrder->products as $prod)
             @php
-                // pivot->quantity almacena la cantidad ingresada según el tipo de medida
-                // Si es tipo "caja", quantity = cantidad de cajas
-                // Si es tipo "unidad", quantity = cantidad de unidades
                 $cantidadIngresada = $prod->pivot->quantity;
+                $containerId = $prod->pivot->container_id ?? null;
+                $container = null;
+                
+                if ($containerId) {
+                    $container = \App\Models\Container::find($containerId);
+                }
                 
                 if ($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
-                    // Producto medido en cajas
-                    $cajas = $cantidadIngresada; // La cantidad ingresada ya son cajas
-                    $unidades = $cantidadIngresada * $prod->unidades_por_caja; // Convertir cajas a unidades
+                    $cajas = $cantidadIngresada;
+                    $unidades = $cantidadIngresada * $prod->unidades_por_caja;
                 } else {
-                    // Producto medido en unidades
-                    $cajas = null; // No aplica
-                    $unidades = $cantidadIngresada; // La cantidad ingresada ya son unidades
-                }
-            @endphp
-            @php
-                $container = null;
-                if ($prod->pivot->container_id && isset($containers)) {
-                    $container = $containers->get($prod->pivot->container_id);
-                } elseif ($prod->pivot->container_id) {
-                    $container = \App\Models\Container::find($prod->pivot->container_id);
+                    $cajas = null;
+                    $unidades = $cantidadIngresada;
                 }
             @endphp
             <tr>
-                <td>{{ $prod->nombre }}</td>
-                <td>{{ $prod->medidas ?? '-' }}</td>
-                <td>{{ $container ? $container->reference : '-' }}</td>
-                <td>
+                <td>{{ $prod->nombre }}@if($prod->medidas) - {{ $prod->medidas }}@endif</td>
+                <td style="text-align: center;">{{ $container ? $container->reference : '-' }}</td>
+                <td style="text-align: center;">
                     @if($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)
                         {{ $cajas }}
                     @else
                         -
                     @endif
                 </td>
-                <td>{{ $unidades }}</td>
+                <td style="text-align: center; font-weight: bold;">{{ number_format($unidades, 0) }}</td>
             </tr>
         @endforeach
         </tbody>
     </table>
-    <table style="margin-bottom:15px;">
-        <tr>
-            <td class="label">Conductor:</td>
-            <td>{{ $transferOrder->driver->name ?? '-' }}</td>
-            <td class="label">Cédula:</td>
-            <td>{{ $transferOrder->driver->identity ?? '-' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Placa Vehículo:</td>
-            <td>{{ $transferOrder->driver->vehicle_plate ?? '-' }}</td>
-            <td class="label">Teléfono:</td>
-            <td>{{ $transferOrder->driver->phone ?? '-' }}</td>
-        </tr>
-    </table>
+
+    <!-- Información del conductor -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">CONDUCTOR</div>
+            <div class="info-value">{{ $transferOrder->driver->name ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">CÉDULA</div>
+            <div class="info-value">{{ $transferOrder->driver->identity ?? '-' }}</div>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">PLACA VEHÍCULO</div>
+            <div class="info-value">{{ $transferOrder->driver->vehicle_plate ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">TELÉFONO</div>
+            <div class="info-value">{{ $transferOrder->driver->phone ?? '-' }}</div>
+        </div>
+    </div>
+
     @if($transferOrder->note)
-    <div style="margin-top:8px;"><span class="label">Notas:</span> {{ $transferOrder->note }}</div>
+    <div style="margin-top: 15px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd;">
+        <div class="info-label">NOTAS</div>
+        <div style="font-size: 12px; margin-top: 5px;">{{ $transferOrder->note }}</div>
+    </div>
     @endif
-    <table style="width:100%;margin-top:45px;text-align:center;border:0;">
-        <tr>
-            <td style="border:none;">
-                <div class="firma">
-                    Patio de despacho
-                </div>
-            </td>
-            <td style="border:none;">
-                <div class="firma">
-                    Firma conductor
-                </div>
-            </td>
-            <td style="border:none;">
-                <div class="firma">
-                    Firma recibido
-                </div>
-            </td>
-        </tr>
-    </table>
-    @if(isset($showSignatures) && $showSignatures)
-    <table style="width:100%;margin-top:60px;text-align:center;border:0;">
-        <tr>
-            <td style="border:none; width:50%;">
-                <div class="firma" style="width:100%; max-width:300px; margin:0 auto;">
-                    <div style="margin-bottom:40px; border-bottom:1px solid #aaa; padding-bottom:8px;">
-                        <div style="font-weight:bold; margin-bottom:5px;">Nombre:</div>
-                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
-                    </div>
-                    <div style="border-bottom:1px solid #aaa; padding-bottom:8px;">
-                        <div style="font-weight:bold; margin-bottom:5px;">NIT/Cédula:</div>
-                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
-                    </div>
-                </div>
-            </td>
-            <td style="border:none; width:50%;">
-                <div class="firma" style="width:100%; max-width:300px; margin:0 auto;">
-                    <div style="margin-bottom:40px; border-bottom:1px solid #aaa; padding-bottom:8px;">
-                        <div style="font-weight:bold; margin-bottom:5px;">Nombre:</div>
-                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
-                    </div>
-                    <div style="border-bottom:1px solid #aaa; padding-bottom:8px;">
-                        <div style="font-weight:bold; margin-bottom:5px;">NIT/Cédula:</div>
-                        <div style="height:30px; border-bottom:1px solid #ccc;"></div>
-                    </div>
-                </div>
-            </td>
-        </tr>
-    </table>
-    @endif
-    <div class="footer" style="margin-top:60px; text-align:right; font-size:13px;color:#777;">
+
+    <!-- Firmas -->
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-label">Patio de despacho</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-label">Firma conductor</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-label">Firma recibido</div>
+        </div>
+    </div>
+
+    <div class="footer">
         Generado por EasyInventory - {{ now()->format('d/m/Y h:i A') }}
     </div>
 </body>

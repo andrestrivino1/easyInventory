@@ -39,7 +39,7 @@
 </head>
 <body>
     <div style="width:100%;text-align:center;margin-top:14px;margin-bottom:18px;">
-        <img src="{{ (isset($isExport) && $isExport) ? public_path('logo.png') : asset('logo.png') }}" style="max-width:180px;max-height:80px;">
+        <img src="{{ (isset($isExport) && $isExport) ? base_path('public/logo.png') : asset('logo.png') }}" style="max-width:180px;max-height:80px;">
     </div>
     <div class="title">Trazabilidad de Productos</div>
     <div class="subtitle">Fecha: {{ date('d/m/Y H:i') }}</div>

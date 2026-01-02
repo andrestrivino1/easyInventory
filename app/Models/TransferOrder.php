@@ -22,6 +22,8 @@ class TransferOrder extends Model
         'date',
         'note',
         'driver_id',
+        'aprobo',
+        'ciudad_destino',
     ];
 
     protected $casts = [
