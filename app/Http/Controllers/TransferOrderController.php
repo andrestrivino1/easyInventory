@@ -79,10 +79,19 @@ class TransferOrderController extends Controller
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
         }
         
-        $warehouses = Warehouse::orderBy('nombre')->get();
+        // Bodegas de origen: Si es funcionario, solo mostrar bodegas de Buenaventura
+        if ($user->rol === 'funcionario') {
+            $warehousesFrom = Warehouse::getBodegasBuenaventura();
+        } else {
+            $warehousesFrom = Warehouse::orderBy('nombre')->get();
+        }
+        
+        // Bodegas de destino: Todas las bodegas para todos los usuarios
+        $warehousesTo = Warehouse::orderBy('nombre')->get();
+        
         $products = Product::with('containers')->orderBy('nombre')->get();
         $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
-        return view('transfer-orders.create', compact('warehouses', 'products', 'drivers'));
+        return view('transfer-orders.create', compact('warehousesFrom', 'warehousesTo', 'products', 'drivers'));
     }
 
     /**

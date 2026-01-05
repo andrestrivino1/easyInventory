@@ -303,14 +303,14 @@
     <div class="signature-section">
         <div class="signature-box">
             <div class="signature-label">Patio de despacho</div>
-        </div>
+                </div>
         <div class="signature-box">
             <div class="signature-label">Firma conductor</div>
-        </div>
+                </div>
         <div class="signature-box">
             <div class="signature-label">Firma recibido</div>
-        </div>
-    </div>
+                    </div>
+                </div>
 
     <div class="footer">
         Generado por EasyInventory - {{ now()->format('d/m/Y h:i A') }}

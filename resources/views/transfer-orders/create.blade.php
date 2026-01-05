@@ -121,7 +121,7 @@ body .form-bg {
         <label for="warehouse_from_id">Bodega origen*</label>
         <select name="warehouse_from_id" id="warehouse_from_id" required onchange="loadProductsForWarehouse()">
             <option value="">Seleccione</option>
-            @foreach($warehouses as $wh)
+            @foreach($warehousesFrom as $wh)
             <option value="{{ $wh->id }}" {{ old('warehouse_from_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}{{ $wh->ciudad ? ' - ' . $wh->ciudad : '' }}</option>
             @endforeach
         </select>
@@ -130,7 +130,7 @@ body .form-bg {
         <label for="warehouse_to_id">Bodega destino*</label>
         <select name="warehouse_to_id" id="warehouse_to_id" required>
             <option value="">Seleccione</option>
-            @foreach($warehouses as $wh)
+            @foreach($warehousesTo as $wh)
             <option value="{{ $wh->id }}" {{ old('warehouse_to_id') == $wh->id ? 'selected' : '' }}>{{ $wh->nombre }}{{ $wh->ciudad ? ' - ' . $wh->ciudad : '' }}</option>
             @endforeach
         </select>

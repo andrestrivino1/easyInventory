@@ -401,9 +401,15 @@ class SalidaController extends Controller
         // Validar que el usuario tenga acceso a esta salida
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden descargar todas las salidas
-        } elseif ($user->rol === 'funcionario') {
+        } elseif ($user->rol === 'clientes') {
+            // Clientes solo pueden descargar salidas de sus bodegas asignadas
+            $bodegasAsignadas = $user->almacenes()->get();
+            $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+            if (!in_array($salida->warehouse_id, $bodegasAsignadasIds)) {
+                return redirect()->route('salidas.index')->with('error', 'No tienes permiso para descargar esta salida.');
+            }
         } else {
-            // Clientes solo pueden descargar salidas de su bodega
+            // Otros roles solo pueden descargar salidas de su bodega
             if ($salida->warehouse_id != $user->almacen_id) {
                 return redirect()->route('salidas.index')->with('error', 'No tienes permiso para descargar esta salida.');
             }
@@ -433,13 +439,25 @@ class SalidaController extends Controller
             }
             
             // Validar que el usuario tenga acceso a esta salida
-            if ($user->rol !== 'admin' && $salida->warehouse_id != $user->almacen_id) {
-                return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
+            if (in_array($user->rol, ['admin', 'funcionario'])) {
+                // Admin y funcionario pueden imprimir todas las salidas
+            } elseif ($user->rol === 'clientes') {
+                // Clientes solo pueden imprimir salidas de sus bodegas asignadas
+                $bodegasAsignadas = $user->almacenes()->get();
+                $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
+                if (!in_array($salida->warehouse_id, $bodegasAsignadasIds)) {
+                    return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
+                }
+            } else {
+                // Otros roles solo pueden imprimir salidas de su bodega
+                if ($salida->warehouse_id != $user->almacen_id) {
+                    return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
+                }
             }
             
             $salida->load(['warehouse', 'products' => function($query) {
                 $query->withPivot('quantity', 'container_id');
-            }, 'user']);
+            }, 'user', 'driver']);
             
             $isExport = false;
             $currentUser = $user;

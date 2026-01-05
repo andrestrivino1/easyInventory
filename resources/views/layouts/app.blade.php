@@ -280,7 +280,8 @@
             <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> Contenedores</a></li>
             @endif
             <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> Stock</a></li>
-            <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Trazabilidad</a></li> 
+            <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Trazabilidad</a></li>
+            <li><a class="nav-link href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Importacion</a></li>  
             @if($user && $user->rol === 'admin')
               <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>
             @endif
