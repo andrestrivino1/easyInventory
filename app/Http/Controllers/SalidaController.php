@@ -213,16 +213,23 @@ class SalidaController extends Controller
                         ->where('transfer_orders.status', 'recibido')
                         ->where('transfer_orders.warehouse_to_id', $data['warehouse_id'])
                         ->where('transfer_order_products.product_id', $product->id)
-                        ->select('transfer_order_products.quantity', 'transfer_order_products.container_id', 'transfer_orders.id as transfer_id')
+                        ->select('transfer_order_products.quantity', 'transfer_order_products.good_sheets', 'transfer_order_products.bad_sheets', 'transfer_order_products.container_id', 'transfer_orders.id as transfer_id')
                         ->get();
                     
                     foreach ($receivedQuantities as $received) {
-                        $quantity = $received->quantity;
-                        // Si es tipo caja, convertir a unidades
-                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                            $quantity = $quantity * $product->unidades_por_caja;
+                        // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                        if ($received->good_sheets !== null) {
+                            // Ya está en láminas buenas
+                            $stock += $received->good_sheets;
+                        } else {
+                            // Transferencia antigua sin good_sheets
+                            $quantity = $received->quantity;
+                            // Si es tipo caja, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
                         }
-                        $stock += $quantity;
                         // Obtener el container_id de la primera transferencia que tenga stock y container_id
                         if ($containerId === null && $received->container_id) {
                             $containerId = $received->container_id;
@@ -602,7 +609,7 @@ class SalidaController extends Controller
                     ->where('transfer_orders.status', 'recibido')
                     ->where('transfer_orders.warehouse_to_id', $warehouseId)
                     ->where('transfer_order_products.product_id', $product->id)
-                    ->select('transfer_order_products.quantity', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
+                    ->select('transfer_order_products.quantity', 'transfer_order_products.good_sheets', 'transfer_order_products.bad_sheets', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
                     ->get();
                 
                 \Log::info('getProductsForWarehouse - Transferencias recibidas (consulta directa)', [
@@ -614,25 +621,36 @@ class SalidaController extends Controller
                         return [
                             'transfer_id' => $t->transfer_id,
                             'order_number' => $t->order_number,
-                            'quantity' => $t->quantity
+                            'quantity' => $t->quantity,
+                            'good_sheets' => $t->good_sheets
                         ];
                     })->toArray()
                 ]);
                 
-                // Sumar cantidades recibidas
+                // Sumar cantidades recibidas (solo las láminas buenas)
                 foreach ($receivedQuantities as $received) {
-                    $quantity = $received->quantity;
-                    // Si es tipo caja, convertir a unidades
-                    if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                        $quantity = $quantity * $product->unidades_por_caja;
+                    // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                    $quantity = null;
+                    if ($received->good_sheets !== null) {
+                        // Ya está en láminas buenas
+                        $stock += $received->good_sheets;
+                        $quantity = $received->good_sheets; // Para el log
+                    } else {
+                        // Transferencia antigua sin good_sheets
+                        $quantity = $received->quantity;
+                        // Si es tipo caja, convertir a unidades
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock += $quantity;
                     }
-                    $stock += $quantity;
                     
                     \Log::info('getProductsForWarehouse - Transferencia procesada', [
                         'transfer_id' => $received->transfer_id,
                         'transfer_order_number' => $received->order_number,
                         'product_id' => $product->id,
                         'quantity_original' => $received->quantity,
+                        'good_sheets' => $received->good_sheets,
                         'quantity_en_unidades' => $quantity,
                         'stock_acumulado' => $stock
                     ]);

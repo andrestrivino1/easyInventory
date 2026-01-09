@@ -202,10 +202,7 @@
                                     }
                                 @endphp
                                 @if($canConfirmTransfer)
-                                    <form action="{{ route('transfer-orders.confirm', $transfer) }}" method="POST" style="display:inline; margin:0;">
-                                        @csrf
-                                        <button type="submit" class="btn btn-success" style="padding: 5px 9px; font-size: 12px;">Confirmar recibido</button>
-                                    </form>
+                                    <a href="{{ route('transfer-orders.confirm', $transfer) }}" class="btn btn-success" style="padding: 5px 9px; font-size: 12px; text-decoration: none; display: inline-block;">Confirmar recibido</a>
                                 @endif
                             </div>
                         </td>

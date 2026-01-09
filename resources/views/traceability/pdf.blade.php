@@ -130,7 +130,7 @@
     </table>
 
     <div class="footer" style="margin-top:60px; text-align:right; font-size:13px;color:#777;">
-        Generado por EasyInventory - {{ now()->format('d/m/Y h:i A') }}
+        Generado por VIDRIOS J&P S.A.S. - {{ now()->format('d/m/Y h:i A') }}
     </div>
 </body>
 </html>

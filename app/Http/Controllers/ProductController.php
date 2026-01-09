@@ -22,7 +22,7 @@ class ProductController extends Controller
         // Productos globales: mostrar todos los productos (sin almacen_id específico)
         $productos = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
-            ->get();
+            ->paginate(10);
         
         // Funcionario no puede crear productos (solo lectura)
         $canCreateProducts = ($user->rol !== 'funcionario') && 
@@ -214,7 +214,7 @@ class ProductController extends Controller
         // Obtener todas las transferencias recibidas de una vez para optimizar
         $allReceivedTransfers = \App\Models\TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('container_id', 'quantity');
+                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets');
             }])
             ->get();
         
@@ -272,12 +272,24 @@ class ProductController extends Controller
                     
                     if ($productInTransfer && $productInTransfer->pivot->container_id) {
                         $containerId = $productInTransfer->pivot->container_id;
-                        $quantity = $productInTransfer->pivot->quantity;
                         
-                        // Calcular láminas si es tipo caja
-                        $laminas = $quantity;
-                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                            $laminas = $quantity * $producto->unidades_por_caja;
+                        // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                        $goodSheets = $productInTransfer->pivot->good_sheets;
+                        if ($goodSheets !== null) {
+                            // Ya está en láminas buenas
+                            $laminas = $goodSheets;
+                            // Calcular cajas si es necesario
+                            $quantity = $producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0 
+                                ? ceil($goodSheets / $producto->unidades_por_caja) 
+                                : $goodSheets;
+                        } else {
+                            // Transferencia antigua sin good_sheets
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Calcular láminas si es tipo caja
+                            $laminas = $quantity;
+                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                $laminas = $quantity * $producto->unidades_por_caja;
+                            }
                         }
                         
                         // Agregar o sumar a las cantidades existentes del contenedor

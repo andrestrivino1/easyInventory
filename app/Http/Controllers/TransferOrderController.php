@@ -198,18 +198,26 @@ class TransferOrderController extends Controller
                             $query->where('products.id', $product->id);
                         })
                         ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
+                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
                         }])
                         ->get();
                     
                     foreach ($receivedTransfers as $transfer) {
                         $productInTransfer = $transfer->products->first();
                         if ($productInTransfer) {
-                            $quantity = $productInTransfer->pivot->quantity;
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
+                            // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                            $goodSheets = $productInTransfer->pivot->good_sheets;
+                            if ($goodSheets !== null) {
+                                // Ya está en láminas buenas
+                                $stock += $goodSheets;
+                            } else {
+                                // Transferencia antigua sin good_sheets
+                                $quantity = $productInTransfer->pivot->quantity;
+                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                    $quantity = $quantity * $product->unidades_por_caja;
+                                }
+                                $stock += $quantity;
                             }
-                            $stock += $quantity;
                         }
                     }
                     
@@ -486,18 +494,26 @@ class TransferOrderController extends Controller
                             $query->where('products.id', $product->id);
                         })
                         ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
+                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
                         }])
                         ->get();
                     
                     foreach ($receivedTransfers as $transfer) {
                         $productInTransfer = $transfer->products->first();
                         if ($productInTransfer) {
-                            $quantity = $productInTransfer->pivot->quantity;
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
+                            // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                            $goodSheets = $productInTransfer->pivot->good_sheets;
+                            if ($goodSheets !== null) {
+                                // Ya está en láminas buenas
+                                $stock += $goodSheets;
+                            } else {
+                                // Transferencia antigua sin good_sheets
+                                $quantity = $productInTransfer->pivot->quantity;
+                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                    $quantity = $quantity * $product->unidades_por_caja;
+                                }
+                                $stock += $quantity;
                             }
-                            $stock += $quantity;
                         }
                     }
                     
@@ -651,9 +667,9 @@ class TransferOrderController extends Controller
     }
 
     /**
-     * Confirmar recepción de transferencia
+     * Mostrar formulario para confirmar recepción de transferencia
      */
-    public function confirmReceived(TransferOrder $transferOrder)
+    public function showConfirmForm(TransferOrder $transferOrder)
     {
         $user = Auth::user();
         // Solo se puede confirmar si la transferencia está en tránsito
@@ -661,14 +677,13 @@ class TransferOrderController extends Controller
             return redirect()->route('transfer-orders.index')->with('error', 'Esta transferencia ya fue procesada.');
         }
         
-        // Admin y funcionario pueden confirmar desde cualquier lugar
+        // Verificar permisos
         $canConfirm = false;
         $errorMessage = 'Solo se puede confirmar la recepción en la bodega destino.';
         
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             $canConfirm = true;
         } elseif ($user->rol === 'clientes') {
-            // Clientes pueden confirmar si la bodega destino está en sus bodegas asignadas
             if (!$user->relationLoaded('almacenes')) {
                 $user->load('almacenes');
             }
@@ -678,7 +693,6 @@ class TransferOrderController extends Controller
                 $errorMessage = 'Solo puedes confirmar transferencias hacia tus bodegas asignadas.';
             }
         } else {
-            // Otros roles solo pueden confirmar si es su bodega
             $canConfirm = $user->almacen_id == $transferOrder->warehouse_to_id;
             if (!$canConfirm) {
                 $errorMessage = 'Solo puedes confirmar transferencias hacia tu bodega asignada.';
@@ -689,16 +703,103 @@ class TransferOrderController extends Controller
             return redirect()->route('transfer-orders.index')->with('error', $errorMessage);
         }
         
+        $transferOrder->load(['from', 'to', 'products' => function($query) {
+            $query->withPivot('quantity', 'container_id');
+        }, 'driver']);
+        
+        return view('transfer-orders.confirm', compact('transferOrder'));
+    }
+
+    /**
+     * Confirmar recepción de transferencia
+     */
+    public function confirmReceived(Request $request, TransferOrder $transferOrder)
+    {
+        $user = Auth::user();
+        // Solo se puede confirmar si la transferencia está en tránsito
+        if ($transferOrder->status !== 'en_transito') {
+            return redirect()->route('transfer-orders.index')->with('error', 'Esta transferencia ya fue procesada.');
+        }
+        
+        // Verificar permisos
+        $canConfirm = false;
+        $errorMessage = 'Solo se puede confirmar la recepción en la bodega destino.';
+        
+        if (in_array($user->rol, ['admin', 'funcionario'])) {
+            $canConfirm = true;
+        } elseif ($user->rol === 'clientes') {
+            if (!$user->relationLoaded('almacenes')) {
+                $user->load('almacenes');
+            }
+            $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
+            $canConfirm = in_array($transferOrder->warehouse_to_id, $bodegasAsignadasIds);
+            if (!$canConfirm) {
+                $errorMessage = 'Solo puedes confirmar transferencias hacia tus bodegas asignadas.';
+            }
+        } else {
+            $canConfirm = $user->almacen_id == $transferOrder->warehouse_to_id;
+            if (!$canConfirm) {
+                $errorMessage = 'Solo puedes confirmar transferencias hacia tu bodega asignada.';
+            }
+        }
+        
+        if (!$canConfirm) {
+            return redirect()->route('transfer-orders.index')->with('error', $errorMessage);
+        }
+        
+        // Validar datos
+        $validated = $request->validate([
+            'products' => 'required|array',
+            'products.*.product_id' => 'required|exists:products,id',
+            'products.*.good_sheets' => 'required|integer|min:0',
+            'products.*.bad_sheets' => 'required|integer|min:0',
+        ]);
+        
+        $transferOrder->load('products');
+        
         DB::beginTransaction();
         try {
-            // Los productos ahora son globales, no necesitamos crear productos en la bodega destino
-            // El stock se calculará dinámicamente desde las transferencias recibidas
-            // Solo marcamos la transferencia como recibida
+            // Actualizar cada producto con las láminas buenas y malas
+            foreach ($validated['products'] as $productData) {
+                $productId = $productData['product_id'];
+                $goodSheets = $productData['good_sheets'];
+                $badSheets = $productData['bad_sheets'];
+                
+                // Verificar que el producto esté en la transferencia
+                $productInTransfer = $transferOrder->products->find($productId);
+                if (!$productInTransfer) {
+                    throw new \Exception("El producto con ID {$productId} no está en esta transferencia.");
+                }
+                
+                // Verificar que la suma de buenas y malas no exceda la cantidad enviada
+                $totalReceived = $goodSheets + $badSheets;
+                $quantitySent = $productInTransfer->pivot->quantity;
+                
+                // Si el producto tiene unidades_por_caja, convertir a láminas
+                $product = Product::find($productId);
+                if ($product && $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                    $quantitySent = $quantitySent * $product->unidades_por_caja;
+                }
+                
+                if ($totalReceived > $quantitySent) {
+                    throw new \Exception("La suma de láminas buenas y malas ({$totalReceived}) no puede exceder la cantidad enviada ({$quantitySent}) para el producto {$product->nombre}.");
+                }
+                
+                // Actualizar el pivot con las láminas buenas y malas
+                DB::table('transfer_order_products')
+                    ->where('transfer_order_id', $transferOrder->id)
+                    ->where('product_id', $productId)
+                    ->update([
+                        'good_sheets' => $goodSheets,
+                        'bad_sheets' => $badSheets
+                    ]);
+            }
             
+            // Marcar la transferencia como recibida
             $transferOrder->update(['status' => 'recibido']);
             
             DB::commit();
-            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia confirmada correctamente. El stock se calculará automáticamente desde las transferencias recibidas.');
+            return redirect()->route('transfer-orders.index')->with('success', 'Transferencia confirmada correctamente. Solo las láminas en buen estado se agregarán al stock.');
             
         } catch (\Exception $e) {
             DB::rollBack();
@@ -707,7 +808,7 @@ class TransferOrderController extends Controller
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
-            return back()->with('error', "Error al confirmar la transferencia: " . $e->getMessage());
+            return back()->withInput()->with('error', "Error al confirmar la transferencia: " . $e->getMessage());
         }
     }
 
@@ -803,19 +904,27 @@ class TransferOrderController extends Controller
                         $query->where('products.id', $product->id);
                     })
                     ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity');
+                        $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
                     }])
                     ->get();
                 
                 foreach ($receivedTransfers as $transfer) {
                     $productInTransfer = $transfer->products->first();
                     if ($productInTransfer) {
-                        $quantity = $productInTransfer->pivot->quantity;
-                        // Si es tipo caja, convertir a unidades
-                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                            $quantity = $quantity * $product->unidades_por_caja;
+                        // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad con transferencias antiguas)
+                        $goodSheets = $productInTransfer->pivot->good_sheets;
+                        if ($goodSheets !== null) {
+                            // Ya está en láminas buenas
+                            $stock += $goodSheets;
+                        } else {
+                            // Transferencia antigua sin good_sheets, usar quantity
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si es tipo caja, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
                         }
-                        $stock += $quantity;
                     }
                 }
                 

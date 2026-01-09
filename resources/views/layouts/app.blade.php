@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Easy Inventory | Dashboard</title>
+    <title>VIDRIOS J&P S.A.S. | Dashboard</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Bootstrap 5 CSS -->
@@ -202,7 +202,7 @@
         @media (max-width: 991px) {
             .main-sidebar { left: -240px!important; transition: left 0.3s; }
             .main-sidebar.active { left:0!important; }
-            .sidebar-toggle-btn { display:block; }
+            .sidebar-toggle-btn { display:block !important; }
             .main-header { left: 0 !important; padding-left: 48px !important; z-index: 3075; }
             .main-header .page-title {
                 font-size: 1.02em;
@@ -258,16 +258,24 @@
     </style>
 </head>
 <body>
-    <button id="sidebarToggleBtn" class="sidebar-toggle-btn" type="button" style="display:flex;"><i class="bi bi-list"></i></button>
+    <button id="sidebarToggleBtn" class="sidebar-toggle-btn" type="button" style="display:none;"><i class="bi bi-list"></i></button>
     <aside class="main-sidebar">
-        <div class="sidebar-logo"><i class="bi bi-box"></i> EasyInventory</div>
+        <div class="sidebar-logo">
+    <img src="{{ asset('public/logo.png') }}" alt="Logo" style="width:36px;height:36px;object-fit:contain;">
+    <span style="display:flex;flex-direction:column;line-height:1.13;">
+        <span style="font-weight:bold;font-size:1em;">VIDRIOS J&amp;P S.A.S.</span>
+        <span style="font-size:11px;font-weight:500;margin-top:1px;color:#cfd8dc;">NIT: 901.701.161-4</span>
+    </span>
+</div>
         <ul class="sidebar-menu">
             @php
                 $user = Auth::user();
                 $ID_PABLO_ROJAS = 1;
                 $isPabloRojas = $user && ($user->rol === 'admin' || $user->almacen_id == $ID_PABLO_ROJAS);
                 $isFuncionario = $user && $user->rol === 'funcionario';
+                $isImporter = $user && $user->rol === 'importer';
             @endphp
+            @if(!$isImporter)
             <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Movimientos</a></li>
             <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> Productos</a></li>
             @if($user && $user->rol === 'admin')
@@ -281,8 +289,11 @@
             @endif
             <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> Stock</a></li>
             <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Trazabilidad</a></li>
-            <li><a class="nav-link href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Importacion</a></li>  
-            @if($user && $user->rol === 'admin')
+            @endif
+            @if($user && in_array($user->rol, ['admin', 'importer']))
+            <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') ? 'active' : '' }}" href="{{ $user->rol === 'admin' ? route('imports.index') : route('imports.provider-index') }}"><i class="bi bi-upload"></i> Importación</a></li>
+            @endif  
+            @if($user && $user->rol === 'admin' && !$isImporter)
               <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>
             @endif
         </ul>
@@ -303,7 +314,7 @@
         @yield('content')
     </main>
     <footer class="main-footer">
-        <div><span class="text-muted">&copy; 2025 EasyInventory</span> <span class="ms-3 text-muted">v1.0.0</span></div>
+        <div><span class="text-muted">&copy; 2026 VIDRIOS J&P S.A.S.</span> <span class="ms-3 text-muted">v1.0.0</span></div>
     </footer>
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

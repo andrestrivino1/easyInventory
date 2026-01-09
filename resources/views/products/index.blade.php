@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Nombre</th>
                 <th>Medidas</th>
                 <th>Estado</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
@@ -106,6 +107,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span style="color: #dc3545; font-weight: 500;">Inactivo</span>
                 @endif
             </td>
+            <td style="white-space:nowrap;">
+                <a href="{{ route('products.edit', $producto->id) }}" class="btn btn-warning btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></a>
+                <form action="{{ route('products.destroy', $producto->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('¿Estás seguro de eliminar este producto?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
+                </form>
+            </td>
         </tr>
         @empty
         <tr>
@@ -117,6 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
         @endforelse
         </tbody>
       </table>
+    </div>
+    <div class="d-flex justify-content-center mt-3">
+        {{ $productos->links() }}
     </div>
 </div>
 @endsection

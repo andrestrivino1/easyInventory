@@ -313,7 +313,7 @@
                 </div>
 
     <div class="footer">
-        Generado por EasyInventory - {{ now()->format('d/m/Y h:i A') }}
+        Generado por VIDRIOS J&P S.A.S. - {{ now()->format('d/m/Y h:i A') }}
     </div>
 </body>
 </html>

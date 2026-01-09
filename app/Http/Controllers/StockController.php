@@ -483,7 +483,7 @@ class StockController extends Controller
         // Obtener todas las transferencias recibidas de una vez para optimizar
         $allReceivedTransfers = TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('container_id', 'quantity');
+                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets');
             }])
             ->get();
         
@@ -568,12 +568,24 @@ class StockController extends Controller
                     
                     if ($productInTransfer && $productInTransfer->pivot->container_id) {
                         $containerId = $productInTransfer->pivot->container_id;
-                        $quantity = $productInTransfer->pivot->quantity;
                         
-                        // Calcular láminas si es tipo caja
-                        $laminas = $quantity;
-                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                            $laminas = $quantity * $producto->unidades_por_caja;
+                        // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                        $goodSheets = $productInTransfer->pivot->good_sheets;
+                        if ($goodSheets !== null) {
+                            // Ya está en láminas buenas
+                            $laminas = $goodSheets;
+                            // Calcular cajas si es necesario
+                            $quantity = $producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0 
+                                ? ceil($goodSheets / $producto->unidades_por_caja) 
+                                : $goodSheets;
+                        } else {
+                            // Transferencia antigua sin good_sheets
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Calcular láminas si es tipo caja
+                            $laminas = $quantity;
+                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                $laminas = $quantity * $producto->unidades_por_caja;
+                            }
                         }
                         
                         // Agregar o sumar a las cantidades existentes del contenedor
@@ -843,7 +855,7 @@ class StockController extends Controller
         // Obtener todas las transferencias recibidas
         $receivedTransfers = TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('quantity', 'container_id');
+                $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets');
             }])
             ->get();
         
@@ -901,12 +913,20 @@ class StockController extends Controller
                         });
                         
                         if ($productInTransfer) {
-                            $quantity = $productInTransfer->pivot->quantity;
-                            // Si es tipo caja, convertir a unidades
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
+                            // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
+                            $goodSheets = $productInTransfer->pivot->good_sheets;
+                            if ($goodSheets !== null) {
+                                // Ya está en láminas buenas
+                                $stock += $goodSheets;
+                            } else {
+                                // Transferencia antigua sin good_sheets
+                                $quantity = $productInTransfer->pivot->quantity;
+                                // Si es tipo caja, convertir a unidades
+                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                    $quantity = $quantity * $product->unidades_por_caja;
+                                }
+                                $stock += $quantity;
                             }
-                            $stock += $quantity;
                         }
                     }
                 }
