@@ -16,14 +16,17 @@ class Import extends Model
         'destination',
         'departure_date',
         'arrival_date',
+        'actual_arrival_date',
+        'received_at',
         'status',
         'files',
         'credits',
         'do_code',
-        'product_name',
+        'commercial_invoice_number',
+        'proforma_invoice_number',
+        'bl_number',
         'container_ref',
         'container_pdf',
-        'container_images',
         'proforma_pdf',
         'proforma_invoice_low_pdf',
         'invoice_pdf',
@@ -31,10 +34,9 @@ class Import extends Model
         'bl_pdf',
         'packing_list_pdf',
         'apostillamiento_pdf',
-        'etd',
+        'other_documents_pdf',
         'shipping_company',
         'free_days_at_dest',
-        'supplier',
         'credit_time',
     ];
 
@@ -46,6 +48,67 @@ class Import extends Model
     public function containers()
     {
         return $this->hasMany(ImportContainer::class);
+    }
+
+    /**
+     * Calculate credit expiration date
+     * Uses actual_arrival_date if available, otherwise arrival_date
+     */
+    public function getCreditExpirationDate()
+    {
+        if (!$this->credit_time) {
+            return null;
+        }
+
+        $arrivalDate = $this->actual_arrival_date ?? $this->arrival_date;
+        
+        if (!$arrivalDate) {
+            return null;
+        }
+
+        return \Carbon\Carbon::parse($arrivalDate)->addDays($this->credit_time);
+    }
+
+    /**
+     * Check if credit is expired
+     */
+    public function isCreditExpired()
+    {
+        $expirationDate = $this->getCreditExpirationDate();
+        
+        if (!$expirationDate) {
+            return false;
+        }
+
+        return $expirationDate->isPast();
+    }
+
+    /**
+     * Get days until credit expiration (negative if expired)
+     */
+    public function getDaysUntilCreditExpiration()
+    {
+        $expirationDate = $this->getCreditExpirationDate();
+        
+        if (!$expirationDate) {
+            return null;
+        }
+
+        return now()->diffInDays($expirationDate, false);
+    }
+
+    /**
+     * Check if credit is about to expire (within 7 days)
+     */
+    public function isCreditExpiringSoon()
+    {
+        $daysUntil = $this->getDaysUntilCreditExpiration();
+        
+        if ($daysUntil === null) {
+            return false;
+        }
+
+        return $daysUntil >= 0 && $daysUntil <= 7;
     }
 }
 

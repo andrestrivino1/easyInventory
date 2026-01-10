@@ -67,22 +67,25 @@ class ImportController extends Controller
             abort(403);
         }
         $data = $request->validate([
-            'product_name' => 'required|string|max:255',
+            'commercial_invoice_number' => 'required|string|max:255',
             'origin' => 'required|string|max:255',
             'departure_date' => 'required|date',
             'arrival_date' => 'required|date',
+            'proforma_invoice_number' => 'nullable|string|max:255',
+            'bl_number' => 'nullable|string|max:255',
             'containers' => 'required|array|min:1',
             'containers.*.reference' => 'required|string|max:255',
             'containers.*.pdf' => 'nullable|file|mimes:pdf',
-            'containers.*.images' => 'nullable|array',
-            'containers.*.images.*' => 'image|mimes:jpeg,png,jpg',
             'proforma_pdf' => 'nullable|file|mimes:pdf',
             'invoice_pdf' => 'nullable|file|mimes:pdf',
             'bl_pdf' => 'nullable|file|mimes:pdf',
-            'etd' => 'nullable|string|max:255',
+            'proforma_invoice_low_pdf' => 'nullable|file|mimes:pdf',
+            'commercial_invoice_low_pdf' => 'nullable|file|mimes:pdf',
+            'packing_list_pdf' => 'nullable|file|mimes:pdf',
+            'apostillamiento_pdf' => 'nullable|file|mimes:pdf',
+            'other_documents_pdf' => 'nullable|file|mimes:pdf',
             'shipping_company' => 'nullable|string|max:255',
             'free_days_at_dest' => 'nullable|integer|min:0',
-            'supplier' => 'nullable|string|max:255',
             'credit_time' => 'required|in:15,30,45',
         ]);
 
@@ -121,6 +124,11 @@ class ImportController extends Controller
             $apostillamientoPdfPath = $request->file('apostillamiento_pdf')->store('imports');
         }
 
+        $otherDocumentsPdfPath = null;
+        if($request->hasFile('other_documents_pdf')) {
+            $otherDocumentsPdfPath = $request->file('other_documents_pdf')->store('imports');
+        }
+
         // DO code calculation based on arrival_date
         $arrivalDate = $data['arrival_date'];
         $year = date('y', strtotime($arrivalDate));
@@ -144,9 +152,14 @@ class ImportController extends Controller
             $credits = floatval($data['credit_time']);
         }
 
+        // Get supplier name from user
+        $supplierName = Auth::user()->name ?? Auth::user()->email;
+
         $import = Import::create([
             'user_id' => Auth::id(),
-            'product_name' => $data['product_name'],
+            'commercial_invoice_number' => $data['commercial_invoice_number'],
+            'proforma_invoice_number' => $data['proforma_invoice_number'] ?? null,
+            'bl_number' => $data['bl_number'] ?? null,
             'origin' => $data['origin'],
             'destination' => 'Colombia', // Always Colombia
             'departure_date' => $data['departure_date'],
@@ -158,10 +171,9 @@ class ImportController extends Controller
             'bl_pdf' => $blPdfPath,
             'packing_list_pdf' => $packingListPdfPath,
             'apostillamiento_pdf' => $apostillamientoPdfPath,
-            'etd' => $data['etd'] ?? null,
+            'other_documents_pdf' => $otherDocumentsPdfPath,
             'shipping_company' => $data['shipping_company'] ?? null,
             'free_days_at_dest' => $data['free_days_at_dest'] ?? null,
-            'supplier' => $data['supplier'] ?? null,
             'credit_time' => $data['credit_time'],
             'credits' => $credits,
             'status' => 'pending',
@@ -176,20 +188,16 @@ class ImportController extends Controller
                     $pdfPath = $request->file("containers.{$index}.pdf")->store('imports');
                 }
 
-                $images = [];
-                if ($request->hasFile("containers.{$index}.images")) {
-                    foreach ($request->file("containers.{$index}.images") as $image) {
-                        if ($image && $image->isValid()) {
-                            $images[] = $image->store('imports');
-                        }
-                    }
+                $imagePdfPath = null;
+                if ($request->hasFile("containers.{$index}.image_pdf")) {
+                    $imagePdfPath = $request->file("containers.{$index}.image_pdf")->store('imports');
                 }
 
                 \App\Models\ImportContainer::create([
                     'import_id' => $import->id,
                     'reference' => $containerData['reference'],
                     'pdf_path' => $pdfPath,
-                    'images' => !empty($images) ? $images : null,
+                    'image_pdf_path' => $imagePdfPath,
                 ]);
             }
         }
@@ -208,16 +216,17 @@ class ImportController extends Controller
     {
         $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
         $data = $request->validate([
-            'product_name' => 'required|string|max:255',
+            'commercial_invoice_number' => 'required|string|max:255',
             'origin' => 'required|string|max:255',
             'departure_date' => 'required|date',
             'arrival_date' => 'required|date',
+            'proforma_invoice_number' => 'nullable|string|max:255',
+            'bl_number' => 'nullable|string|max:255',
             'containers' => 'required|array|min:1',
             'containers.*.id' => 'nullable|exists:import_containers,id',
             'containers.*.reference' => 'required|string|max:255',
             'containers.*.pdf' => 'nullable|file|mimes:pdf',
-            'containers.*.images' => 'nullable|array',
-            'containers.*.images.*' => 'image|mimes:jpeg,png,jpg',
+            'containers.*.image_pdf' => 'nullable|file|mimes:pdf',
             'proforma_pdf' => 'nullable|file|mimes:pdf',
             'proforma_invoice_low_pdf' => 'nullable|file|mimes:pdf',
             'invoice_pdf' => 'nullable|file|mimes:pdf',
@@ -225,10 +234,9 @@ class ImportController extends Controller
             'bl_pdf' => 'nullable|file|mimes:pdf',
             'packing_list_pdf' => 'nullable|file|mimes:pdf',
             'apostillamiento_pdf' => 'nullable|file|mimes:pdf',
-            'etd' => 'nullable|string|max:255',
+            'other_documents_pdf' => 'nullable|file|mimes:pdf',
             'shipping_company' => 'nullable|string|max:255',
             'free_days_at_dest' => 'nullable|integer|min:0',
-            'supplier' => 'nullable|string|max:255',
             'credit_time' => 'required|in:15,30,45',
         ]);
 
@@ -282,6 +290,13 @@ class ImportController extends Controller
             $data['apostillamiento_pdf'] = $request->file('apostillamiento_pdf')->store('imports');
         }
 
+        if($request->hasFile('other_documents_pdf')) {
+            if($import->other_documents_pdf) {
+                Storage::delete($import->other_documents_pdf);
+            }
+            $data['other_documents_pdf'] = $request->file('other_documents_pdf')->store('imports');
+        }
+
         // Calculate credits
         $credits = null;
         if (isset($data['credit_time'])) {
@@ -303,13 +318,9 @@ class ImportController extends Controller
                     $pdfPath = $request->file("containers.{$index}.pdf")->store('imports');
                 }
 
-                $images = [];
-                if ($request->hasFile("containers.{$index}.images")) {
-                    foreach ($request->file("containers.{$index}.images") as $image) {
-                        if ($image && $image->isValid()) {
-                            $images[] = $image->store('imports');
-                        }
-                    }
+                $imagePdfPath = null;
+                if ($request->hasFile("containers.{$index}.image_pdf")) {
+                    $imagePdfPath = $request->file("containers.{$index}.image_pdf")->store('imports');
                 }
 
                 if ($containerId) {
@@ -323,9 +334,11 @@ class ImportController extends Controller
                             }
                             $container->pdf_path = $pdfPath;
                         }
-                        if (!empty($images)) {
-                            $existingImages = $container->images ?? [];
-                            $container->images = array_merge($existingImages, $images);
+                        if ($imagePdfPath) {
+                            if ($container->image_pdf_path) {
+                                Storage::delete($container->image_pdf_path);
+                            }
+                            $container->image_pdf_path = $imagePdfPath;
                         }
                         $container->save();
                         $existingContainerIds[] = $containerId;
@@ -336,7 +349,7 @@ class ImportController extends Controller
                         'import_id' => $import->id,
                         'reference' => $containerData['reference'],
                         'pdf_path' => $pdfPath,
-                        'images' => !empty($images) ? $images : null,
+                        'image_pdf_path' => $imagePdfPath,
                     ]);
                 }
             }
@@ -372,6 +385,8 @@ class ImportController extends Controller
             $filePath = $import->bl_pdf;
         } elseif($fileType === 'apostillamiento_pdf' && $import->apostillamiento_pdf) {
             $filePath = $import->apostillamiento_pdf;
+        } elseif($fileType === 'other_documents_pdf' && $import->other_documents_pdf) {
+            $filePath = $import->other_documents_pdf;
         } elseif(strpos($fileType, 'container_') === 0) {
             // Handle container files: container_{containerId}_pdf or container_{containerId}_image_{imageIndex}
             $parts = explode('_', $fileType);
@@ -381,12 +396,8 @@ class ImportController extends Controller
                 if($container) {
                     if($parts[2] === 'pdf' && $container->pdf_path) {
                         $filePath = $container->pdf_path;
-                    } elseif($parts[2] === 'image' && count($parts) >= 4) {
-                        $imageIndex = intval($parts[3]);
-                        $images = $container->images;
-                        if($images && isset($images[$imageIndex])) {
-                            $filePath = $images[$imageIndex];
-                        }
+                    } elseif($parts[2] === 'image' && $parts[3] === 'pdf' && $container->image_pdf_path) {
+                        $filePath = $container->image_pdf_path;
                     }
                 }
             }
@@ -431,6 +442,8 @@ class ImportController extends Controller
             $filePath = $import->bl_pdf;
         } elseif($fileType === 'apostillamiento_pdf' && $import->apostillamiento_pdf) {
             $filePath = $import->apostillamiento_pdf;
+        } elseif($fileType === 'other_documents_pdf' && $import->other_documents_pdf) {
+            $filePath = $import->other_documents_pdf;
         } elseif(strpos($fileType, 'container_') === 0) {
             // Handle container files: container_{containerId}_pdf or container_{containerId}_image_{imageIndex}
             $parts = explode('_', $fileType);
@@ -440,12 +453,8 @@ class ImportController extends Controller
                 if($container) {
                     if($parts[2] === 'pdf' && $container->pdf_path) {
                         $filePath = $container->pdf_path;
-                    } elseif($parts[2] === 'image' && count($parts) >= 4) {
-                        $imageIndex = intval($parts[3]);
-                        $images = $container->images;
-                        if($images && isset($images[$imageIndex])) {
-                            $filePath = $images[$imageIndex];
-                        }
+                    } elseif($parts[2] === 'image' && $parts[3] === 'pdf' && $container->image_pdf_path) {
+                        $filePath = $container->image_pdf_path;
                     }
                 }
             }
@@ -476,6 +485,52 @@ class ImportController extends Controller
         $filename = 'Importacion-' . $import->do_code . '-' . date('Y-m-d') . '.pdf';
         
         return $pdf->download($filename);
+    }
+
+    // FUNCIONARIO: Show imports assigned to them
+    public function funcionarioIndex()
+    {
+        if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
+            abort(403);
+        }
+        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        
+        // Update status based on dates
+        $this->updateImportStatuses($imports);
+        
+        // Reload to get updated statuses
+        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        
+        return view('imports.funcionario-index', compact('imports'));
+    }
+
+    // FUNCIONARIO/ADMIN: Update actual arrival date and mark as received
+    public function updateArrival(Request $request, $id)
+    {
+        if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
+            abort(403);
+        }
+        
+        $import = Import::findOrFail($id);
+        
+        $data = $request->validate([
+            'actual_arrival_date' => 'required|date',
+        ]);
+        
+        $import->update([
+            'actual_arrival_date' => $data['actual_arrival_date'],
+            'received_at' => now(),
+            'status' => 'recibido',
+        ]);
+        
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Fecha de llegada actualizada y marcada como recibido.'
+            ]);
+        }
+        
+        return redirect()->back()->with('success', 'Fecha de llegada actualizada y marcada como recibido.');
     }
 
     /**

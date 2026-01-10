@@ -581,10 +581,10 @@ class StockController extends Controller
                         } else {
                             // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;
-                            // Calcular láminas si es tipo caja
-                            $laminas = $quantity;
-                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                                $laminas = $quantity * $producto->unidades_por_caja;
+                        // Calcular láminas si es tipo caja
+                        $laminas = $quantity;
+                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                            $laminas = $quantity * $producto->unidades_por_caja;
                             }
                         }
                         
@@ -920,12 +920,12 @@ class StockController extends Controller
                                 $stock += $goodSheets;
                             } else {
                                 // Transferencia antigua sin good_sheets
-                                $quantity = $productInTransfer->pivot->quantity;
-                                // Si es tipo caja, convertir a unidades
-                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                    $quantity = $quantity * $product->unidades_por_caja;
-                                }
-                                $stock += $quantity;
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si es tipo caja, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
                             }
                         }
                     }

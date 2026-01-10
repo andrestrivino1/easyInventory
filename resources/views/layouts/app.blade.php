@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>VIDRIOS J&P S.A.S. | Dashboard</title>
@@ -96,6 +97,102 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+        .language-selector {
+            position: relative;
+            display: inline-block;
+        }
+        .language-selector-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .language-selector-trigger {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 8px 10px 8px 18px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            min-width: 130px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .language-selector-trigger:hover {
+            background: #fff;
+            border-color: rgba(0, 0, 0, 0.15);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .language-selector .flag-display {
+            display: block;
+            width: 24px;
+            height: 18px;
+            border-radius: 2px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        .language-selector .flag-display img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .language-selector .arrow {
+            pointer-events: none;
+            color: #666;
+            font-size: 10px;
+            margin-left: auto;
+        }
+        .language-selector-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 130px;
+            overflow: hidden;
+            display: none;
+            z-index: 1001;
+        }
+        .language-selector-dropdown.show {
+            display: block;
+        }
+        .language-selector-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s ease;
+            font-size: 14px;
+            color: #333;
+        }
+        .language-selector-option:hover {
+            background: #f5f5f5;
+        }
+        .language-selector-option .flag-option {
+            width: 24px;
+            height: 18px;
+            border-radius: 2px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .language-selector-option .flag-option img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .language-selector select {
+            display: none;
         }
         .content-area {
             margin-left: 210px;
@@ -276,39 +373,72 @@
                 $isImporter = $user && $user->rol === 'importer';
             @endphp
             @if(!$isImporter)
-            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> Movimientos</a></li>
-            <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> Productos</a></li>
+            <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> {{ __('common.movimientos') }}</a></li>
+            <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> {{ __('common.productos') }}</a></li>
             @if($user && $user->rol === 'admin')
-              <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> Bodegas</a></li>
+              <li><a class="nav-link" href="{{ route('warehouses.index') }}"><i class="bi bi-building"></i> {{ __('common.bodegas') }}</a></li>
             @endif
-            <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> Transferencias</a></li>
-            <li><a class="nav-link" href="{{ route('salidas.index') }}"><i class="bi bi-box-arrow-right"></i> Salidas</a></li>
+            <li><a class="nav-link" href="{{ route('transfer-orders.index') }}"><i class="bi bi-arrow-left-right"></i> {{ __('common.transferencias') }}</a></li>
+            <li><a class="nav-link" href="{{ route('salidas.index') }}"><i class="bi bi-box-arrow-right"></i> {{ __('common.salidas') }}</a></li>
             @if($isPabloRojas || $isFuncionario)
-            <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> Conductores</a></li>
-            <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> Contenedores</a></li>
+            <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i> {{ __('common.conductores') }}</a></li>
+            <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i> {{ __('common.contenedores') }}</a></li>
             @endif
-            <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> Stock</a></li>
-            <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> Trazabilidad</a></li>
+            <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> {{ __('common.stock') }}</a></li>
+            <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> {{ __('common.trazabilidad') }}</a></li>
             @endif
-            @if($user && in_array($user->rol, ['admin', 'importer']))
-            <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') ? 'active' : '' }}" href="{{ $user->rol === 'admin' ? route('imports.index') : route('imports.provider-index') }}"><i class="bi bi-upload"></i> Importación</a></li>
+            @if($user && in_array($user->rol, ['admin', 'importer', 'funcionario']))
+            <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') || request()->routeIs('imports.funcionario-index') ? 'active' : '' }}" href="{{ $user->rol === 'admin' ? route('imports.index') : ($user->rol === 'funcionario' ? route('imports.funcionario-index') : route('imports.provider-index')) }}"><i class="bi bi-upload"></i> {{ __('common.importacion') }}</a></li>
             @endif  
             @if($user && $user->rol === 'admin' && !$isImporter)
-              <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> Usuarios</a></li>
+              <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> {{ __('common.usuarios') }}</a></li>
             @endif
         </ul>
     </aside>
     <header class="main-header">
-        <span class="page-title">Panel de Inventario</span>
-        <span class="user">
-          {{ Auth::user()->name ?? 'Usuario' }} <i class="bi bi-person-circle"></i>
-          <form method="POST" action="{{ route('logout') }}" style="display:inline">
-              @csrf
-              <button type="submit" title="Cerrar sesión" style="background:transparent;padding:0 0 0 8px;border:none;color:#fff;cursor:pointer;vertical-align:middle;font-size:19px;margin-left:5px;">
-                <i class="bi bi-box-arrow-right"></i>
-              </button>
-          </form>
-        </span>
+        <span class="page-title">{{ __('common.panel_inventario') }}</span>
+        <div style="display: flex; align-items: center; gap: 20px; margin-left: auto;">
+            <!-- Language Selector -->
+            <div class="language-selector">
+                <div class="language-selector-wrapper">
+                    <select id="languageSelect" style="display: none;">
+                        <option value="es" {{ app()->getLocale() == 'es' ? 'selected' : '' }}>{{ __('common.espanol') }}</option>
+                        <option value="en" {{ app()->getLocale() == 'en' ? 'selected' : '' }}>{{ __('common.ingles') }}</option>
+                        <option value="zh" {{ app()->getLocale() == 'zh' ? 'selected' : '' }}>{{ __('common.chino') }}</option>
+                    </select>
+                    <div class="language-selector-trigger" id="languageTrigger">
+                        <span class="flag-display" id="selectedFlag">
+                            <img src="{{ asset('public/images/flags/' . (app()->getLocale() == 'es' ? 'colombia' : (app()->getLocale() == 'en' ? 'usa' : 'china')) . '.png') }}" alt="Flag" />
+                        </span>
+                        <span id="languageText">{{ app()->getLocale() == 'es' ? __('common.espanol') : (app()->getLocale() == 'en' ? __('common.ingles') : __('common.chino')) }}</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="language-selector-dropdown" id="languageDropdown">
+                        <div class="language-selector-option" data-value="es">
+                            <span class="flag-option"><img src="{{ asset('public/images/flags/colombia.png') }}" alt="Colombia" /></span>
+                            <span>{{ __('common.espanol') }}</span>
+                        </div>
+                        <div class="language-selector-option" data-value="en">
+                            <span class="flag-option"><img src="{{ asset('public/images/flags/usa.png') }}" alt="USA" /></span>
+                            <span>{{ __('common.ingles') }}</span>
+                        </div>
+                        <div class="language-selector-option" data-value="zh">
+                            <span class="flag-option"><img src="{{ asset('public/images/flags/china.png') }}" alt="China" /></span>
+                            <span>{{ __('common.chino') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <span class="user">
+              {{ Auth::user()->name ?? __('common.usuario') }} <i class="bi bi-person-circle"></i>
+              <form method="POST" action="{{ route('logout') }}" style="display:inline">
+                  @csrf
+                  <button type="submit" title="{{ __('common.cerrar_sesion') }}" style="background:transparent;padding:0 0 0 8px;border:none;color:#fff;cursor:pointer;vertical-align:middle;font-size:19px;margin-left:5px;">
+                    <i class="bi bi-box-arrow-right"></i>
+                  </button>
+              </form>
+            </span>
+        </div>
     </header>
     <main class="content-area">
         @yield('content')
@@ -320,6 +450,72 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @yield('scripts')
     <script>
+        // Language selector functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const trigger = document.getElementById('languageTrigger');
+            const dropdown = document.getElementById('languageDropdown');
+            const select = document.getElementById('languageSelect');
+            const selectedFlag = document.getElementById('selectedFlag');
+            const languageText = document.getElementById('languageText');
+            const options = dropdown.querySelectorAll('.language-selector-option');
+            
+            const flagFiles = { 
+                'es': '{{ asset("public/images/flags/colombia.png") }}', 
+                'en': '{{ asset("public/images/flags/usa.png") }}', 
+                'zh': '{{ asset("public/images/flags/china.png") }}' 
+            };
+            
+            const languageNames = {
+                'es': '{{ __('common.espanol') }}',
+                'en': '{{ __('common.ingles') }}',
+                'zh': '{{ __('common.chino') }}'
+            };
+            
+            // Toggle dropdown
+            if (trigger) {
+                trigger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('show');
+                });
+            }
+            
+            // Cerrar al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (trigger && dropdown && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Seleccionar opción
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    const value = this.dataset.value;
+                    if (select) select.value = value;
+                    
+                    // Actualizar display
+                    const img = selectedFlag.querySelector('img');
+                    if (img) {
+                        img.src = flagFiles[value] || flagFiles['es'];
+                    }
+                    if (languageText) {
+                        languageText.textContent = languageNames[value] || languageNames['es'];
+                    }
+                    
+                    // Cerrar dropdown
+                    dropdown.classList.remove('show');
+                    
+                    // Cambiar idioma
+                    changeLanguage(value);
+                });
+            });
+        });
+        
+        // Función para cambiar el idioma
+        function changeLanguage(locale) {
+            const url = '{{ route("language.switch", ["locale" => "__LOCALE__"]) }}'.replace('__LOCALE__', locale);
+            window.location.href = url;
+        }
+
         // Sidebar mobile toggle
         document.addEventListener('DOMContentLoaded', function() {
             var sidebar = document.querySelector('.main-sidebar');

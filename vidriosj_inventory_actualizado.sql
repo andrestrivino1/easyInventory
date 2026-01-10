@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jan 07, 2026 at 11:52 AM
+-- Generation Time: Jan 09, 2026 at 11:30 AM
 -- Server version: 10.11.15-MariaDB-cll-lve
 -- PHP Version: 8.4.16
 
@@ -151,12 +151,19 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (29, '2025_12_31_205516_make_products_global_and_code_unique', 6),
 (30, '2025_12_31_211424_make_almacen_id_nullable_and_tipo_medida_optional_in_products', 7),
 (31, '2025_12_31_212136_add_warehouse_id_to_containers_table', 8),
-(32, '2026_01_05_000000_create_imports_table', 9),
-(33, '2026_01_05_000002_add_do_code_to_imports_table', 9),
-(34, '2026_01_05_000003_add_import_fields_to_imports_table', 9),
-(35, '2026_01_05_000004_create_import_containers_table', 9),
-(36, '2026_01_07_110635_add_additional_document_fields_to_imports_table', 9),
-(37, '2026_01_07_113858_add_sheets_quality_to_transfer_order_products_table', 9);
+(32, '2026_01_02_133149_add_user_id_to_salidas_table', 9),
+(33, '2026_01_02_133810_add_aprobo_and_ciudad_destino_to_salidas_table', 9),
+(34, '2026_01_02_141157_add_aprobo_and_ciudad_destino_to_transfer_orders_table', 9),
+(35, '2026_01_02_152849_add_driver_id_to_salidas_table', 9),
+(36, '2026_01_05_000000_create_imports_table', 9),
+(37, '2026_01_05_000002_add_do_code_to_imports_table', 9),
+(38, '2026_01_05_000003_add_import_fields_to_imports_table', 9),
+(39, '2026_01_05_000004_create_import_containers_table', 9),
+(40, '2026_01_07_110635_add_additional_document_fields_to_imports_table', 9),
+(41, '2026_01_07_113858_add_sheets_quality_to_transfer_order_products_table', 10),
+(42, '2026_01_09_111157_update_imports_table_structure', 11),
+(43, '2026_01_09_111219_remove_images_from_import_containers', 12),
+(44, '2026_01_09_112345_add_image_pdf_to_import_containers_table', 13);
 
 -- --------------------------------------------------------
 
@@ -426,18 +433,19 @@ DROP TABLE IF EXISTS `imports`;
 CREATE TABLE `imports` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `do_code` varchar(20) NOT NULL,
+  `commercial_invoice_number` varchar(255) DEFAULT NULL,
+  `proforma_invoice_number` varchar(255) DEFAULT NULL,
+  `bl_number` varchar(255) DEFAULT NULL,
   `user_id` bigint(20) UNSIGNED NOT NULL,
   `origin` varchar(255) NOT NULL,
   `destination` varchar(255) NOT NULL,
   `departure_date` date NOT NULL,
   `arrival_date` date DEFAULT NULL,
+  `actual_arrival_date` date DEFAULT NULL COMMENT 'Fecha real de llegada',
+  `received_at` timestamp NULL DEFAULT NULL COMMENT 'Fecha y hora cuando se marcó como recibido',
   `status` varchar(255) DEFAULT 'pending',
   `files` text DEFAULT NULL,
   `credits` decimal(10,2) DEFAULT NULL,
-  `product_name` varchar(255) DEFAULT NULL,
-  `container_ref` varchar(255) DEFAULT NULL,
-  `container_pdf` varchar(255) DEFAULT NULL,
-  `container_images` json DEFAULT NULL,
   `proforma_pdf` varchar(255) DEFAULT NULL,
   `proforma_invoice_low_pdf` varchar(255) DEFAULT NULL,
   `invoice_pdf` varchar(255) DEFAULT NULL,
@@ -445,10 +453,9 @@ CREATE TABLE `imports` (
   `bl_pdf` varchar(255) DEFAULT NULL,
   `packing_list_pdf` varchar(255) DEFAULT NULL,
   `apostillamiento_pdf` varchar(255) DEFAULT NULL,
-  `etd` varchar(255) DEFAULT NULL,
+  `other_documents_pdf` varchar(255) DEFAULT NULL,
   `shipping_company` varchar(255) DEFAULT NULL,
   `free_days_at_dest` int(11) DEFAULT NULL,
-  `supplier` varchar(255) DEFAULT NULL,
   `credit_time` enum('15','30','45') DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -465,7 +472,7 @@ CREATE TABLE `import_containers` (
   `import_id` bigint(20) UNSIGNED NOT NULL,
   `reference` varchar(255) NOT NULL,
   `pdf_path` varchar(255) DEFAULT NULL,
-  `images` json DEFAULT NULL,
+  `image_pdf_path` varchar(255) DEFAULT NULL COMMENT 'PDF con imágenes del contenedor',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -617,7 +624,7 @@ ALTER TABLE `drivers`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- AUTO_INCREMENT for table `products`

@@ -211,15 +211,15 @@
         @endif
 
         <div class="d-flex justify-content-end align-items-center mb-3">
-            <a href="{{ route('imports.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>Nueva Importación</a>
+            <a href="{{ route('imports.create') }}" class="btn btn-primary rounded-pill px-4" style="font-weight:500;"><i class="bi bi-plus-circle me-2"></i>{{ __('common.nueva_importacion') }}</a>
         </div>
 
-        <h2 class="mb-4 text-center" style="color:#333;font-weight:bold">Mis Importaciones</h2>
+        <h2 class="mb-4 text-center" style="color:#333;font-weight:bold">{{ __('common.mis_importaciones') }}</h2>
         
         <!-- Campo de búsqueda -->
         <div class="mb-4" style="max-width: 400px; margin: 0 auto 24px; text-align: center;">
             <div style="position: relative; width: 100%;">
-                <input type="text" id="search-imports" class="form-control" placeholder="Buscar importaciones..." style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
+                <input type="text" id="search-imports" class="form-control" placeholder="{{ __('common.buscar_importaciones') }}" style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
                 <i class="bi bi-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
             </div>
         </div>
@@ -227,16 +227,16 @@
         <table class="imports-table" id="imports-table">
             <thead>
                 <tr>
-                    <th>DO</th>
-                    <th>Producto</th>
-                    <th>Origen</th>
-                    <th>Destino</th>
-                    <th>Fecha Salida</th>
-                    <th>Fecha Llegada</th>
-                    <th>Estado</th>
-                    <th>Créditos</th>
-                    <th>Archivos</th>
-                    <th>Acciones</th>
+                    <th>{{ __('common.do_code') }}</th>
+                    <th>{{ __('common.numero_comercial_invoice') }}</th>
+                    <th>{{ __('common.origen') }}</th>
+                    <th>{{ __('common.destino') }}</th>
+                    <th>{{ __('common.fecha_salida_table') }}</th>
+                    <th>{{ __('common.fecha_llegada_table') }}</th>
+                    <th>{{ __('common.estado') }}</th>
+                    <th>{{ __('common.creditos') }}</th>
+                    <th>{{ __('common.archivos') }}</th>
+                    <th>{{ __('common.acciones') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -257,7 +257,7 @@
                                 $progressText = 'No iniciado';
                             } elseif ($elapsedDays >= $totalDays) {
                                 $progress = 100;
-                                $progressText = '100% - Completado';
+                                $progressText = '100% - ' . __('common.completado');
                             } else {
                                 $progress = ($elapsedDays / $totalDays) * 100;
                                 $progressText = round($progress) . '%';
@@ -267,19 +267,21 @@
                 @endphp
                 <tr>
                     <td><strong>{{ $import->do_code }}</strong></td>
-                    <td>{{ $import->product_name ?? '-' }}</td>
+                    <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
                     <td>{{ $import->origin ?? '-' }}</td>
-                    <td>{{ $import->destination ?? 'Colombia' }}</td>
+                    <td>{{ $import->destination ?? __('common.colombia') }}</td>
                     <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
                     <td>{{ $import->arrival_date ? $arrivalDate->format('d/m/Y') : '-' }}</td>
                     <td>
                         <div>
                             @if($import->status === 'pending')
-                                <span class="status-badge status-pending">Pendiente</span>
+                                <span class="status-badge status-pending">{{ __('common.pendiente') }}</span>
                             @elseif($import->status === 'completed')
-                                <span class="status-badge status-completed">Completado</span>
+                                <span class="status-badge status-completed">{{ __('common.completado') }}</span>
                             @elseif($import->status === 'in_transit')
-                                <span class="status-badge status-in-transit">En tránsito</span>
+                                <span class="status-badge status-in-transit">{{ __('common.en_transito') }}</span>
+                            @elseif($import->status === 'recibido')
+                                <span class="status-badge" style="background: #17a2b8; color: white;">{{ __('common.recibido') }}</span>
                             @else
                                 <span class="status-badge">{{ ucfirst($import->status) }}</span>
                             @endif
@@ -296,7 +298,30 @@
                     </td>
                     <td>
                         @if($import->credit_time)
-                            <strong style="color: #198754;">{{ $import->credit_time }} días</strong>
+                            <strong style="color: #198754;">{{ $import->credit_time }} {{ __('common.dias') }}</strong>
+                            @php
+                                $creditExpiration = $import->getCreditExpirationDate();
+                                $daysUntilExpiration = $import->getDaysUntilCreditExpiration();
+                                $isExpired = $import->isCreditExpired();
+                                $isExpiringSoon = $import->isCreditExpiringSoon();
+                            @endphp
+                            @if($creditExpiration)
+                                <div style="margin-top: 4px; font-size: 11px;">
+                                    @if($isExpired)
+                                        <span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: 600;">
+                                            ⚠️ {{ __('common.credito_vencido') }} ({{ abs($daysUntilExpiration) }} {{ __('common.dias') }})
+                                        </span>
+                                    @elseif($isExpiringSoon)
+                                        <span style="background: #ffc107; color: #212529; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: 600;">
+                                            ⚠️ {{ __('common.credito_por_vencer') }} ({{ $daysUntilExpiration }} {{ __('common.dias') }})
+                                        </span>
+                                    @else
+                                        <span style="color: #666; font-size: 10px;">
+                                            {{ __('common.vencimiento') }}: {{ $creditExpiration->format('d/m/Y') }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @endif
                         @else
                             <span style="color: #999;">-</span>
                         @endif
@@ -307,27 +332,26 @@
                                 $hasContainers = $import->containers && $import->containers->count() > 0;
                                 $hasDocuments = $import->proforma_pdf || $import->proforma_invoice_low_pdf || 
                                              $import->invoice_pdf || $import->commercial_invoice_low_pdf || 
-                                             $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf;
+                                             $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf ||
+                                             $import->other_documents_pdf;
                             @endphp
                             
                             @if($hasContainers)
                                 <div class="files-section">
-                                    <div class="files-section-title">Contenedores</div>
+                                    <div class="files-section-title">{{ __('common.contenedores_label') }}</div>
                                     @foreach($import->containers as $container)
                                         <div class="container-files">
                                             <div class="container-ref">{{ $container->reference }}</div>
                                             <div class="files-grid">
                                                 @if($container->pdf_path)
-                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="PDF del contenedor">
-                                                        <i class="bi bi-file-pdf"></i> PDF
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.pdf_informacion_contenedor') }}">
+                                                        <i class="bi bi-file-pdf"></i> {{ __('common.info_pdf') }}
                                                     </a>
                                                 @endif
-                                                @if($container->images)
-                                                    @foreach($container->images as $imgIndex => $img)
-                                                        <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_'.$imgIndex]) }}" target="_blank" class="file-viewer" title="Imagen {{ $imgIndex+1 }}">
-                                                            <i class="bi bi-image"></i> Img{{ $imgIndex+1 }}
-                                                        </a>
-                                                    @endforeach
+                                                @if($container->image_pdf_path)
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.pdf_imagenes_contenedor') }}">
+                                                        <i class="bi bi-file-pdf"></i> {{ __('common.imagenes_pdf') }}
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
@@ -337,41 +361,46 @@
                             
                             @if($hasDocuments)
                                 <div class="files-section documents-section">
-                                    <div class="files-section-title">Documentos</div>
+                                    <div class="files-section-title">{{ __('common.documentos_label') }}</div>
                                     <div class="files-grid">
                                         @if($import->proforma_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'proforma_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice">
-                                                <i class="bi bi-file-pdf"></i> Proforma
+                                            <a href="{{ route('imports.view', [$import->id, 'proforma_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.proforma_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.proforma') }}
                                             </a>
                                         @endif
                                         @if($import->proforma_invoice_low_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice Low">
-                                                <i class="bi bi-file-pdf"></i> Proforma Low
+                                            <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.proforma_invoice_low_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.proforma_low') }}
                                             </a>
                                         @endif
                                         @if($import->invoice_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'invoice_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice">
-                                                <i class="bi bi-file-pdf"></i> Invoice
+                                            <a href="{{ route('imports.view', [$import->id, 'invoice_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.comercial_invoice_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.invoice') }}
                                             </a>
                                         @endif
                                         @if($import->commercial_invoice_low_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice Low">
-                                                <i class="bi bi-file-pdf"></i> Invoice Low
+                                            <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.commercial_invoice_low_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.invoice_low') }}
                                             </a>
                                         @endif
                                         @if($import->packing_list_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" target="_blank" class="file-viewer" title="Packing List">
-                                                <i class="bi bi-file-pdf"></i> Packing List
+                                            <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.packing_list_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.packing_list') }}
                                             </a>
                                         @endif
                                         @if($import->bl_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" target="_blank" class="file-viewer" title="Bill of Lading">
-                                                <i class="bi bi-file-pdf"></i> BL
+                                            <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.bl_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.bl') }}
                                             </a>
                                         @endif
                                         @if($import->apostillamiento_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" title="Apostillamiento">
-                                                <i class="bi bi-file-pdf"></i> Apostillamiento
+                                            <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.apostillamiento_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.apostillamiento') }}
+                                            </a>
+                                        @endif
+                                        @if($import->other_documents_pdf)
+                                            <a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" target="_blank" class="file-viewer" title="{{ __('common.otros_documentos_pdf') }}">
+                                                <i class="bi bi-file-pdf"></i> {{ __('common.otros') }}
                                             </a>
                                         @endif
                                     </div>
@@ -379,12 +408,12 @@
                             @endif
                             
                             @if(!$hasContainers && !$hasDocuments)
-                                <span style="color: #999; font-size: 11px;">Sin archivos</span>
+                                <span style="color: #999; font-size: 11px;">{{ __('common.sin_archivos') }}</span>
                             @endif
                         </div>
                     </td>
                     <td class="actions">
-                        <a href="{{ route('imports.edit', $import->id) }}" class="btn-edit">Editar</a>
+                        <a href="{{ route('imports.edit', $import->id) }}" class="btn-edit">{{ __('common.editar') }}</a>
                     </td>
                 </tr>
             @empty

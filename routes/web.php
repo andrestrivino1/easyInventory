@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Auth;
 |
 */
 
+// Language switching - Available for all users including importers
+Route::get('language/{locale}', [App\Http\Controllers\LanguageController::class, 'switchLanguage'])->name('language.switch');
+
 Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('home');
@@ -41,6 +44,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('imports/{id}/view/{file}', [ImportController::class, 'viewFile'])->name('imports.view');
     Route::get('imports/{id}/download/{file}', [ImportController::class, 'downloadFile'])->name('imports.download');
     Route::get('imports/{id}/report', [ImportController::class, 'report'])->name('imports.report');
+    // FUNCIONARIO routes
+    Route::get('imports-funcionario', [ImportController::class, 'funcionarioIndex'])->name('imports.funcionario-index');
+    Route::post('imports/{id}/update-arrival', [ImportController::class, 'updateArrival'])->name('imports.update-arrival');
 });
 Route::resource('salidas', App\Http\Controllers\SalidaController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);

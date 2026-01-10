@@ -118,15 +118,37 @@
         <form action="{{ route('imports.update', $import->id) }}" method="POST" enctype="multipart/form-data" autocomplete="off">
             @csrf
             @method('PUT')
+            <div class="supplier-info" style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin-bottom: 18px; border-left: 4px solid #4a8af4;">
+                <strong>Proveedor:</strong> {{ $import->user->name ?? $import->user->email }}
+            </div>
+
+            <div style="text-align: right; margin-bottom: 20px;">
+                <button type="button" class="translate-btn" onclick="translateAllToChinese()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                    <i class="bi bi-translate"></i> Traducir Todo a Chino
+                </button>
+            </div>
+
             <div class="form-group">
-                <label for="product_name">Nombre del producto *</label>
-                <input type="text" name="product_name" id="product_name" class="@error('product_name') is-invalid @enderror" value="{{ old('product_name', $import->product_name) }}" required />
-                @error('product_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                <label for="commercial_invoice_number">COMERCIAL INVOICE *</label>
+                <input type="text" name="commercial_invoice_number" id="commercial_invoice_number" class="@error('commercial_invoice_number') is-invalid @enderror translate-field" value="{{ old('commercial_invoice_number', $import->commercial_invoice_number ?? $import->product_name) }}" placeholder="Número de la comercial invoice" required />
+                @error('commercial_invoice_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="form-group">
+                <label for="proforma_invoice_number">Número de Proforma Invoice</label>
+                <input type="text" name="proforma_invoice_number" id="proforma_invoice_number" class="@error('proforma_invoice_number') is-invalid @enderror translate-field" value="{{ old('proforma_invoice_number', $import->proforma_invoice_number) }}" placeholder="Número de proforma invoice" />
+                @error('proforma_invoice_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="form-group">
+                <label for="bl_number">Número de Bill of Lading</label>
+                <input type="text" name="bl_number" id="bl_number" class="@error('bl_number') is-invalid @enderror translate-field" value="{{ old('bl_number', $import->bl_number) }}" placeholder="Número de Bill of Lading" />
+                @error('bl_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
                 <label for="origin">Origen *</label>
-                <input type="text" name="origin" id="origin" class="@error('origin') is-invalid @enderror" value="{{ old('origin', $import->origin) }}" placeholder="Ej: China, Estados Unidos..." required />
+                <input type="text" name="origin" id="origin" class="@error('origin') is-invalid @enderror translate-field" value="{{ old('origin', $import->origin) }}" placeholder="Ej: China, Estados Unidos..." required />
                 @error('origin') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
@@ -161,23 +183,21 @@
                                 <input type="hidden" name="containers[{{ $index }}][id]" value="{{ $container->id }}">
                                 <div class="form-group" style="margin-bottom: 12px;">
                                     <label style="font-size: 13px; margin-bottom: 4px;">Referencia *</label>
-                                    <input type="text" name="containers[{{ $index }}][reference]" class="form-control" style="padding: 8px 12px; font-size: 14px;" value="{{ old('containers.'.$index.'.reference', $container->reference) }}" required />
+                                    <input type="text" name="containers[{{ $index }}][reference]" id="container_ref_edit_{{ $index }}" class="form-control translate-field" style="padding: 8px 12px; font-size: 14px;" value="{{ old('containers.'.$index.'.reference', $container->reference) }}" required />
                                 </div>
                                 <div class="form-group" style="margin-bottom: 12px;">
-                                    <label style="font-size: 13px; margin-bottom: 4px;">PDF</label>
+                                    <label style="font-size: 13px; margin-bottom: 4px;">PDF con Información del Contenedor</label>
                                     @if($container->pdf_path)
-                                        <div><a href="{{ route('imports.download', [$import->id, 'container_'.$container->id.'_pdf']) }}" class="file-link" target="_blank"><i class="bi bi-file-pdf me-1"></i>Ver PDF actual</a></div>
+                                        <div><a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" class="file-link" target="_blank"><i class="bi bi-file-pdf me-1"></i>Ver PDF actual</a></div>
                                     @endif
                                     <input type="file" name="containers[{{ $index }}][pdf]" class="form-control" style="padding: 6px; font-size: 13px; margin-top: 8px;" accept="application/pdf" />
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label style="font-size: 13px; margin-bottom: 4px;">Imágenes</label>
-                                    @if($container->images)
-                                        @foreach($container->images as $imgIndex => $img)
-                                            <div style="margin-bottom: 4px;"><a href="{{ route('imports.download', [$import->id, 'container_'.$container->id.'_image_'.$imgIndex]) }}" class="file-link" target="_blank"><i class="bi bi-image me-1"></i>Ver Imagen {{ $imgIndex+1 }}</a></div>
-                                        @endforeach
+                                    <label style="font-size: 13px; margin-bottom: 4px;">PDF con Imágenes del Contenedor</label>
+                                    @if($container->image_pdf_path)
+                                        <div><a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" class="file-link" target="_blank"><i class="bi bi-file-pdf me-1"></i>Ver PDF de imágenes actual</a></div>
                                     @endif
-                                    <input type="file" name="containers[{{ $index }}][images][]" class="form-control" style="padding: 6px; font-size: 13px; margin-top: 8px;" accept="image/png,image/jpeg" multiple />
+                                    <input type="file" name="containers[{{ $index }}][image_pdf]" class="form-control" style="padding: 6px; font-size: 13px; margin-top: 8px;" accept="application/pdf" />
                                 </div>
                             </div>
                         @endforeach
@@ -189,15 +209,15 @@
                             </div>
                             <div class="form-group" style="margin-bottom: 12px;">
                                 <label style="font-size: 13px; margin-bottom: 4px;">Referencia *</label>
-                                <input type="text" name="containers[0][reference]" class="form-control" style="padding: 8px 12px; font-size: 14px;" required />
+                                <input type="text" name="containers[0][reference]" id="container_ref_edit_0" class="form-control translate-field" style="padding: 8px 12px; font-size: 14px;" required />
                             </div>
                             <div class="form-group" style="margin-bottom: 12px;">
-                                <label style="font-size: 13px; margin-bottom: 4px;">PDF</label>
+                                <label style="font-size: 13px; margin-bottom: 4px;">PDF con Información del Contenedor</label>
                                 <input type="file" name="containers[0][pdf]" class="form-control" style="padding: 6px; font-size: 13px;" accept="application/pdf" />
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label style="font-size: 13px; margin-bottom: 4px;">Imágenes</label>
-                                <input type="file" name="containers[0][images][]" class="form-control" style="padding: 6px; font-size: 13px;" accept="image/png,image/jpeg" multiple />
+                                <label style="font-size: 13px; margin-bottom: 4px;">PDF con Imágenes del Contenedor</label>
+                                <input type="file" name="containers[0][image_pdf]" class="form-control" style="padding: 6px; font-size: 13px;" accept="application/pdf" />
                             </div>
                         </div>
                     @endif
@@ -271,15 +291,10 @@
                 @error('apostillamiento_pdf') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
-            <div class="form-group">
-                <label for="etd">ETD</label>
-                <input type="text" name="etd" id="etd" class="@error('etd') is-invalid @enderror" value="{{ old('etd', $import->etd) }}" />
-                @error('etd') <div class="invalid-feedback">{{ $message }}</div> @enderror
-            </div>
 
             <div class="form-group">
                 <label for="shipping_company">Naviera o Agente de Carga</label>
-                <input type="text" name="shipping_company" id="shipping_company" class="@error('shipping_company') is-invalid @enderror" value="{{ old('shipping_company', $import->shipping_company) }}" />
+                <input type="text" name="shipping_company" id="shipping_company" class="@error('shipping_company') is-invalid @enderror translate-field" value="{{ old('shipping_company', $import->shipping_company) }}" />
                 @error('shipping_company') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
@@ -290,9 +305,12 @@
             </div>
 
             <div class="form-group">
-                <label for="supplier">Proveedor</label>
-                <input type="text" name="supplier" id="supplier" class="@error('supplier') is-invalid @enderror" value="{{ old('supplier', $import->supplier) }}" />
-                @error('supplier') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                <label for="other_documents_pdf">Otros Documentos (PDF)</label>
+                @if($import->other_documents_pdf)
+                    <div><a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" class="file-link" target="_blank"><i class="bi bi-file-pdf me-1"></i>Ver PDF actual</a></div>
+                @endif
+                <input type="file" name="other_documents_pdf" id="other_documents_pdf" class="@error('other_documents_pdf') is-invalid @enderror" accept="application/pdf" style="margin-top: 8px;" />
+                @error('other_documents_pdf') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
@@ -327,15 +345,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 13px; margin-bottom: 4px;">Referencia *</label>
-                    <input type="text" name="containers[${containerCount}][reference]" class="form-control" style="padding: 8px 12px; font-size: 14px;" required />
+                    <input type="text" name="containers[${containerCount}][reference]" id="container_ref_edit_${containerCount}" class="form-control translate-field" style="padding: 8px 12px; font-size: 14px;" required />
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 13px; margin-bottom: 4px;">PDF</label>
+                    <label style="font-size: 13px; margin-bottom: 4px;">PDF con Información del Contenedor</label>
                     <input type="file" name="containers[${containerCount}][pdf]" class="form-control" style="padding: 6px; font-size: 13px;" accept="application/pdf" />
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-size: 13px; margin-bottom: 4px;">Imágenes</label>
-                    <input type="file" name="containers[${containerCount}][images][]" class="form-control" style="padding: 6px; font-size: 13px;" accept="image/png,image/jpeg" multiple />
+                    <label style="font-size: 13px; margin-bottom: 4px;">PDF con Imágenes del Contenedor</label>
+                    <input type="file" name="containers[${containerCount}][image_pdf]" class="form-control" style="padding: 6px; font-size: 13px;" accept="application/pdf" />
                 </div>
             </div>
         `;
@@ -367,5 +385,130 @@ document.addEventListener('DOMContentLoaded', function() {
     
     updateRemoveButtons();
 });
+
+// Función auxiliar para traducir texto usando Google Translate
+async function translateText(text) {
+    if (!text || text.trim() === '') return null;
+    
+    try {
+        const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`);
+        const data = await response.json();
+        
+        if (data && data[0] && data[0][0] && data[0][0][0]) {
+            return data[0].map(item => item[0]).join('');
+        }
+    } catch (error) {
+        console.error('Error traduciendo texto:', error);
+    }
+    return null;
+}
+
+// Función para traducir todos los elementos del formulario
+async function translateAllToChinese() {
+    Swal.fire({
+        title: 'Traduciendo...',
+        html: 'Traduciendo todo el formulario a chino',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    let translatedCount = 0;
+    let errorCount = 0;
+    
+    // 1. Traducir todos los labels
+    const labels = document.querySelectorAll('label');
+    for (const label of labels) {
+        const originalText = label.textContent.trim();
+        if (originalText && !label.querySelector('input, select, textarea')) {
+            const translated = await translateText(originalText);
+            if (translated) {
+                label.textContent = translated;
+                translatedCount++;
+            } else {
+                errorCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+    }
+    
+    // 2. Traducir todos los placeholders
+    const inputsWithPlaceholder = document.querySelectorAll('input[placeholder], textarea[placeholder]');
+    for (const input of inputsWithPlaceholder) {
+        if (input.placeholder) {
+            const translated = await translateText(input.placeholder);
+            if (translated) {
+                input.placeholder = translated;
+                translatedCount++;
+            } else {
+                errorCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+    }
+    
+    // 3. Traducir todos los botones (excepto el botón de traducción)
+    const buttons = document.querySelectorAll('button:not(.translate-btn), input[type="submit"]');
+    for (const button of buttons) {
+        const buttonText = button.textContent.trim() || button.value.trim();
+        if (buttonText && buttonText !== 'Traducir Todo a Chino' && buttonText !== 'Traducir') {
+            const translated = await translateText(buttonText);
+            if (translated) {
+                if (button.tagName === 'INPUT') {
+                    button.value = translated;
+                } else {
+                    button.textContent = translated;
+                }
+                translatedCount++;
+            } else {
+                errorCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+    }
+    
+    // 4. Traducir valores de inputs que tengan texto
+    const textInputs = document.querySelectorAll('input[type="text"], textarea');
+    for (const input of textInputs) {
+        if (input.value && input.value.trim() !== '') {
+            const translated = await translateText(input.value);
+            if (translated) {
+                input.value = translated;
+                translatedCount++;
+            } else {
+                errorCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+    }
+    
+    // 5. Traducir textos en elementos small
+    const smallElements = document.querySelectorAll('small');
+    for (const small of smallElements) {
+        const originalText = small.textContent.trim();
+        if (originalText) {
+            const translated = await translateText(originalText);
+            if (translated) {
+                small.textContent = translated;
+                translatedCount++;
+            } else {
+                errorCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+    }
+    
+    Swal.fire({
+        icon: translatedCount > 0 ? 'success' : 'error',
+        title: translatedCount > 0 ? 'Traducción Completada' : 'Error',
+        html: `Se tradujeron ${translatedCount} elemento(s) correctamente${errorCount > 0 ? `<br>${errorCount} elemento(s) no se pudieron traducir` : ''}`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @endsection

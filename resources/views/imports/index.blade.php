@@ -225,7 +225,7 @@
                 <tr>
                     <th>DO</th>
                     <th>Usuario</th>
-                    <th>Producto</th>
+                    <th>N° Comercial Invoice</th>
                     <th>Origen</th>
                     <th>Destino</th>
                     <th>Fecha Salida</th>
@@ -265,7 +265,7 @@
                 <tr>
                     <td><strong>{{ $import->do_code }}</strong></td>
                     <td>{{ $import->user->nombre_completo ?? $import->user->email }}</td>
-                    <td>{{ $import->product_name ?? '-' }}</td>
+                    <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
                     <td>{{ $import->origin ?? '-' }}</td>
                     <td>{{ $import->destination ?? 'Colombia' }}</td>
                     <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
@@ -278,6 +278,8 @@
                                 <span class="status-badge status-completed">Completado</span>
                             @elseif($import->status === 'in_transit')
                                 <span class="status-badge status-in-transit">En tránsito</span>
+                            @elseif($import->status === 'recibido')
+                                <span class="status-badge" style="background: #17a2b8; color: white;">Recibido</span>
                             @else
                                 <span class="status-badge">{{ ucfirst($import->status) }}</span>
                             @endif
@@ -294,7 +296,30 @@
                     </td>
                     <td>
                         @if($import->credit_time)
-                            <strong style="color: #198754;">{{ $import->credit_time }} días</strong>
+                            <strong style="color: #198754;">{{ $import->credit_time }} {{ __('common.dias') }}</strong>
+                            @php
+                                $creditExpiration = $import->getCreditExpirationDate();
+                                $daysUntilExpiration = $import->getDaysUntilCreditExpiration();
+                                $isExpired = $import->isCreditExpired();
+                                $isExpiringSoon = $import->isCreditExpiringSoon();
+                            @endphp
+                            @if($creditExpiration)
+                                <div style="margin-top: 4px; font-size: 11px;">
+                                    @if($isExpired)
+                                        <span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: 600;">
+                                            ⚠️ {{ __('common.credito_vencido') }} ({{ abs($daysUntilExpiration) }} {{ __('common.dias') }})
+                                        </span>
+                                    @elseif($isExpiringSoon)
+                                        <span style="background: #ffc107; color: #212529; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: 600;">
+                                            ⚠️ {{ __('common.credito_por_vencer') }} ({{ $daysUntilExpiration }} {{ __('common.dias') }})
+                                        </span>
+                                    @else
+                                        <span style="color: #666; font-size: 10px;">
+                                            {{ __('common.vencimiento') }}: {{ $creditExpiration->format('d/m/Y') }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @endif
                         @else
                             <span style="color: #999;">-</span>
                         @endif
@@ -305,7 +330,8 @@
                                 $hasContainers = $import->containers && $import->containers->count() > 0;
                                 $hasDocuments = $import->proforma_pdf || $import->proforma_invoice_low_pdf || 
                                              $import->invoice_pdf || $import->commercial_invoice_low_pdf || 
-                                             $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf;
+                                             $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf ||
+                                             $import->other_documents_pdf;
                             @endphp
                             
                             @if($hasContainers)
@@ -316,16 +342,14 @@
                                             <div class="container-ref">{{ $container->reference }}</div>
                                             <div class="files-grid">
                                                 @if($container->pdf_path)
-                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="PDF del contenedor">
-                                                        <i class="bi bi-file-pdf"></i> PDF
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="PDF con información del contenedor">
+                                                        <i class="bi bi-file-pdf"></i> Info PDF
                                                     </a>
                                                 @endif
-                                                @if($container->images)
-                                                    @foreach($container->images as $imgIndex => $img)
-                                                        <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_'.$imgIndex]) }}" target="_blank" class="file-viewer" title="Imagen {{ $imgIndex+1 }}">
-                                                            <i class="bi bi-image"></i> Img{{ $imgIndex+1 }}
-                                                        </a>
-                                                    @endforeach
+                                                @if($container->image_pdf_path)
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" target="_blank" class="file-viewer" title="PDF con imágenes del contenedor">
+                                                        <i class="bi bi-file-pdf"></i> Imágenes PDF
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
@@ -370,6 +394,11 @@
                                         @if($import->apostillamiento_pdf)
                                             <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" title="Apostillamiento">
                                                 <i class="bi bi-file-pdf"></i> Apostillamiento
+                                            </a>
+                                        @endif
+                                        @if($import->other_documents_pdf)
+                                            <a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" target="_blank" class="file-viewer" title="Otros Documentos">
+                                                <i class="bi bi-file-pdf"></i> Otros
                                             </a>
                                         @endif
                                     </div>

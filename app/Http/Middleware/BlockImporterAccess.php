@@ -27,6 +27,8 @@ class BlockImporterAccess
                 'imports.edit',
                 'imports.update',
                 'imports.download',
+                'imports.view',
+                'language.switch',
                 'home',
                 'logout'
             ];
@@ -36,7 +38,7 @@ class BlockImporterAccess
             
             // Also check the URI path
             $path = $request->path();
-            $allowedPaths = ['imports', 'my-imports', 'home', 'logout'];
+            $allowedPaths = ['imports', 'my-imports', 'home', 'logout', 'language'];
             
             // Check if path starts with any allowed path
             $isAllowedPath = false;

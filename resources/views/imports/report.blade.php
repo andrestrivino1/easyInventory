@@ -152,8 +152,16 @@
             <div class="info-value">{{ $import->user->nombre_completo ?? $import->user->email }}</div>
         </div>
         <div class="info-box">
-            <div class="info-label">Producto</div>
-            <div class="info-value">{{ $import->product_name ?? '-' }}</div>
+            <div class="info-label">N° Comercial Invoice</div>
+            <div class="info-value">{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">N° Proforma Invoice</div>
+            <div class="info-value">{{ $import->proforma_invoice_number ?? '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">N° Bill of Lading</div>
+            <div class="info-value">{{ $import->bl_number ?? '-' }}</div>
         </div>
         <div class="info-box">
             <div class="info-label">Origen</div>
@@ -171,6 +179,12 @@
             <div class="info-label">Fecha Estimada de Llegada</div>
             <div class="info-value">{{ $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date)->format('d/m/Y') : '-' }}</div>
         </div>
+        @if($import->actual_arrival_date)
+        <div class="info-box">
+            <div class="info-label">Fecha Real de Llegada</div>
+            <div class="info-value">{{ \Carbon\Carbon::parse($import->actual_arrival_date)->format('d/m/Y') }}</div>
+        </div>
+        @endif
         <div class="info-box">
             <div class="info-label">Estado</div>
             <div class="info-value">
@@ -180,6 +194,8 @@
                     <span class="status-badge status-completed">Completado</span>
                 @elseif($import->status === 'in_transit')
                     <span class="status-badge status-in-transit">En tránsito</span>
+                @elseif($import->status === 'recibido')
+                    <span class="status-badge" style="background: #17a2b8; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; display: inline-block;">Recibido</span>
                 @else
                     {{ ucfirst($import->status) }}
                 @endif
@@ -222,8 +238,8 @@
             <thead>
                 <tr>
                     <th>Referencia</th>
-                    <th>PDF</th>
-                    <th>Imágenes</th>
+                    <th>PDF Información</th>
+                    <th>PDF Imágenes</th>
                 </tr>
             </thead>
             <tbody>
@@ -231,7 +247,7 @@
                 <tr>
                     <td><strong>{{ $container->reference }}</strong></td>
                     <td>{{ $container->pdf_path ? 'Sí' : 'No' }}</td>
-                    <td>{{ $container->images && count($container->images) > 0 ? count($container->images) . ' imagen(es)' : 'No' }}</td>
+                    <td>{{ $container->image_pdf_path ? 'Sí' : 'No' }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -263,15 +279,33 @@
             @if($import->apostillamiento_pdf)
                 <li><strong>Apostillamiento:</strong> Adjunto</li>
             @endif
+            @if($import->other_documents_pdf)
+                <li><strong>Otros Documentos:</strong> Adjunto</li>
+            @endif
+            @if($import->containers && $import->containers->count() > 0)
+                @foreach($import->containers as $container)
+                    @if($container->pdf_path)
+                        <li><strong>Información Contenedor {{ $container->reference }}:</strong> Adjunto</li>
+                    @endif
+                    @if($container->image_pdf_path)
+                        <li><strong>Imágenes Contenedor {{ $container->reference }}:</strong> Adjunto</li>
+                    @endif
+                @endforeach
+            @endif
             @php
                 $hasDocuments = $import->proforma_pdf || $import->proforma_invoice_low_pdf || 
                                $import->invoice_pdf || $import->commercial_invoice_low_pdf || 
-                               $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf;
+                               $import->packing_list_pdf || $import->bl_pdf || $import->apostillamiento_pdf ||
+                               $import->other_documents_pdf || 
+                               ($import->containers && $import->containers->whereNotNull('pdf_path')->count() > 0);
             @endphp
             @if(!$hasDocuments)
                 <li>No hay documentos adjuntos</li>
             @endif
         </ul>
+        <div style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-left: 4px solid #0066cc; border-radius: 4px;">
+            <strong style="color: #0066cc;">Nota:</strong> Todos los PDFs mencionados están disponibles en el sistema y pueden ser descargados desde la vista de importaciones.
+        </div>
     </div>
 
     @php

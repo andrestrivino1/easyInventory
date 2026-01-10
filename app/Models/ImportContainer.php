@@ -13,11 +13,7 @@ class ImportContainer extends Model
         'import_id',
         'reference',
         'pdf_path',
-        'images',
-    ];
-
-    protected $casts = [
-        'images' => 'array',
+        'image_pdf_path',
     ];
 
     public function import()

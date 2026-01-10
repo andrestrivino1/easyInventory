@@ -285,10 +285,10 @@ class ProductController extends Controller
                         } else {
                             // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;
-                            // Calcular láminas si es tipo caja
-                            $laminas = $quantity;
-                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                                $laminas = $quantity * $producto->unidades_por_caja;
+                        // Calcular láminas si es tipo caja
+                        $laminas = $quantity;
+                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                            $laminas = $quantity * $producto->unidades_por_caja;
                             }
                         }
                         

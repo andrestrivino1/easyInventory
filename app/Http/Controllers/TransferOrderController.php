@@ -212,11 +212,11 @@ class TransferOrderController extends Controller
                                 $stock += $goodSheets;
                             } else {
                                 // Transferencia antigua sin good_sheets
-                                $quantity = $productInTransfer->pivot->quantity;
-                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                    $quantity = $quantity * $product->unidades_por_caja;
-                                }
-                                $stock += $quantity;
+                            $quantity = $productInTransfer->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
                             }
                         }
                     }
@@ -508,11 +508,11 @@ class TransferOrderController extends Controller
                                 $stock += $goodSheets;
                             } else {
                                 // Transferencia antigua sin good_sheets
-                                $quantity = $productInTransfer->pivot->quantity;
-                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                    $quantity = $quantity * $product->unidades_por_caja;
-                                }
-                                $stock += $quantity;
+                            $quantity = $productInTransfer->pivot->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $quantity = $quantity * $product->unidades_por_caja;
+                            }
+                            $stock += $quantity;
                             }
                         }
                     }
@@ -918,12 +918,12 @@ class TransferOrderController extends Controller
                             $stock += $goodSheets;
                         } else {
                             // Transferencia antigua sin good_sheets, usar quantity
-                            $quantity = $productInTransfer->pivot->quantity;
-                            // Si es tipo caja, convertir a unidades
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
-                            }
-                            $stock += $quantity;
+                        $quantity = $productInTransfer->pivot->quantity;
+                        // Si es tipo caja, convertir a unidades
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $quantity = $quantity * $product->unidades_por_caja;
+                        }
+                        $stock += $quantity;
                         }
                     }
                 }
