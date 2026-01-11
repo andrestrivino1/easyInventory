@@ -48,6 +48,7 @@ return [
     'comercial_invoice' => '商业发票',
     'numero_proforma_invoice' => '形式发票号码',
     'numero_bill_of_lading' => '提单号码',
+    'sin_credito' => '无信用',
     'origen' => '原产地',
     'destino' => '目的地',
     'fecha_salida' => '出发日期',

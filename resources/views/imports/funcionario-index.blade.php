@@ -172,16 +172,16 @@
         <thead>
             <tr>
                 <th>DO</th>
+                <th>Usuario</th>
                 <th>N° Comercial Invoice</th>
+                <th>N° Proforma Invoice</th>
+                <th>N° Bill of Lading</th>
                 <th>Origen</th>
                 <th>Destino</th>
                 <th>Fecha Salida</th>
                 <th>Fecha Llegada</th>
                 <th>Estado</th>
-                <th>N° BL</th>
-                <th>N° Proforma</th>
-                <th>Proveedor</th>
-                <th>Documentos PDF</th>
+                <th>Archivos</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -189,11 +189,14 @@
             @forelse($imports as $import)
             <tr>
                 <td><strong>{{ $import->do_code }}</strong></td>
-                <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? 'N/A' }}</td>
-                <td>{{ $import->origin }}</td>
-                <td>{{ $import->destination }}</td>
-                <td>{{ \Carbon\Carbon::parse($import->departure_date)->format('d/m/Y') }}</td>
-                <td>{{ $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date)->format('d/m/Y') : 'N/A' }}</td>
+                <td>{{ $import->user->nombre_completo ?? $import->user->email }}</td>
+                <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
+                <td>{{ $import->proforma_invoice_number ?? '-' }}</td>
+                <td>{{ $import->bl_number ?? '-' }}</td>
+                <td>{{ $import->origin ?? '-' }}</td>
+                <td>{{ $import->destination ?? 'Colombia' }}</td>
+                <td>{{ $import->departure_date ? \Carbon\Carbon::parse($import->departure_date)->format('d/m/Y') : '-' }}</td>
+                <td>{{ $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date)->format('d/m/Y') : '-' }}</td>
                 <td>
                     @if($import->status == 'pending')
                         <span class="badge badge-pending">Pendiente</span>
@@ -205,49 +208,99 @@
                         <span class="badge">{{ $import->status }}</span>
                     @endif
                 </td>
-                <td>{{ $import->bl_number ?? 'N/A' }}</td>
-                <td>{{ $import->proforma_invoice_number ?? 'N/A' }}</td>
-                <td>{{ $import->user->name ?? $import->user->email }}</td>
                 <td>
-                    @if($import->containers && $import->containers->count() > 0)
-                        @foreach($import->containers as $container)
-                            @if($container->pdf_path)
-                                <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" class="file-link" target="_blank">Info {{ $container->reference }}</a>
-                            @endif
-                            @if($container->image_pdf_path)
-                                <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" class="file-link" target="_blank">Imágenes {{ $container->reference }}</a>
-                            @endif
-                        @endforeach
-                    @endif
-                    @if($import->packing_list_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" class="file-link" target="_blank">Packing List</a>
-                    @endif
-                    @if($import->commercial_invoice_low_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" class="file-link" target="_blank">Comercial Low</a>
-                    @endif
-                    @if($import->invoice_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'invoice_pdf']) }}" class="file-link" target="_blank">Comercial</a>
-                    @endif
-                    @if($import->proforma_invoice_low_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" class="file-link" target="_blank">Proforma Low</a>
-                    @endif
-                    @if($import->apostillamiento_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" class="file-link" target="_blank">Apostillamiento</a>
-                    @endif
-                    @if($import->bl_pdf)
-                        <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" class="file-link" target="_blank">Bill of Lading</a>
-                    @endif
+                    <div class="files-container" style="display: flex; flex-direction: column; gap: 8px; max-width: 100%;">
+                        @php
+                            $hasContainers = $import->containers && $import->containers->count() > 0;
+                            $hasDocuments = $import->proforma_invoice_low_pdf || 
+                                         $import->commercial_invoice_low_pdf || 
+                                         $import->packing_list_pdf || 
+                                         $import->bl_pdf || 
+                                         $import->apostillamiento_pdf ||
+                                         $import->other_documents_pdf;
+                        @endphp
+                        
+                        @if($hasContainers)
+                            <div class="files-section">
+                                <div class="files-section-title" style="font-size: 10px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Contenedores</div>
+                                @foreach($import->containers as $container)
+                                    <div class="container-files" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 4px 6px; margin-bottom: 4px;">
+                                        <div class="container-ref" style="font-size: 10px; font-weight: 600; color: #495057; margin-bottom: 3px;">{{ $container->reference }}</div>
+                                        <div class="files-grid" style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                            @if($container->pdf_path)
+                                                <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="PDF con información del contenedor">
+                                                    <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Info PDF
+                                                </a>
+                                            @endif
+                                            @if($container->image_pdf_path)
+                                                <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="PDF con imágenes del contenedor">
+                                                    <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Imágenes PDF
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        
+                        @if($hasDocuments)
+                            <div class="files-section documents-section" style="border-top: 1px solid #e0e0e0; padding-top: 6px; margin-top: 4px;">
+                                <div class="files-section-title" style="font-size: 10px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Documentos</div>
+                                <div class="files-grid" style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                    @if($import->proforma_invoice_low_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Proforma Invoice Low">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Proforma Low
+                                        </a>
+                                    @endif
+                                    @if($import->commercial_invoice_low_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Commercial Invoice Low">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Invoice Low
+                                        </a>
+                                    @endif
+                                    @if($import->packing_list_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Packing List">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Packing List
+                                        </a>
+                                    @endif
+                                    @if($import->bl_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Bill of Lading">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> BL
+                                        </a>
+                                    @endif
+                                    @if($import->apostillamiento_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Apostillamiento">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Apostillamiento
+                                        </a>
+                                    @endif
+                                    @if($import->other_documents_pdf)
+                                        <a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" target="_blank" class="file-viewer" style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: #e3f2fd; color: #1565c0; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 500;" title="Otros Documentos">
+                                            <i class="bi bi-file-pdf" style="font-size: 11px;"></i> Otros
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+                        
+                        @if(!$hasContainers && !$hasDocuments)
+                            <span style="color: #999; font-size: 11px;">Sin archivos</span>
+                        @endif
+                    </div>
                 </td>
                 <td>
-                    @if($import->status != 'recibido')
-                        <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
-                            Marcar Recibido
-                        </button>
-                    @else
-                        <span style="color: #28a745; font-size: 12px;">
-                            Recibido: {{ $import->actual_arrival_date ? \Carbon\Carbon::parse($import->actual_arrival_date)->format('d/m/Y') : 'N/A' }}
-                        </span>
-                    @endif
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        @if($import->status != 'recibido')
+                            <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
+                                Marcar Recibido
+                            </button>
+                        @else
+                            <span style="color: #28a745; font-size: 12px; margin-bottom: 5px;">
+                                Recibido: {{ $import->actual_arrival_date ? \Carbon\Carbon::parse($import->actual_arrival_date)->format('d/m/Y') : 'N/A' }}
+                            </span>
+                        @endif
+                        <a href="{{ route('imports.report', $import->id) }}" class="btn-report" style="background: #4a8af4; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; text-align: center; display: inline-block;" target="_blank">
+                            <i class="bi bi-file-pdf me-1"></i>Reporte PDF
+                        </a>
+                    </div>
                 </td>
             </tr>
             @empty
@@ -283,6 +336,59 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Mostrar mensaje informativo sobre PDFs omitidos si existe
+document.addEventListener('DOMContentLoaded', function() {
+    @if(session('pdfs_omitted_info'))
+        @php
+            $omittedInfo = session('pdfs_omitted_info');
+            $omittedList = is_array($omittedInfo['omitted_list']) ? $omittedInfo['omitted_list'] : [];
+        @endphp
+        Swal.fire({
+            icon: 'warning',
+            title: 'PDFs Omitidos en el Reporte',
+            html: `
+                <div style="text-align: left;">
+                    <p><strong>DO:</strong> {{ $omittedInfo['do_code'] ?? 'N/A' }}</p>
+                    <p><strong>Total de PDFs:</strong> {{ $omittedInfo['total_pdfs'] ?? 0 }}</p>
+                    <p><strong>PDFs incluidos:</strong> {{ $omittedInfo['included_pdfs'] ?? 0 }} (1 reporte + {{ ($omittedInfo['included_pdfs'] ?? 1) - 1 }} PDFs adjuntos)</p>
+                    <p><strong>PDFs omitidos:</strong> <span style="color: #dc3545; font-weight: bold;">{{ $omittedInfo['omitted_pdfs'] ?? 0 }}</span></p>
+                    <p style="margin-top: 10px;"><strong>Razón:</strong> {{ $omittedInfo['reason'] ?? 'Compresión no soportada' }}</p>
+                    @if(!empty($omittedList))
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+                        <strong>PDFs que no pudieron incluirse:</strong>
+                        <ul style="margin: 8px 0 0 20px; padding: 0;">
+                            @foreach(array_slice($omittedList, 0, 10) as $omittedPdf)
+                                <li style="margin: 4px 0;">{{ $omittedPdf }}</li>
+                            @endforeach
+                            @if(count($omittedList) > 10)
+                                <li style="margin: 4px 0; color: #666;">... y {{ count($omittedList) - 10 }} más</li>
+                            @endif
+                        </ul>
+                    </div>
+                    @endif
+                    <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                        <strong>Nota:</strong> Algunos PDFs no pudieron ser incluidos porque utilizan una técnica de compresión no soportada por la versión gratuita de la librería FPDI. 
+                        Para incluir estos PDFs, considere convertirlos a un formato compatible o usar una librería de pago.
+                    </p>
+                </div>
+            `,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#4a8af4',
+            width: '600px',
+            allowOutsideClick: false
+        }).then(() => {
+            // Limpiar la información después de que el usuario confirme el mensaje
+            fetch('{{ route("imports.clear-omitted-info") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                }
+            }).catch(error => console.error('Error al limpiar información:', error));
+        });
+    @endif
+});
+
 // Búsqueda en tiempo real
 document.getElementById('searchInput').addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();

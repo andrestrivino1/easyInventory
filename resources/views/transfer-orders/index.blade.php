@@ -160,7 +160,13 @@
                         @if($prod->medidas)
                             <br><span style="color: #666; font-size: 12px;">{{ $prod->medidas }}</span>
                         @endif
-                        <br><span style="color: #666; font-size: 12px;">({{ $prod->pivot->quantity }} {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})</span>
+                        <br><span style="color: #666; font-size: 12px;">
+                            @if($transfer->status === 'recibido' && isset($prod->pivot->good_sheets) && isset($prod->pivot->receive_by))
+                                ({{ $prod->pivot->good_sheets }} {{ $prod->pivot->receive_by === 'cajas' ? 'cajas' : 'láminas' }})
+                            @else
+                                ({{ $prod->pivot->quantity }} {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})
+                            @endif
+                        </span>
                     </td>
                     <td>
                         @if($container)

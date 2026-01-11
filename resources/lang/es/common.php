@@ -48,6 +48,7 @@ return [
     'comercial_invoice' => 'COMERCIAL INVOICE',
     'numero_proforma_invoice' => 'Número de Proforma Invoice',
     'numero_bill_of_lading' => 'Número de Bill of Lading',
+    'sin_credito' => 'Sin crédito',
     'origen' => 'Origen',
     'destino' => 'Destino',
     'fecha_salida' => 'Fecha de salida',

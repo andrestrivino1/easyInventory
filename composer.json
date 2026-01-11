@@ -9,10 +9,15 @@
         "barryvdh/laravel-dompdf": "^2.2",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
+        "iio/libmergepdf": "^4.0",
         "laravel/framework": "^8.75",
         "laravel/sanctum": "^2.11",
         "laravel/tinker": "^2.5",
-        "laravel/ui": "^3.4"
+        "laravel/ui": "^3.4",
+        "mikehaertl/php-pdftk": "^0.13.1",
+        "setasign/fpdf": "^1.8",
+        "setasign/fpdi": "^2.6",
+        "tecnickcom/tcpdf": "^6.4"
     },
     "require-dev": {
         "facade/ignition": "^2.5",

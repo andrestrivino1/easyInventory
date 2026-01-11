@@ -54,7 +54,7 @@ class TransferOrder extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'transfer_order_products')
-           ->withPivot('quantity', 'container_id')->withTimestamps();
+           ->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by')->withTimestamps();
     }
 
     public function driver()

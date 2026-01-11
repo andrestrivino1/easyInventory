@@ -194,9 +194,29 @@
                         </div>
                     </div>
                     
+                    <div class="input-field" style="margin-bottom: 15px;">
+                        <label for="receive_by_{{ $product->id }}">Recibir por: *</label>
+                        <select 
+                            id="receive_by_{{ $product->id }}" 
+                            name="products[{{ $loop->index }}][receive_by]" 
+                            class="receive-by-select"
+                            required
+                            style="padding: 10px 16px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: #fff; width: 100%;"
+                            onchange="toggleReceiveMode({{ $product->id }}, {{ $quantity }}, {{ $product->unidades_por_caja ?? 0 }}, '{{ $product->tipo_medida }}')"
+                        >
+                            <option value="">Seleccione una opción</option>
+                            <option value="cajas" {{ old('products.'.$loop->index.'.receive_by') == 'cajas' ? 'selected' : '' }}>Cajas</option>
+                            <option value="laminas" {{ old('products.'.$loop->index.'.receive_by', 'laminas') == 'laminas' ? 'selected' : '' }}>Láminas</option>
+                        </select>
+                        <input type="hidden" name="products[{{ $loop->index }}][product_id]" value="{{ $product->id }}">
+                        @error('products.'.$loop->index.'.receive_by')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
                     <div class="sheets-input-group">
                         <div class="input-field">
-                            <label for="good_sheets_{{ $product->id }}">Láminas en buen estado *</label>
+                            <label for="good_sheets_{{ $product->id }}" id="label_good_{{ $product->id }}">Láminas en buen estado *</label>
                             <input 
                                 type="number" 
                                 id="good_sheets_{{ $product->id }}" 
@@ -205,17 +225,17 @@
                                 min="0" 
                                 max="{{ $totalSheets }}"
                                 required
-                                onchange="updateBadSheets({{ $product->id }}, {{ $totalSheets }})"
+                                step="1"
+                                onchange="updateBadSheets({{ $product->id }}, {{ $totalSheets }}, '{{ $product->tipo_medida }}', {{ $product->unidades_por_caja ?? 0 }})"
                             />
-                            <input type="hidden" name="products[{{ $loop->index }}][product_id]" value="{{ $product->id }}">
-                            <span class="help-text">Máximo: {{ $totalSheets }} láminas</span>
+                            <span class="help-text" id="help_good_{{ $product->id }}">Máximo: {{ $totalSheets }} láminas</span>
                             @error('products.'.$loop->index.'.good_sheets')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
                         
                         <div class="input-field">
-                            <label for="bad_sheets_{{ $product->id }}">Láminas en mal estado *</label>
+                            <label for="bad_sheets_{{ $product->id }}" id="label_bad_{{ $product->id }}">Láminas en mal estado *</label>
                             <input 
                                 type="number" 
                                 id="bad_sheets_{{ $product->id }}" 
@@ -224,9 +244,10 @@
                                 min="0" 
                                 max="{{ $totalSheets }}"
                                 required
-                                onchange="updateGoodSheets({{ $product->id }}, {{ $totalSheets }})"
+                                step="1"
+                                onchange="updateGoodSheets({{ $product->id }}, {{ $totalSheets }}, '{{ $product->tipo_medida }}', {{ $product->unidades_por_caja ?? 0 }})"
                             />
-                            <span class="help-text">Máximo: {{ $totalSheets }} láminas</span>
+                            <span class="help-text" id="help_bad_{{ $product->id }}">Máximo: {{ $totalSheets }} láminas</span>
                             @error('products.'.$loop->index.'.bad_sheets')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -234,7 +255,7 @@
                     </div>
                     
                     <div style="margin-top: 8px; font-size: 12px; color: #666;">
-                        <strong>Total recibido:</strong> <span id="total_{{ $product->id }}">{{ $totalSheets }}</span> láminas
+                        <strong>Total recibido:</strong> <span id="total_{{ $product->id }}">{{ $totalSheets }}</span> <span id="total_unit_{{ $product->id }}">láminas</span>
                     </div>
                 </div>
             @endforeach
@@ -248,54 +269,122 @@
 </div>
 
 <script>
-function updateBadSheets(productId, maxSheets) {
+function toggleReceiveMode(productId, quantity, unidadesPorCaja, tipoMedida) {
+    const receiveBySelect = document.getElementById('receive_by_' + productId);
     const goodSheetsInput = document.getElementById('good_sheets_' + productId);
     const badSheetsInput = document.getElementById('bad_sheets_' + productId);
+    const labelGood = document.getElementById('label_good_' + productId);
+    const labelBad = document.getElementById('label_bad_' + productId);
+    const helpGood = document.getElementById('help_good_' + productId);
+    const helpBad = document.getElementById('help_bad_' + productId);
     const totalSpan = document.getElementById('total_' + productId);
+    const totalUnitSpan = document.getElementById('total_unit_' + productId);
     
-    const goodSheets = parseInt(goodSheetsInput.value) || 0;
-    const badSheets = maxSheets - goodSheets;
+    const receiveBy = receiveBySelect.value;
     
-    if (badSheets >= 0) {
-        badSheetsInput.value = badSheets;
+    if (receiveBy === 'cajas') {
+        // Recibir por cajas
+        // La cantidad enviada (quantity) siempre está en la unidad original (cajas o láminas)
+        // Si tipo_medida es 'caja', quantity ya está en cajas
+        // Si no es 'caja', quantity está en láminas y debemos convertir a cajas
+        let maxBoxes;
+        if (tipoMedida === 'caja') {
+            // Ya está en cajas
+            maxBoxes = quantity;
+        } else {
+            // Está en láminas, convertir a cajas si hay unidades_por_caja
+            maxBoxes = unidadesPorCaja > 0 ? Math.floor(quantity / unidadesPorCaja) : quantity;
+        }
+        
+        goodSheetsInput.max = maxBoxes;
+        badSheetsInput.max = maxBoxes;
+        goodSheetsInput.value = Math.min(parseInt(goodSheetsInput.value) || maxBoxes, maxBoxes);
+        badSheetsInput.value = Math.min(parseInt(badSheetsInput.value) || 0, maxBoxes);
+        
+        labelGood.textContent = 'Cajas en buen estado *';
+        labelBad.textContent = 'Cajas en mal estado *';
+        helpGood.textContent = 'Máximo: ' + maxBoxes + ' cajas';
+        helpBad.textContent = 'Máximo: ' + maxBoxes + ' cajas';
+        totalUnitSpan.textContent = 'cajas';
+        
+        // Actualizar total considerando cajas
+        updateTotal(productId, maxBoxes, 'cajas');
+    } else if (receiveBy === 'laminas') {
+        // Recibir por láminas
+        // Si tipo_medida es 'caja', convertir cajas a láminas
+        // Si no es 'caja', quantity ya está en láminas
+        const maxSheets = tipoMedida === 'caja' && unidadesPorCaja > 0 ? quantity * unidadesPorCaja : quantity;
+        
+        goodSheetsInput.max = maxSheets;
+        badSheetsInput.max = maxSheets;
+        goodSheetsInput.value = Math.min(parseInt(goodSheetsInput.value) || maxSheets, maxSheets);
+        badSheetsInput.value = Math.min(parseInt(badSheetsInput.value) || 0, maxSheets);
+        
+        labelGood.textContent = 'Láminas en buen estado *';
+        labelBad.textContent = 'Láminas en mal estado *';
+        helpGood.textContent = 'Máximo: ' + maxSheets + ' láminas';
+        helpBad.textContent = 'Máximo: ' + maxSheets + ' láminas';
+        totalUnitSpan.textContent = 'láminas';
+        
+        // Actualizar total considerando láminas
+        updateTotal(productId, maxSheets, 'laminas');
+    }
+}
+
+function updateBadSheets(productId, maxValue, tipoMedida, unidadesPorCaja) {
+    const receiveBySelect = document.getElementById('receive_by_' + productId);
+    const goodSheetsInput = document.getElementById('good_sheets_' + productId);
+    const badSheetsInput = document.getElementById('bad_sheets_' + productId);
+    
+    const receiveBy = receiveBySelect.value;
+    if (!receiveBy) return;
+    
+    const goodValue = parseInt(goodSheetsInput.value) || 0;
+    const badValue = maxValue - goodValue;
+    
+    if (badValue >= 0) {
+        badSheetsInput.value = badValue;
     } else {
-        goodSheetsInput.value = maxSheets;
+        goodSheetsInput.value = maxValue;
         badSheetsInput.value = 0;
     }
     
-    updateTotal(productId, maxSheets);
+    updateTotal(productId, maxValue, receiveBy);
 }
 
-function updateGoodSheets(productId, maxSheets) {
+function updateGoodSheets(productId, maxValue, tipoMedida, unidadesPorCaja) {
+    const receiveBySelect = document.getElementById('receive_by_' + productId);
     const goodSheetsInput = document.getElementById('good_sheets_' + productId);
     const badSheetsInput = document.getElementById('bad_sheets_' + productId);
-    const totalSpan = document.getElementById('total_' + productId);
     
-    const badSheets = parseInt(badSheetsInput.value) || 0;
-    const goodSheets = maxSheets - badSheets;
+    const receiveBy = receiveBySelect.value;
+    if (!receiveBy) return;
     
-    if (goodSheets >= 0) {
-        goodSheetsInput.value = goodSheets;
+    const badValue = parseInt(badSheetsInput.value) || 0;
+    const goodValue = maxValue - badValue;
+    
+    if (goodValue >= 0) {
+        goodSheetsInput.value = goodValue;
     } else {
-        badSheetsInput.value = maxSheets;
+        badSheetsInput.value = maxValue;
         goodSheetsInput.value = 0;
     }
     
-    updateTotal(productId, maxSheets);
+    updateTotal(productId, maxValue, receiveBy);
 }
 
-function updateTotal(productId, maxSheets) {
+function updateTotal(productId, maxValue, receiveBy) {
     const goodSheetsInput = document.getElementById('good_sheets_' + productId);
     const badSheetsInput = document.getElementById('bad_sheets_' + productId);
     const totalSpan = document.getElementById('total_' + productId);
     
-    const goodSheets = parseInt(goodSheetsInput.value) || 0;
-    const badSheets = parseInt(badSheetsInput.value) || 0;
-    const total = goodSheets + badSheets;
+    const goodValue = parseInt(goodSheetsInput.value) || 0;
+    const badValue = parseInt(badSheetsInput.value) || 0;
+    const total = goodValue + badValue;
     
     totalSpan.textContent = total;
     
-    if (total > maxSheets) {
+    if (total > maxValue) {
         totalSpan.style.color = '#d60000';
         totalSpan.style.fontWeight = 'bold';
     } else {
@@ -304,6 +393,28 @@ function updateTotal(productId, maxSheets) {
     }
 }
 
+// Inicializar los campos cuando la página carga
+document.addEventListener('DOMContentLoaded', function() {
+    const products = @json($transferOrder->products);
+    products.forEach((product) => {
+        const receiveBySelect = document.getElementById('receive_by_' + product.id);
+        if (receiveBySelect) {
+            const quantity = product.pivot.quantity;
+            const unidadesPorCaja = product.unidades_por_caja || 0;
+            const tipoMedida = product.tipo_medida || '';
+            
+            // Si tiene un valor seleccionado (por old() o selección previa), usar ese valor
+            if (receiveBySelect.value) {
+                toggleReceiveMode(product.id, quantity, unidadesPorCaja, tipoMedida);
+            } else {
+                // Si no tiene valor, establecer "laminas" por defecto y luego inicializar
+                receiveBySelect.value = 'laminas';
+                toggleReceiveMode(product.id, quantity, unidadesPorCaja, tipoMedida);
+            }
+        }
+    });
+});
+
 // Validar antes de enviar
 document.getElementById('confirmForm').addEventListener('submit', function(e) {
     const products = @json($transferOrder->products);
@@ -311,18 +422,36 @@ document.getElementById('confirmForm').addEventListener('submit', function(e) {
     let errorMessage = '';
     
     products.forEach((product, index) => {
-        const quantity = product.pivot.quantity;
-        const totalSheets = product.tipo_medida === 'caja' && product.unidades_por_caja > 0 
-            ? quantity * product.unidades_por_caja 
-            : quantity;
-        
-        const goodSheets = parseInt(document.getElementById('good_sheets_' + product.id).value) || 0;
-        const badSheets = parseInt(document.getElementById('bad_sheets_' + product.id).value) || 0;
-        const total = goodSheets + badSheets;
-        
-        if (total > totalSheets) {
+        const receiveBySelect = document.getElementById('receive_by_' + product.id);
+        if (!receiveBySelect || !receiveBySelect.value) {
             isValid = false;
-            errorMessage = `El total de láminas recibidas (${total}) no puede exceder la cantidad enviada (${totalSheets}) para el producto ${product.nombre}.`;
+            errorMessage = `Debe seleccionar cómo recibir el producto: ${product.nombre}`;
+            return;
+        }
+        
+        const receiveBy = receiveBySelect.value;
+        const quantity = product.pivot.quantity;
+        const unidadesPorCaja = product.unidades_por_caja || 0;
+        const tipoMedida = product.tipo_medida;
+        
+        let maxValue;
+        let unitName;
+        
+        if (receiveBy === 'cajas') {
+            maxValue = tipoMedida === 'caja' ? quantity : Math.floor(quantity / unidadesPorCaja);
+            unitName = 'cajas';
+        } else {
+            maxValue = tipoMedida === 'caja' && unidadesPorCaja > 0 ? quantity * unidadesPorCaja : quantity;
+            unitName = 'láminas';
+        }
+        
+        const goodValue = parseInt(document.getElementById('good_sheets_' + product.id).value) || 0;
+        const badValue = parseInt(document.getElementById('bad_sheets_' + product.id).value) || 0;
+        const total = goodValue + badValue;
+        
+        if (total > maxValue) {
+            isValid = false;
+            errorMessage = `El total de ${unitName} recibidas (${total}) no puede exceder la cantidad enviada (${maxValue} ${unitName}) para el producto ${product.nombre}.`;
         }
     });
     

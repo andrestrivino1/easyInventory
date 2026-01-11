@@ -43,6 +43,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('imports/{id}', [ImportController::class, 'update'])->name('imports.update');
     Route::get('imports/{id}/view/{file}', [ImportController::class, 'viewFile'])->name('imports.view');
     Route::get('imports/{id}/download/{file}', [ImportController::class, 'downloadFile'])->name('imports.download');
+    // ADMIN: Export all DO reports (debe ir ANTES de la ruta con parámetro {id})
+    Route::get('imports/export-all-reports', [ImportController::class, 'exportAllReports'])->name('imports.export-all-reports');
+    Route::post('imports/clear-omitted-info', [ImportController::class, 'clearOmittedInfo'])->name('imports.clear-omitted-info');
     Route::get('imports/{id}/report', [ImportController::class, 'report'])->name('imports.report');
     // FUNCIONARIO routes
     Route::get('imports-funcionario', [ImportController::class, 'funcionarioIndex'])->name('imports.funcionario-index');

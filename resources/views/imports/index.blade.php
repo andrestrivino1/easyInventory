@@ -170,7 +170,8 @@
 
 <div class="container-fluid" style="padding-top:32px; padding-bottom:40px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1400px;">
-        @if(session('success') || session('error') || session('warning'))
+        @if(session('success') || session('error') || session('warning') || session('pdfs_omitted_info'))
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             @if(session('success'))
@@ -206,11 +207,72 @@
                     showConfirmButton: false
                 });
             @endif
+            @if(session('pdfs_omitted_info'))
+                @php
+                    $omittedInfo = session('pdfs_omitted_info');
+                    $omittedList = is_array($omittedInfo['omitted_list']) ? $omittedInfo['omitted_list'] : [];
+                    $omittedListText = implode(', ', array_slice($omittedList, 0, 5));
+                    if (count($omittedList) > 5) {
+                        $omittedListText .= ' y ' . (count($omittedList) - 5) . ' más';
+                    }
+                @endphp
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'PDFs Omitidos en el Reporte',
+                    html: `
+                        <div style="text-align: left;">
+                            <p><strong>DO:</strong> {{ $omittedInfo['do_code'] ?? 'N/A' }}</p>
+                            <p><strong>Total de PDFs:</strong> {{ $omittedInfo['total_pdfs'] ?? 0 }}</p>
+                            <p><strong>PDFs incluidos:</strong> {{ $omittedInfo['included_pdfs'] ?? 0 }} (1 reporte + {{ ($omittedInfo['included_pdfs'] ?? 1) - 1 }} PDFs adjuntos)</p>
+                            <p><strong>PDFs omitidos:</strong> <span style="color: #dc3545; font-weight: bold;">{{ $omittedInfo['omitted_pdfs'] ?? 0 }}</span></p>
+                            <p style="margin-top: 10px;"><strong>Razón:</strong> {{ $omittedInfo['reason'] ?? 'Compresión no soportada' }}</p>
+                            @if(!empty($omittedList))
+                            <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+                                <strong>PDFs que no pudieron incluirse:</strong>
+                                <ul style="margin: 8px 0 0 20px; padding: 0;">
+                                    @foreach(array_slice($omittedList, 0, 10) as $omittedPdf)
+                                        <li style="margin: 4px 0;">{{ $omittedPdf }}</li>
+                                    @endforeach
+                                    @if(count($omittedList) > 10)
+                                        <li style="margin: 4px 0; color: #666;">... y {{ count($omittedList) - 10 }} más</li>
+                                    @endif
+                                </ul>
+                            </div>
+                            @endif
+                            <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                                <strong>Nota:</strong> Algunos PDFs no pudieron ser incluidos porque utilizan una técnica de compresión no soportada por la versión gratuita de la librería FPDI. 
+                                Para incluir estos PDFs, considere convertirlos a un formato compatible o usar una librería de pago.
+                            </p>
+                        </div>
+                    `,
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#4a8af4',
+                    width: '600px',
+                    allowOutsideClick: false
+                }).then(() => {
+                    // Limpiar la información después de que el usuario confirme el mensaje
+                    fetch('{{ route("imports.clear-omitted-info") }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Content-Type': 'application/json'
+                        }
+                    }).catch(error => console.error('Error al limpiar información:', error));
+                });
+            @endif
         });
         </script>
         @endif
 
-        <h2 class="mb-4 text-center" style="color:#333;font-weight:bold">Gestión de Importaciones</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
+            <h2 class="mb-0" style="color:#333;font-weight:bold; flex: 1; min-width: 200px;">Gestión de Importaciones</h2>
+            
+            <!-- Botón para descargar informe general (solo admin) -->
+            <a href="{{ route('imports.export-all-reports') }}" class="btn btn-primary" style="background: #198754; border-color: #198754; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s;" onmouseover="this.style.background='#157347'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#198754'; this.style.transform='translateY(0)';">
+                <i class="bi bi-file-earmark-pdf" style="font-size: 18px;"></i>
+                <span>Descargar Informe General (Todos los DO)</span>
+            </a>
+        </div>
         
         <!-- Campo de búsqueda -->
         <div class="mb-4" style="max-width: 400px; margin: 0 auto 24px; text-align: center;">
@@ -226,6 +288,8 @@
                     <th>DO</th>
                     <th>Usuario</th>
                     <th>N° Comercial Invoice</th>
+                    <th>N° Proforma Invoice</th>
+                    <th>N° Bill of Lading</th>
                     <th>Origen</th>
                     <th>Destino</th>
                     <th>Fecha Salida</th>
@@ -266,6 +330,8 @@
                     <td><strong>{{ $import->do_code }}</strong></td>
                     <td>{{ $import->user->nombre_completo ?? $import->user->email }}</td>
                     <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
+                    <td>{{ $import->proforma_invoice_number ?? '-' }}</td>
+                    <td>{{ $import->bl_number ?? '-' }}</td>
                     <td>{{ $import->origin ?? '-' }}</td>
                     <td>{{ $import->destination ?? 'Colombia' }}</td>
                     <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
@@ -321,7 +387,7 @@
                                 </div>
                             @endif
                         @else
-                            <span style="color: #999;">-</span>
+                            <span style="color: #999; font-style: italic;">{{ __('common.sin_credito') }}</span>
                         @endif
                     </td>
                     <td>
@@ -418,7 +484,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11" class="text-center text-muted py-5">
+                    <td colspan="13" class="text-center text-muted py-5">
                         <i class="bi bi-upload text-secondary" style="font-size:2.2em;"></i><br>
                         <div class="mt-2">No hay importaciones registradas.</div>
                     </td>

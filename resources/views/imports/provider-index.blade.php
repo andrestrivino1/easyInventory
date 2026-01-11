@@ -229,6 +229,8 @@
                 <tr>
                     <th>{{ __('common.do_code') }}</th>
                     <th>{{ __('common.numero_comercial_invoice') }}</th>
+                    <th>{{ __('common.numero_proforma_invoice') }}</th>
+                    <th>{{ __('common.numero_bill_of_lading') }}</th>
                     <th>{{ __('common.origen') }}</th>
                     <th>{{ __('common.destino') }}</th>
                     <th>{{ __('common.fecha_salida_table') }}</th>
@@ -268,6 +270,8 @@
                 <tr>
                     <td><strong>{{ $import->do_code }}</strong></td>
                     <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
+                    <td>{{ $import->proforma_invoice_number ?? '-' }}</td>
+                    <td>{{ $import->bl_number ?? '-' }}</td>
                     <td>{{ $import->origin ?? '-' }}</td>
                     <td>{{ $import->destination ?? __('common.colombia') }}</td>
                     <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
@@ -323,7 +327,7 @@
                                 </div>
                             @endif
                         @else
-                            <span style="color: #999;">-</span>
+                            <span style="color: #999; font-style: italic;">{{ __('common.sin_credito') }}</span>
                         @endif
                     </td>
                     <td>
@@ -418,7 +422,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="text-center text-muted py-5">
+                    <td colspan="12" class="text-center text-muted py-5">
                         <i class="bi bi-upload text-secondary" style="font-size:2.2em;"></i><br>
                         <div class="mt-2">No hay importaciones registradas.</div>
                     </td>

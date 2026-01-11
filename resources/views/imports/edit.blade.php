@@ -314,11 +314,12 @@
             </div>
 
             <div class="form-group">
-                <label for="credit_time">Tiempo de crédito *</label>
-                <select name="credit_time" id="credit_time" class="@error('credit_time') is-invalid @enderror" required>
-                    <option value="15" {{ old('credit_time', $import->credit_time) == '15' ? 'selected' : '' }}>15 días</option>
-                    <option value="30" {{ old('credit_time', $import->credit_time) == '30' ? 'selected' : '' }}>30 días</option>
-                    <option value="45" {{ old('credit_time', $import->credit_time) == '45' ? 'selected' : '' }}>45 días</option>
+                <label for="credit_time">{{ __('common.tiempo_credito') }}</label>
+                <select name="credit_time" id="credit_time" class="@error('credit_time') is-invalid @enderror">
+                    <option value="" {{ old('credit_time', $import->credit_time) == '' || old('credit_time', $import->credit_time) == null ? 'selected' : '' }}>{{ __('common.sin_credito') }}</option>
+                    <option value="15" {{ old('credit_time', $import->credit_time) == '15' ? 'selected' : '' }}>15 {{ __('common.dias') }}</option>
+                    <option value="30" {{ old('credit_time', $import->credit_time) == '30' ? 'selected' : '' }}>30 {{ __('common.dias') }}</option>
+                    <option value="45" {{ old('credit_time', $import->credit_time) == '45' ? 'selected' : '' }}>45 {{ __('common.dias') }}</option>
                 </select>
                 @error('credit_time') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>

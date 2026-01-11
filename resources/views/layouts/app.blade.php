@@ -429,15 +429,15 @@
                     </div>
                 </div>
             </div>
-            <span class="user">
+        <span class="user">
               {{ Auth::user()->name ?? __('common.usuario') }} <i class="bi bi-person-circle"></i>
-              <form method="POST" action="{{ route('logout') }}" style="display:inline">
-                  @csrf
+          <form method="POST" action="{{ route('logout') }}" style="display:inline">
+              @csrf
                   <button type="submit" title="{{ __('common.cerrar_sesion') }}" style="background:transparent;padding:0 0 0 8px;border:none;color:#fff;cursor:pointer;vertical-align:middle;font-size:19px;margin-left:5px;">
-                    <i class="bi bi-box-arrow-right"></i>
-                  </button>
-              </form>
-            </span>
+                <i class="bi bi-box-arrow-right"></i>
+              </button>
+          </form>
+        </span>
         </div>
     </header>
     <main class="content-area">

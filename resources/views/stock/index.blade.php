@@ -173,7 +173,8 @@
                         if ($productHasContainer) {
                             $stockEnBodega = $product->laminas_en_contenedor ?? 0;
                             $cajasReales = $product->cajas_en_contenedor ?? 0;
-                            $bajoStock = $cajasReales <= 5 && $cajasReales >= 0;
+                            // Bajo stock: cuando tiene 3 o menos cajas (mínimo recomendado es 4 cajas)
+                            $bajoStock = $cajasReales <= 3 && $cajasReales >= 0;
                         } else {
                             // Obtener stock de este producto en la bodega seleccionada (o suma total si no hay bodega seleccionada)
                             $stockEnBodega = 0;
@@ -191,11 +192,12 @@
                             $bajoStock = false;
                             if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
                                 $cajasReales = floor($stockEnBodega / $product->unidades_por_caja);
-                                $bajoStock = $cajasReales <= 5 && $cajasReales >= 0; // Bajo stock si tiene 5 o menos cajas
+                                // Bajo stock: cuando tiene 3 o menos cajas (mínimo recomendado es 4 cajas)
+                                $bajoStock = $cajasReales <= 3 && $cajasReales >= 0;
                             }
                         }
                     @endphp
-                    <tr @if($bajoStock) style="background-color: #fff3cd; border-left: 4px solid #ffc107;" @endif>
+                    <tr @if($bajoStock) style="background-color: #fff3e0; border-left: 4px solid #ff9800;" @endif>
                         <td>{{ $product->codigo }}</td>
                         <td><strong>{{ $product->nombre }}</strong></td>
                         <td>
@@ -225,8 +227,8 @@
                         <td>{{ $product->medidas ?? '-' }}</td>
                         <td>
                             @if(isset($product->container_reference))
-                                {{-- Si el producto tiene contenedor asignado, mostrar su referencia --}}
-                                <span style="font-size: 13px;">{{ $product->container_reference }}</span>
+                                {{-- Si el producto tiene contenedor asignado (puede ser uno o varios unificados), mostrar todas las referencias --}}
+                                <span style="font-size: 13px;" title="{{ $product->container_reference }}">{{ $product->container_reference }}</span>
                             @else
                                 @php
                                     $cantidadesPorContenedor = isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id) 
@@ -234,7 +236,11 @@
                                         : collect();
                                 @endphp
                                 @if($cantidadesPorContenedor->count() > 0)
-                                    <span style="font-size: 13px;">{{ $cantidadesPorContenedor->first()['container_reference'] ?? '-' }}</span>
+                                    {{-- Mostrar todas las referencias de contenedores unificadas --}}
+                                    @php
+                                        $containerRefs = $cantidadesPorContenedor->pluck('container_reference')->unique()->filter()->implode(', ');
+                                    @endphp
+                                    <span style="font-size: 13px;" title="{{ $containerRefs }}">{{ $containerRefs ?: '-' }}</span>
                                 @else
                                     <span style="color: #999; font-style: italic;">-</span>
                                 @endif
@@ -243,17 +249,17 @@
                         <td>
                             @if(isset($product->cajas_en_contenedor))
                                 {{-- Si el producto tiene contenedor asignado, mostrar cajas del contenedor específico --}}
-                                <strong @if($product->cajas_en_contenedor <= 5) style="color: #d32f2f; font-weight: bold;" @endif>
+                                <strong @if($product->cajas_en_contenedor <= 3) style="color: #ff9800; font-weight: bold;" @endif>
                                     {{ number_format($product->cajas_en_contenedor, 0) }} cajas
                                 </strong>
-                                @if($product->cajas_en_contenedor <= 5)
-                                    <span style="color: #d32f2f; font-size: 11px; margin-left: 5px;" title="Bajo stock: 5 o menos cajas">⚠️</span>
+                                @if($product->cajas_en_contenedor <= 3)
+                                    <span style="color: #ff9800; font-size: 11px; margin-left: 5px;" title="Bajo stock: 3 o menos cajas (mínimo recomendado: 4 cajas)">⚠️</span>
                                 @endif
                             @else
                                 @if($product->tipo_medida === 'caja' && $cajasReales !== null)
-                                    <strong @if($bajoStock) style="color: #d32f2f; font-weight: bold;" @endif>{{ number_format($cajasReales, 0) }} cajas</strong>
+                                    <strong @if($bajoStock) style="color: #ff9800; font-weight: bold;" @endif>{{ number_format($cajasReales, 0) }} cajas</strong>
                                     @if($bajoStock)
-                                        <span style="color: #d32f2f; font-size: 11px; margin-left: 5px;" title="Bajo stock: 5 o menos cajas">⚠️</span>
+                                        <span style="color: #ff9800; font-size: 11px; margin-left: 5px;" title="Bajo stock: 3 o menos cajas (mínimo recomendado: 4 cajas)">⚠️</span>
                                     @endif
                                 @else
                                     -

@@ -192,18 +192,40 @@ class SalidaController extends Controller
                 
                 if (in_array($data['warehouse_id'], $bodegasQueRecibenContenedores)) {
                     // Bodega que recibe contenedores: stock desde container_product
+                    // Calcular stock total de TODOS los contenedores (unificado)
                     $containerProducts = DB::table('container_product')
                         ->join('containers', 'container_product.container_id', '=', 'containers.id')
                         ->where('container_product.product_id', $product->id)
                         ->where('containers.warehouse_id', $data['warehouse_id'])
                         ->where('container_product.boxes', '>', 0)
                         ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box')
-                        ->orderBy('container_product.container_id')
-                        ->first();
+                        ->get();
                     
-                    if ($containerProducts) {
-                        $stock = ($containerProducts->boxes ?? 0) * ($containerProducts->sheets_per_box ?? 0);
-                        $containerId = $containerProducts->container_id;
+                    // Sumar stock de todos los contenedores
+                    foreach ($containerProducts as $cp) {
+                        $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                        // Usar el primer container_id como referencia (para trazabilidad)
+                        if ($containerId === null) {
+                            $containerId = $cp->container_id;
+                        }
+                    }
+                    
+                    // Descontar salidas existentes (las salidas se descuentan del total unificado)
+                    $salidas = Salida::where('warehouse_id', $data['warehouse_id'])
+                        ->whereHas('products', function($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with(['products' => function($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity');
+                        }])
+                        ->get();
+                    
+                    foreach ($salidas as $salida) {
+                        $productInSalida = $salida->products->first();
+                        if ($productInSalida) {
+                            // Las salidas ya se guardan en láminas (unidades)
+                            $stock -= $productInSalida->pivot->quantity;
+                        }
                     }
                 } else {
                     // Otra bodega: stock desde transferencias recibidas menos salidas

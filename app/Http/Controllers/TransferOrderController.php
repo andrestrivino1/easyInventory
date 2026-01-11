@@ -27,7 +27,9 @@ class TransferOrderController extends Controller
         
         // Admin y funcionario ven todas las transferencias
         if (in_array($user->rol, ['admin', 'funcionario'])) {
-            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+            $transferOrders = TransferOrder::with(['from', 'to', 'products' => function($query) {
+                $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by');
+            }, 'driver'])
                 ->orderByDesc('date')
                 ->get();
         } elseif ($user->rol === 'clientes') {
@@ -38,7 +40,9 @@ class TransferOrderController extends Controller
             }
             
             if (!empty($bodegasAsignadasIds)) {
-                $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+                $transferOrders = TransferOrder::with(['from', 'to', 'products' => function($query) {
+                    $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by');
+                }, 'driver'])
                     ->whereIn('warehouse_to_id', $bodegasAsignadasIds)
                     ->orderByDesc('date')
                     ->get();
@@ -48,7 +52,9 @@ class TransferOrderController extends Controller
             }
         } else {
             // Otros roles filtran por su bodega
-            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
+            $transferOrders = TransferOrder::with(['from', 'to', 'products' => function($query) {
+                $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by');
+            }, 'driver'])
                 ->where(function($query) use ($user) {
                     $query->where('warehouse_from_id', $user->almacen_id)
                           ->orWhere('warehouse_to_id', $user->almacen_id);
@@ -198,7 +204,7 @@ class TransferOrderController extends Controller
                             $query->where('products.id', $product->id);
                         })
                         ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
+                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets', 'receive_by');
                         }])
                         ->get();
                     
@@ -207,9 +213,20 @@ class TransferOrderController extends Controller
                         if ($productInTransfer) {
                             // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                             $goodSheets = $productInTransfer->pivot->good_sheets;
+                            $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                            
                             if ($goodSheets !== null) {
-                                // Ya está en láminas buenas
-                                $stock += $goodSheets;
+                                if ($receiveBy === 'cajas') {
+                                    // good_sheets contiene cajas recibidas, convertir a láminas para el stock
+                                    if ($product->unidades_por_caja > 0) {
+                                        $stock += $goodSheets * $product->unidades_por_caja;
+                                    } else {
+                                        $stock += $goodSheets; // Si no hay unidades_por_caja, asumir 1:1
+                                    }
+                                } else {
+                                    // good_sheets contiene láminas recibidas
+                                    $stock += $goodSheets;
+                                }
                             } else {
                                 // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;
@@ -494,7 +511,7 @@ class TransferOrderController extends Controller
                             $query->where('products.id', $product->id);
                         })
                         ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
+                            $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets', 'receive_by');
                         }])
                         ->get();
                     
@@ -503,9 +520,20 @@ class TransferOrderController extends Controller
                         if ($productInTransfer) {
                             // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                             $goodSheets = $productInTransfer->pivot->good_sheets;
+                            $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                            
                             if ($goodSheets !== null) {
-                                // Ya está en láminas buenas
-                                $stock += $goodSheets;
+                                if ($receiveBy === 'cajas') {
+                                    // good_sheets contiene cajas recibidas, convertir a láminas para el stock
+                                    if ($product->unidades_por_caja > 0) {
+                                        $stock += $goodSheets * $product->unidades_por_caja;
+                                    } else {
+                                        $stock += $goodSheets; // Si no hay unidades_por_caja, asumir 1:1
+                                    }
+                                } else {
+                                    // good_sheets contiene láminas recibidas
+                                    $stock += $goodSheets;
+                                }
                             } else {
                                 // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;
@@ -753,6 +781,7 @@ class TransferOrderController extends Controller
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.good_sheets' => 'required|integer|min:0',
             'products.*.bad_sheets' => 'required|integer|min:0',
+            'products.*.receive_by' => 'required|in:cajas,laminas',
         ]);
         
         $transferOrder->load('products');
@@ -774,24 +803,50 @@ class TransferOrderController extends Controller
                 // Verificar que la suma de buenas y malas no exceda la cantidad enviada
                 $totalReceived = $goodSheets + $badSheets;
                 $quantitySent = $productInTransfer->pivot->quantity;
+                $receiveBy = $productData['receive_by'];
                 
-                // Si el producto tiene unidades_por_caja, convertir a láminas
+                // Obtener el producto para validar según la forma de recepción
                 $product = Product::find($productId);
-                if ($product && $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                    $quantitySent = $quantitySent * $product->unidades_por_caja;
+                
+                // Calcular el máximo según la forma de recepción
+                if ($receiveBy === 'cajas') {
+                    // Si reciben por cajas, validar contra las cajas enviadas
+                    // Si el producto tiene tipo_medida 'caja', quantitySent ya está en cajas
+                    // Si no, quantitySent está en láminas y debemos convertir a cajas
+                    if ($product && $product->tipo_medida === 'caja') {
+                        // Ya está en cajas
+                        $maxValue = $quantitySent;
+                    } else {
+                        // Está en láminas, convertir a cajas si hay unidades_por_caja
+                        if ($product && $product->unidades_por_caja > 0) {
+                            $maxValue = floor($quantitySent / $product->unidades_por_caja);
+                        } else {
+                            $maxValue = $quantitySent; // Si no hay unidades_por_caja, asumir que es 1:1
+                        }
+                    }
+                    $unitName = 'cajas';
+                } else {
+                    // Si reciben por láminas, convertir cajas a láminas si es necesario
+                    if ($product && $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                        $maxValue = $quantitySent * $product->unidades_por_caja;
+                    } else {
+                        $maxValue = $quantitySent;
+                    }
+                    $unitName = 'láminas';
                 }
                 
-                if ($totalReceived > $quantitySent) {
-                    throw new \Exception("La suma de láminas buenas y malas ({$totalReceived}) no puede exceder la cantidad enviada ({$quantitySent}) para el producto {$product->nombre}.");
+                if ($totalReceived > $maxValue) {
+                    throw new \Exception("La suma de {$unitName} buenas y malas ({$totalReceived}) no puede exceder la cantidad enviada ({$maxValue} {$unitName}) para el producto {$product->nombre}.");
                 }
                 
-                // Actualizar el pivot con las láminas buenas y malas
+                // Actualizar el pivot con las láminas buenas y malas y la forma de recepción
                 DB::table('transfer_order_products')
                     ->where('transfer_order_id', $transferOrder->id)
                     ->where('product_id', $productId)
                     ->update([
                         'good_sheets' => $goodSheets,
-                        'bad_sheets' => $badSheets
+                        'bad_sheets' => $badSheets,
+                        'receive_by' => $productData['receive_by']
                     ]);
             }
             
@@ -904,7 +959,7 @@ class TransferOrderController extends Controller
                         $query->where('products.id', $product->id);
                     })
                     ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets');
+                        $query->where('products.id', $product->id)->withPivot('quantity', 'good_sheets', 'bad_sheets', 'receive_by');
                     }])
                     ->get();
                 
@@ -913,9 +968,20 @@ class TransferOrderController extends Controller
                     if ($productInTransfer) {
                         // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad con transferencias antiguas)
                         $goodSheets = $productInTransfer->pivot->good_sheets;
+                        $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                        
                         if ($goodSheets !== null) {
-                            // Ya está en láminas buenas
-                            $stock += $goodSheets;
+                            if ($receiveBy === 'cajas') {
+                                // good_sheets contiene cajas recibidas, convertir a láminas para el stock
+                                if ($product->unidades_por_caja > 0) {
+                                    $stock += $goodSheets * $product->unidades_por_caja;
+                                } else {
+                                    $stock += $goodSheets; // Si no hay unidades_por_caja, asumir 1:1
+                                }
+                            } else {
+                                // good_sheets contiene láminas recibidas
+                                $stock += $goodSheets;
+                            }
                         } else {
                             // Transferencia antigua sin good_sheets, usar quantity
                         $quantity = $productInTransfer->pivot->quantity;

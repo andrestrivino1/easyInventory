@@ -214,7 +214,7 @@ class ProductController extends Controller
         // Obtener todas las transferencias recibidas de una vez para optimizar
         $allReceivedTransfers = \App\Models\TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets');
+                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets', 'receive_by');
             }])
             ->get();
         
@@ -275,13 +275,28 @@ class ProductController extends Controller
                         
                         // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                         $goodSheets = $productInTransfer->pivot->good_sheets;
+                        $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                        
                         if ($goodSheets !== null) {
-                            // Ya está en láminas buenas
-                            $laminas = $goodSheets;
-                            // Calcular cajas si es necesario
-                            $quantity = $producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0 
-                                ? ceil($goodSheets / $producto->unidades_por_caja) 
-                                : $goodSheets;
+                            if ($receiveBy === 'cajas') {
+                                // good_sheets contiene cajas recibidas
+                                $quantity = $goodSheets; // Cajas
+                                // Convertir a láminas
+                                if ($producto->unidades_por_caja > 0) {
+                                    $laminas = $quantity * $producto->unidades_por_caja;
+                                } else {
+                                    $laminas = $quantity; // Si no hay unidades_por_caja, asumir 1:1
+                                }
+                            } else {
+                                // good_sheets contiene láminas recibidas
+                                $laminas = $goodSheets; // Láminas
+                                // Convertir a cajas
+                                if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                    $quantity = ceil($laminas / $producto->unidades_por_caja);
+                                } else {
+                                    $quantity = $laminas; // Si no es tipo caja, usar directamente
+                                }
+                            }
                         } else {
                             // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;

@@ -120,20 +120,51 @@ class StockController extends Controller
         
         $containerProductData = $containerProductQuery->get();
         
-        // Agrupar por producto y crear objetos producto-contenedor
+        // UNIFICAR: Agrupar productos iguales (mismo código/nombre/medidas) de diferentes contenedores
+        $productsGroupedByKey = collect();
+        
         foreach ($containerProductData as $cp) {
             $product = $allProducts->firstWhere('id', $cp->product_id);
             if ($product) {
-                // Calcular stock real descontando salidas
-                $stockInicial = $cp->boxes * $cp->sheets_per_box;
+                // Crear una clave única por producto (código + nombre + medidas) para unificar
+                $productKey = $product->codigo . '|' . $product->nombre . '|' . ($product->medidas ?? '');
                 
-                // Descontar salidas de esta bodega para este producto
-                $salidas = Salida::where('warehouse_id', $cp->warehouse_id)
-                    ->whereHas('products', function($query) use ($product) {
-                        $query->where('products.id', $product->id);
+                // Si el producto no está agrupado, inicializarlo
+                if (!$productsGroupedByKey->has($productKey)) {
+                    $productCopy = clone $product;
+                    $productCopy->container_ids = collect();
+                    $productCopy->container_references = collect();
+                    $productCopy->container_warehouse_id = $cp->warehouse_id;
+                    $productCopy->cajas_en_contenedor = 0;
+                    $productCopy->laminas_en_contenedor = 0;
+                    $productCopy->stock_inicial_total = 0; // Para calcular proporción de salidas
+                    $productsGroupedByKey->put($productKey, $productCopy);
+                }
+                
+                // Acumular cantidades de todos los contenedores para este producto
+                $productGroup = $productsGroupedByKey->get($productKey);
+                $productGroup->container_ids->push($cp->container_id);
+                $productGroup->container_references->push($cp->reference);
+                $productGroup->cajas_en_contenedor += $cp->boxes;
+                
+                // Calcular láminas iniciales de este contenedor
+                $laminasContenedor = $cp->boxes * $cp->sheets_per_box;
+                $productGroup->stock_inicial_total += $laminasContenedor;
+            }
+        }
+        
+        // Calcular salidas y stock final para cada producto unificado
+        foreach ($productsGroupedByKey as $productKey => $productGroup) {
+            // Obtener el producto original para calcular salidas
+            $originalProduct = $allProducts->firstWhere('id', $productGroup->id);
+            if ($originalProduct) {
+                // Descontar salidas de esta bodega para este producto (se descuentan del total, no por contenedor)
+                $salidas = Salida::where('warehouse_id', $productGroup->container_warehouse_id)
+                    ->whereHas('products', function($query) use ($originalProduct) {
+                        $query->where('products.id', $originalProduct->id);
                     })
-                    ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    ->with(['products' => function($query) use ($originalProduct) {
+                        $query->where('products.id', $originalProduct->id)->withPivot('quantity');
                     }])
                     ->get();
                 
@@ -146,16 +177,19 @@ class StockController extends Controller
                     }
                 }
                 
-                $stockFinal = max(0, $stockInicial - $salidasDescontadas);
+                // Calcular stock final (descontar salidas del total unificado)
+                $stockFinal = max(0, $productGroup->stock_inicial_total - $salidasDescontadas);
+                $productGroup->laminas_en_contenedor = $stockFinal;
                 
-                // Crear un objeto producto con información del contenedor
-                $productCopy = clone $product;
-                $productCopy->container_id = $cp->container_id;
-                $productCopy->container_reference = $cp->reference;
-                $productCopy->container_warehouse_id = $cp->warehouse_id;
-                $productCopy->cajas_en_contenedor = $cp->boxes;
-                $productCopy->laminas_en_contenedor = $stockFinal; // Stock después de descontar salidas
-                $productsWithContainers->push($productCopy);
+                // Crear referencia de contenedores unificada (todas las referencias separadas por coma)
+                $productGroup->container_reference = $productGroup->container_references->unique()->implode(', ');
+                
+                // Limpiar propiedades temporales
+                unset($productGroup->stock_inicial_total);
+                unset($productGroup->container_ids);
+                unset($productGroup->container_references);
+                
+                $productsWithContainers->push($productGroup);
             }
         }
         
@@ -163,25 +197,103 @@ class StockController extends Controller
         if ($productsWithContainers->count() > 0) {
             $products = $productsWithContainers;
         } else {
-            // Si no hay productos en contenedores, usar lógica de filtrado normal (para bodegas que no reciben contenedores)
-            if ($selectedWarehouseId) {
-                $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
-                    if ($productosStockPorBodega->has($product->id)) {
-                        $stockPorBodega = $productosStockPorBodega->get($product->id);
-                        $stock = $stockPorBodega->get($selectedWarehouseId, 0);
-                        return $stock > 0;
+            // Si no hay productos en contenedores (bodegas que NO reciben contenedores)
+            // Crear entradas separadas por contenedor si hay productos recibidos por transferencias
+            $productsFromTransfers = collect();
+            
+            if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
+                // Para bodegas que NO reciben contenedores, crear una fila por cada combinación producto-contenedor
+                // Calcular cantidades por contenedor ANTES de preparar los productos
+                $productosCantidadesPorContenedorTemp = $this->calcularCantidadesPorContenedor($allProducts, $selectedWarehouseId);
+                
+                // Agrupar productos por código/nombre/medidas para unificar
+                $productsGrouped = collect();
+                
+                foreach ($allProducts as $product) {
+                    // Obtener cantidades por contenedor para este producto
+                    $cantidadesPorContenedor = collect();
+                    if ($productosCantidadesPorContenedorTemp->has($product->id)) {
+                        $cantidadesPorContenedor = $productosCantidadesPorContenedorTemp->get($product->id);
                     }
-                    return false;
-                })->values();
+                    
+                    if ($cantidadesPorContenedor->count() > 0) {
+                        // Crear una clave única por producto (código + nombre + medidas)
+                        $productKey = $product->codigo . '|' . $product->nombre . '|' . ($product->medidas ?? '');
+                        
+                        // Inicializar o actualizar el grupo de productos
+                        if (!$productsGrouped->has($productKey)) {
+                            $productCopy = clone $product;
+                            $productCopy->container_ids = collect();
+                            $productCopy->container_references = collect();
+                            $productCopy->container_warehouse_id = $selectedWarehouseId;
+                            $productCopy->cajas_en_contenedor = 0;
+                            $productCopy->laminas_en_contenedor = 0;
+                            $productsGrouped->put($productKey, $productCopy);
+                        }
+                        
+                        // Sumar cantidades de todos los contenedores para este producto
+                        $productGroup = $productsGrouped->get($productKey);
+                        foreach ($cantidadesPorContenedor as $containerId => $cantidad) {
+                            // Solo procesar contenedores reales (IDs positivos), ignorar IDs negativos unificados
+                            if (is_numeric($containerId) && $containerId > 0) {
+                                $productGroup->container_ids->push($containerId);
+                                $productGroup->container_references->push($cantidad['container_reference'] ?? '-');
+                                $productGroup->cajas_en_contenedor += $cantidad['cajas'] ?? 0;
+                                $productGroup->laminas_en_contenedor += $cantidad['laminas'] ?? 0;
+                            }
+                        }
+                    } else {
+                        // Si no hay contenedores, verificar si tiene stock y agregarlo sin contenedor
+                        if ($productosStockPorBodega->has($product->id)) {
+                            $stockPorBodega = $productosStockPorBodega->get($product->id);
+                            $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                            if ($stock > 0) {
+                                $productKey = $product->codigo . '|' . $product->nombre . '|' . ($product->medidas ?? '');
+                                if (!$productsGrouped->has($productKey)) {
+                                    $productsGrouped->put($productKey, $product);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Procesar productos agrupados: crear referencia de contenedores unificada y marcar como producto con contenedor
+                foreach ($productsGrouped as $productKey => $productGroup) {
+                    if (isset($productGroup->container_references) && $productGroup->container_references->count() > 0) {
+                        // Crear referencia de contenedores unificada (todas las referencias separadas por coma)
+                        $productGroup->container_reference = $productGroup->container_references->unique()->filter()->implode(', ');
+                        // Marcar como producto con contenedor para que se muestre correctamente en la vista
+                        $productGroup->has_container = true;
+                        // Limpiar propiedades temporales
+                        unset($productGroup->container_ids);
+                        unset($productGroup->container_references);
+                    }
+                }
+                
+                // Convertir productos agrupados a colección normal
+                $productsFromTransfers = $productsGrouped->values();
+                $products = $productsFromTransfers;
             } else {
-                // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
-                $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
-                    if ($productosStockPorBodega->has($product->id)) {
-                        $stockPorBodega = $productosStockPorBodega->get($product->id);
-                        return $stockPorBodega->sum() > 0;
-                    }
-                    return false;
-                })->values();
+                // Si no hay bodega seleccionada o es bodega que recibe contenedores, usar lógica normal
+                if ($selectedWarehouseId) {
+                    $products = $allProducts->filter(function($product) use ($productosStockPorBodega, $selectedWarehouseId) {
+                        if ($productosStockPorBodega->has($product->id)) {
+                            $stockPorBodega = $productosStockPorBodega->get($product->id);
+                            $stock = $stockPorBodega->get($selectedWarehouseId, 0);
+                            return $stock > 0;
+                        }
+                        return false;
+                    })->values();
+                } else {
+                    // Si no hay bodega seleccionada, mostrar todos los productos que tienen stock en al menos una bodega
+                    $products = $allProducts->filter(function($product) use ($productosStockPorBodega) {
+                        if ($productosStockPorBodega->has($product->id)) {
+                            $stockPorBodega = $productosStockPorBodega->get($product->id);
+                            return $stockPorBodega->sum() > 0;
+                        }
+                        return false;
+                    })->values();
+                }
             }
         }
         
@@ -216,7 +328,7 @@ class StockController extends Controller
                 ->get();
         }
         
-        // Calcular cantidades por contenedor para cada producto
+        // Calcular cantidades por contenedor para cada producto (para mostrar en la vista)
         $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products);
         
         // Obtener contenedores de origen desde transferencias recibidas para cada producto (filtrar por bodega si hay una seleccionada)
@@ -344,20 +456,51 @@ class StockController extends Controller
         
         $containerProductData = $containerProductQuery->get();
         
-        // Agrupar por producto y crear objetos producto-contenedor
+        // UNIFICAR: Agrupar productos iguales (mismo código/nombre/medidas) de diferentes contenedores
+        $productsGroupedByKey = collect();
+        
         foreach ($containerProductData as $cp) {
             $product = $allProducts->firstWhere('id', $cp->product_id);
             if ($product) {
-                // Calcular stock real descontando salidas
-                $stockInicial = $cp->boxes * $cp->sheets_per_box;
+                // Crear una clave única por producto (código + nombre + medidas) para unificar
+                $productKey = $product->codigo . '|' . $product->nombre . '|' . ($product->medidas ?? '');
                 
-                // Descontar salidas de esta bodega para este producto
-                $salidas = Salida::where('warehouse_id', $cp->warehouse_id)
-                    ->whereHas('products', function($query) use ($product) {
-                        $query->where('products.id', $product->id);
+                // Si el producto no está agrupado, inicializarlo
+                if (!$productsGroupedByKey->has($productKey)) {
+                    $productCopy = clone $product;
+                    $productCopy->container_ids = collect();
+                    $productCopy->container_references = collect();
+                    $productCopy->container_warehouse_id = $cp->warehouse_id;
+                    $productCopy->cajas_en_contenedor = 0;
+                    $productCopy->laminas_en_contenedor = 0;
+                    $productCopy->stock_inicial_total = 0; // Para calcular proporción de salidas
+                    $productsGroupedByKey->put($productKey, $productCopy);
+                }
+                
+                // Acumular cantidades de todos los contenedores para este producto
+                $productGroup = $productsGroupedByKey->get($productKey);
+                $productGroup->container_ids->push($cp->container_id);
+                $productGroup->container_references->push($cp->reference);
+                $productGroup->cajas_en_contenedor += $cp->boxes;
+                
+                // Calcular láminas iniciales de este contenedor
+                $laminasContenedor = $cp->boxes * $cp->sheets_per_box;
+                $productGroup->stock_inicial_total += $laminasContenedor;
+            }
+        }
+        
+        // Calcular salidas y stock final para cada producto unificado
+        foreach ($productsGroupedByKey as $productKey => $productGroup) {
+            // Obtener el producto original para calcular salidas
+            $originalProduct = $allProducts->firstWhere('id', $productGroup->id);
+            if ($originalProduct) {
+                // Descontar salidas de esta bodega para este producto (se descuentan del total, no por contenedor)
+                $salidas = Salida::where('warehouse_id', $productGroup->container_warehouse_id)
+                    ->whereHas('products', function($query) use ($originalProduct) {
+                        $query->where('products.id', $originalProduct->id);
                     })
-                    ->with(['products' => function($query) use ($product) {
-                        $query->where('products.id', $product->id)->withPivot('quantity');
+                    ->with(['products' => function($query) use ($originalProduct) {
+                        $query->where('products.id', $originalProduct->id)->withPivot('quantity');
                     }])
                     ->get();
                 
@@ -370,16 +513,19 @@ class StockController extends Controller
                     }
                 }
                 
-                $stockFinal = max(0, $stockInicial - $salidasDescontadas);
+                // Calcular stock final (descontar salidas del total unificado)
+                $stockFinal = max(0, $productGroup->stock_inicial_total - $salidasDescontadas);
+                $productGroup->laminas_en_contenedor = $stockFinal;
                 
-                // Crear un objeto producto con información del contenedor
-                $productCopy = clone $product;
-                $productCopy->container_id = $cp->container_id;
-                $productCopy->container_reference = $cp->reference;
-                $productCopy->container_warehouse_id = $cp->warehouse_id;
-                $productCopy->cajas_en_contenedor = $cp->boxes;
-                $productCopy->laminas_en_contenedor = $stockFinal; // Stock después de descontar salidas
-                $productsWithContainers->push($productCopy);
+                // Crear referencia de contenedores unificada (todas las referencias separadas por coma)
+                $productGroup->container_reference = $productGroup->container_references->unique()->implode(', ');
+                
+                // Limpiar propiedades temporales
+                unset($productGroup->stock_inicial_total);
+                unset($productGroup->container_ids);
+                unset($productGroup->container_references);
+                
+                $productsWithContainers->push($productGroup);
             }
         }
         
@@ -449,8 +595,25 @@ class StockController extends Controller
             }
         }
         
-        // Calcular cantidades por contenedor para cada producto (filtrar por bodega si hay una seleccionada)
-        $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products, $selectedWarehouseId);
+        // Calcular cantidades por contenedor para cada producto (para mostrar en la vista)
+        // Si los productos ya tienen container_reference (productos clonados separados por contenedor),
+        // no necesitamos recalcular, solo crear un mapa vacío. Si no, usar los productos originales.
+        $hasPreparedProducts = false;
+        foreach ($products as $product) {
+            if (isset($product->container_reference)) {
+                $hasPreparedProducts = true;
+                break;
+            }
+        }
+        
+        if ($hasPreparedProducts) {
+            // Si los productos ya están preparados (clonados con contenedor), crear un mapa vacío
+            // porque la vista ya tiene toda la información necesaria en las propiedades del producto
+            $productosCantidadesPorContenedor = collect();
+        } else {
+            // Si los productos no están preparados, calcular las cantidades por contenedor
+            $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($products, $selectedWarehouseId);
+        }
         
         // Obtener contenedores de origen desde transferencias recibidas para cada producto (filtrar por bodega si hay una seleccionada)
         $productosContenedoresOrigen = $this->obtenerContenedoresOrigen($products, $selectedWarehouseId);
@@ -483,7 +646,7 @@ class StockController extends Controller
         // Obtener todas las transferencias recibidas de una vez para optimizar
         $allReceivedTransfers = TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets');
+                $query->withPivot('container_id', 'quantity', 'good_sheets', 'bad_sheets', 'receive_by');
             }])
             ->get();
         
@@ -506,42 +669,58 @@ class StockController extends Controller
             $cantidadesPorContenedor = collect();
             
             // 1. Obtener contenedores relacionados directamente (tabla container_product)
-            // Filtrar por bodega si hay una seleccionada
-            $containerProductQuery = DB::table('container_product')
-                ->where('product_id', $producto->id);
-            
-            // Si hay una bodega seleccionada, solo contar contenedores de esa bodega
-            if ($selectedWarehouseId) {
-                $containerIds = Container::where('warehouse_id', $selectedWarehouseId)->pluck('id')->toArray();
-                if (!empty($containerIds)) {
-                    $containerProductQuery->whereIn('container_id', $containerIds);
-                } else {
-                    // Si no hay contenedores en esa bodega, continuar con el siguiente producto
-                    $resultado->put($producto->id, $cantidadesPorContenedor);
-                    continue;
-                }
-            }
-            
-            $containerProductData = $containerProductQuery->get();
-            
-            foreach ($containerProductData as $cp) {
-                $containerId = $cp->container_id;
-                $container = $allContainers->get($containerId);
-                if ($container) {
-                    // Si hay bodega seleccionada, solo incluir si pertenece a esa bodega
-                    if ($selectedWarehouseId && $container->warehouse_id != $selectedWarehouseId) {
-                        continue;
+            // Solo para bodegas que reciben contenedores, buscar en container_product
+            // Para bodegas que NO reciben contenedores, los contenedores vienen de transferencias recibidas (se procesan en el punto 2)
+            if (!$selectedWarehouseId || in_array($selectedWarehouseId, Warehouse::getBodegasQueRecibenContenedores())) {
+                // Solo para bodegas que reciben contenedores o si no hay bodega seleccionada, buscar en container_product
+                $containerProductQuery = DB::table('container_product')
+                    ->where('product_id', $producto->id);
+                
+                // Si hay una bodega seleccionada, filtrar por contenedores de esa bodega
+                if ($selectedWarehouseId) {
+                    $containerIds = Container::where('warehouse_id', $selectedWarehouseId)->pluck('id')->toArray();
+                    if (!empty($containerIds)) {
+                        $containerProductQuery->whereIn('container_id', $containerIds);
+                        
+                        $containerProductData = $containerProductQuery->get();
+                        
+                        foreach ($containerProductData as $cp) {
+                            $containerId = $cp->container_id;
+                            $container = $allContainers->get($containerId);
+                            if ($container && $container->warehouse_id == $selectedWarehouseId) {
+                                $boxes = $cp->boxes ?? 0;
+                                $sheetsPerBox = $cp->sheets_per_box ?? 0;
+                                $laminas = $boxes * $sheetsPerBox;
+                                
+                                $cantidadesPorContenedor[$containerId] = [
+                                    'container_reference' => $container->reference,
+                                    'cajas' => $boxes,
+                                    'laminas' => $laminas,
+                                ];
+                            }
+                        }
                     }
+                    // Si no hay contenedores en esa bodega en container_product, NO hacer continue
+                    // Continuar para procesar transferencias recibidas en el punto 2
+                } else {
+                    // Si no hay bodega seleccionada, buscar todos los contenedores
+                    $containerProductData = $containerProductQuery->get();
                     
-                    $boxes = $cp->boxes ?? 0;
-                    $sheetsPerBox = $cp->sheets_per_box ?? 0;
-                    $laminas = $boxes * $sheetsPerBox;
-                    
-                    $cantidadesPorContenedor[$containerId] = [
-                        'container_reference' => $container->reference,
-                        'cajas' => $boxes,
-                        'laminas' => $laminas,
-                    ];
+                    foreach ($containerProductData as $cp) {
+                        $containerId = $cp->container_id;
+                        $container = $allContainers->get($containerId);
+                        if ($container) {
+                            $boxes = $cp->boxes ?? 0;
+                            $sheetsPerBox = $cp->sheets_per_box ?? 0;
+                            $laminas = $boxes * $sheetsPerBox;
+                            
+                            $cantidadesPorContenedor[$containerId] = [
+                                'container_reference' => $container->reference,
+                                'cajas' => $boxes,
+                                'laminas' => $laminas,
+                            ];
+                        }
+                    }
                 }
             }
             
@@ -554,16 +733,20 @@ class StockController extends Controller
                     if ($transfer->warehouse_to_id != $selectedWarehouseId) {
                         return false;
                     }
-                    // Buscar por nombre del producto (ya que el ID puede ser diferente)
+                    // Buscar por ID del producto primero, luego por nombre y código (ya que el ID puede ser diferente)
                     return $transfer->products->contains(function($p) use ($producto) {
-                        return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                        return ($p->id === $producto->id) || 
+                               ($p->nombre === $producto->nombre && $p->codigo === $producto->codigo);
                     });
                 });
                 
+                // Agrupar transferencias recibidas POR CONTENEDOR
+                // Cada contenedor debe mantener su propia fila con sus cantidades, NO unificar productos de diferentes contenedores
                 foreach ($receivedTransfers as $transfer) {
-                    // Buscar el producto en la transferencia por nombre y código
+                    // Buscar el producto en la transferencia por ID primero, luego por nombre y código
                     $productInTransfer = $transfer->products->first(function($p) use ($producto) {
-                        return $p->nombre === $producto->nombre && $p->codigo === $producto->codigo;
+                        return ($p->id === $producto->id) || 
+                               ($p->nombre === $producto->nombre && $p->codigo === $producto->codigo);
                     });
                     
                     if ($productInTransfer && $productInTransfer->pivot->container_id) {
@@ -571,31 +754,108 @@ class StockController extends Controller
                         
                         // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                         $goodSheets = $productInTransfer->pivot->good_sheets;
+                        $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                        
+                        $quantity = 0;
+                        $laminas = 0;
+                        
                         if ($goodSheets !== null) {
-                            // Ya está en láminas buenas
-                            $laminas = $goodSheets;
-                            // Calcular cajas si es necesario
-                            $quantity = $producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0 
-                                ? ceil($goodSheets / $producto->unidades_por_caja) 
-                                : $goodSheets;
+                            if ($receiveBy === 'cajas') {
+                                // good_sheets contiene cajas recibidas
+                                $quantity = $goodSheets; // Cajas
+                                // Convertir a láminas
+                                if ($producto->unidades_por_caja > 0) {
+                                    $laminas = $quantity * $producto->unidades_por_caja;
+                                } else {
+                                    $laminas = $quantity; // Si no hay unidades_por_caja, asumir 1:1
+                                }
+                            } else {
+                                // good_sheets contiene láminas recibidas
+                                $laminas = $goodSheets; // Láminas
+                                // Convertir a cajas
+                                if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                    $quantity = ceil($laminas / $producto->unidades_por_caja);
+                                } else {
+                                    $quantity = $laminas; // Si no es tipo caja, usar directamente
+                                }
+                            }
                         } else {
                             // Transferencia antigua sin good_sheets
                             $quantity = $productInTransfer->pivot->quantity;
-                        // Calcular láminas si es tipo caja
-                        $laminas = $quantity;
-                        if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
-                            $laminas = $quantity * $producto->unidades_por_caja;
+                            // Calcular láminas si es tipo caja
+                            $laminas = $quantity;
+                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                $laminas = $quantity * $producto->unidades_por_caja;
                             }
                         }
                         
-                        // Agregar o sumar a las cantidades existentes del contenedor
+                        // Agrupar POR CONTENEDOR - cada contenedor mantiene su propia fila
+                        // Si ya existe el contenedor, sumar a sus cantidades existentes (puede haber múltiples transferencias del mismo producto en el mismo contenedor)
                         if ($cantidadesPorContenedor->has($containerId)) {
                             $cantidadesPorContenedor[$containerId]['cajas'] += $quantity;
                             $cantidadesPorContenedor[$containerId]['laminas'] += $laminas;
                         } else {
+                            // Crear nueva entrada para este contenedor
+                            // El contenedor puede estar en cualquier bodega, no solo en la bodega de destino
                             $container = $allContainers->get($containerId);
+                            if (!$container && $containerId) {
+                                // Si no se encuentra en el cache, buscarlo directamente
+                                // El contenedor puede estar en otra bodega (bodega de origen), no en la bodega de destino
+                                $container = Container::find($containerId);
+                                // Si se encuentra, agregarlo al cache para futuras referencias
+                                if ($container) {
+                                    $allContainers->put($containerId, $container);
+                                }
+                            }
                             $cantidadesPorContenedor[$containerId] = [
-                                'container_reference' => $container ? $container->reference : 'N/A',
+                                'container_reference' => $container ? $container->reference : 'N/A (ID: ' . $containerId . ')',
+                                'cajas' => $quantity,
+                                'laminas' => $laminas,
+                            ];
+                        }
+                    } else if ($productInTransfer && !$productInTransfer->pivot->container_id) {
+                        // Si no hay contenedor asignado, crear una entrada unificada solo para transferencias sin contenedor
+                        $unifiedContainerId = -($producto->id * 1000 + ($selectedWarehouseId ?? 0));
+                        
+                        // Calcular cantidades
+                        $goodSheets = $productInTransfer->pivot->good_sheets;
+                        $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas';
+                        
+                        $quantity = 0;
+                        $laminas = 0;
+                        
+                        if ($goodSheets !== null) {
+                            if ($receiveBy === 'cajas') {
+                                $quantity = $goodSheets;
+                                if ($producto->unidades_por_caja > 0) {
+                                    $laminas = $quantity * $producto->unidades_por_caja;
+                                } else {
+                                    $laminas = $quantity;
+                                }
+                            } else {
+                                $laminas = $goodSheets;
+                                if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                    $quantity = ceil($laminas / $producto->unidades_por_caja);
+                                } else {
+                                    $quantity = $laminas;
+                                }
+                            }
+                        } else {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            $laminas = $quantity;
+                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                $laminas = $quantity * $producto->unidades_por_caja;
+                            }
+                        }
+                        
+                        if ($cantidadesPorContenedor->has($unifiedContainerId)) {
+                            // Si ya existe una entrada unificada para transferencias sin contenedor, sumar
+                            $cantidadesPorContenedor[$unifiedContainerId]['cajas'] += $quantity;
+                            $cantidadesPorContenedor[$unifiedContainerId]['laminas'] += $laminas;
+                        } else {
+                            // Crear nueva entrada unificada solo para transferencias sin contenedor
+                            $cantidadesPorContenedor[$unifiedContainerId] = [
+                                'container_reference' => '-',
                                 'cajas' => $quantity,
                                 'laminas' => $laminas,
                             ];
@@ -855,7 +1115,7 @@ class StockController extends Controller
         // Obtener todas las transferencias recibidas
         $receivedTransfers = TransferOrder::where('status', 'recibido')
             ->with(['products' => function($query) {
-                $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets');
+                $query->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by');
             }])
             ->get();
         
@@ -915,17 +1175,28 @@ class StockController extends Controller
                         if ($productInTransfer) {
                             // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                             $goodSheets = $productInTransfer->pivot->good_sheets;
+                            $receiveBy = $productInTransfer->pivot->receive_by ?? 'laminas'; // Por defecto 'laminas' para transferencias antiguas
+                            
                             if ($goodSheets !== null) {
-                                // Ya está en láminas buenas
-                                $stock += $goodSheets;
+                                if ($receiveBy === 'cajas') {
+                                    // good_sheets contiene cajas recibidas, convertir a láminas para el stock
+                                    if ($product->unidades_por_caja > 0) {
+                                        $stock += $goodSheets * $product->unidades_por_caja;
+                                    } else {
+                                        $stock += $goodSheets; // Si no hay unidades_por_caja, asumir 1:1
+                                    }
+                                } else {
+                                    // good_sheets contiene láminas recibidas
+                                    $stock += $goodSheets;
+                                }
                             } else {
                                 // Transferencia antigua sin good_sheets
-                            $quantity = $productInTransfer->pivot->quantity;
-                            // Si es tipo caja, convertir a unidades
-                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
-                                $quantity = $quantity * $product->unidades_por_caja;
-                            }
-                            $stock += $quantity;
+                                $quantity = $productInTransfer->pivot->quantity;
+                                // Si es tipo caja, convertir a unidades
+                                if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                    $quantity = $quantity * $product->unidades_por_caja;
+                                }
+                                $stock += $quantity;
                             }
                         }
                     }
