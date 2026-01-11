@@ -160,6 +160,28 @@
         border-radius: 6px;
         cursor: pointer;
     }
+    .progress-container {
+        margin: 8px 0;
+    }
+    .progress-bar-wrapper {
+        background: #e9ecef;
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+        position: relative;
+    }
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+        border-radius: 10px;
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+    }
 </style>
 
 <div class="table-container">
@@ -180,6 +202,8 @@
                 <th>Destino</th>
                 <th>Fecha Salida</th>
                 <th>Fecha Llegada</th>
+                <th>Naviera/Agencia</th>
+                <th>Días Libres Destino</th>
                 <th>Estado</th>
                 <th>Archivos</th>
                 <th>Acciones</th>
@@ -187,6 +211,30 @@
         </thead>
         <tbody>
             @forelse($imports as $import)
+                @php
+                    $departureDate = \Carbon\Carbon::parse($import->departure_date);
+                    $arrivalDate = $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date) : null;
+                    $today = \Carbon\Carbon::now();
+                    $progress = 0;
+                    $progressText = '0%';
+                    
+                    if ($arrivalDate) {
+                        $totalDays = $departureDate->diffInDays($arrivalDate);
+                        if ($totalDays > 0) {
+                            $elapsedDays = $departureDate->diffInDays($today);
+                            if ($elapsedDays < 0) {
+                                $progress = 0;
+                                $progressText = 'No iniciado';
+                            } elseif ($elapsedDays >= $totalDays) {
+                                $progress = 100;
+                                $progressText = '100% - Completado';
+                            } else {
+                                $progress = ($elapsedDays / $totalDays) * 100;
+                                $progressText = round($progress) . '%';
+                            }
+                        }
+                    }
+                @endphp
             <tr>
                 <td><strong>{{ $import->do_code }}</strong></td>
                 <td>{{ $import->user->nombre_completo ?? $import->user->email }}</td>
@@ -195,17 +243,30 @@
                 <td>{{ $import->bl_number ?? '-' }}</td>
                 <td>{{ $import->origin ?? '-' }}</td>
                 <td>{{ $import->destination ?? 'Colombia' }}</td>
-                <td>{{ $import->departure_date ? \Carbon\Carbon::parse($import->departure_date)->format('d/m/Y') : '-' }}</td>
-                <td>{{ $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date)->format('d/m/Y') : '-' }}</td>
+                <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
+                <td>{{ $import->arrival_date ? $arrivalDate->format('d/m/Y') : '-' }}</td>
+                <td>{{ $import->shipping_company ?? '-' }}</td>
+                <td>{{ $import->free_days_at_dest ?? '-' }}</td>
                 <td>
-                    @if($import->status == 'pending')
-                        <span class="badge badge-pending">Pendiente</span>
-                    @elseif($import->status == 'completed')
-                        <span class="badge badge-completed">Completado</span>
-                    @elseif($import->status == 'recibido')
-                        <span class="badge badge-received">Recibido</span>
-                    @else
-                        <span class="badge">{{ $import->status }}</span>
+                    <div>
+                        @if($import->status == 'pending')
+                            <span class="badge badge-pending">Pendiente</span>
+                        @elseif($import->status == 'completed')
+                            <span class="badge badge-completed">Completado</span>
+                        @elseif($import->status == 'recibido')
+                            <span class="badge badge-received">Recibido</span>
+                        @else
+                            <span class="badge">{{ $import->status }}</span>
+                        @endif
+                    </div>
+                    @if($arrivalDate)
+                    <div class="progress-container">
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" style="width: {{ min($progress, 100) }}%;">
+                                {{ $progressText }}
+                            </div>
+                        </div>
+                    </div>
                     @endif
                 </td>
                 <td>
@@ -305,7 +366,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="12" style="text-align: center; padding: 30px; color: #666;">
+                <td colspan="14" style="text-align: center; padding: 30px; color: #666;">
                     No hay importaciones registradas
                 </td>
             </tr>

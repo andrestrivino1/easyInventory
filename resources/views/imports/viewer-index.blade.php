@@ -32,57 +32,6 @@
     .imports-table tr:hover {
         background: #f2f8ff;
     }
-    .actions {
-        white-space: nowrap;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-    .actions button,
-    .actions a {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 500;
-        transition: opacity 0.2s;
-        white-space: nowrap;
-    }
-    .actions button:hover,
-    .actions a:hover {
-        opacity: 0.9;
-    }
-    .actions form {
-        display: inline-flex;
-        margin: 0;
-    }
-    .btn-download {
-        background: #198754;
-        color: white;
-    }
-    .btn-report {
-        background: #0d6efd;
-        color: white;
-    }
-    .btn-delete {
-        background: #dc3545;
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .btn-delete:hover {
-        background: #c82333;
-    }
     .status-badge {
         padding: 4px 12px;
         border-radius: 12px;
@@ -191,108 +140,8 @@
 
 <div class="container-fluid" style="padding-top:32px; padding-bottom:40px; min-height:88vh;">
     <div class="mx-auto" style="max-width:1400px;">
-        @if(session('success') || session('error') || session('warning') || session('pdfs_omitted_info'))
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            @if(session('success'))
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: '{{ session('success') }}',
-                    timer: 3300,
-                    timerProgressBar: true,
-                    showConfirmButton: false
-                });
-            @endif
-            @if(session('error'))
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'error',
-                    title: '{{ session('error') }}',
-                    timer: 3800,
-                    timerProgressBar: true,
-                    showConfirmButton: false
-                });
-            @endif
-            @if(session('warning'))
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'warning',
-                    title: '{{ session('warning') }}',
-                    timer: 3500,
-                    timerProgressBar: true,
-                    showConfirmButton: false
-                });
-            @endif
-            @if(session('pdfs_omitted_info'))
-                @php
-                    $omittedInfo = session('pdfs_omitted_info');
-                    $omittedList = is_array($omittedInfo['omitted_list']) ? $omittedInfo['omitted_list'] : [];
-                    $omittedListText = implode(', ', array_slice($omittedList, 0, 5));
-                    if (count($omittedList) > 5) {
-                        $omittedListText .= ' y ' . (count($omittedList) - 5) . ' más';
-                    }
-                @endphp
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'PDFs Omitidos en el Reporte',
-                    html: `
-                        <div style="text-align: left;">
-                            <p><strong>DO:</strong> {{ $omittedInfo['do_code'] ?? 'N/A' }}</p>
-                            <p><strong>Total de PDFs:</strong> {{ $omittedInfo['total_pdfs'] ?? 0 }}</p>
-                            <p><strong>PDFs incluidos:</strong> {{ $omittedInfo['included_pdfs'] ?? 0 }} (1 reporte + {{ ($omittedInfo['included_pdfs'] ?? 1) - 1 }} PDFs adjuntos)</p>
-                            <p><strong>PDFs omitidos:</strong> <span style="color: #dc3545; font-weight: bold;">{{ $omittedInfo['omitted_pdfs'] ?? 0 }}</span></p>
-                            <p style="margin-top: 10px;"><strong>Razón:</strong> {{ $omittedInfo['reason'] ?? 'Compresión no soportada' }}</p>
-                            @if(!empty($omittedList))
-                            <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
-                                <strong>PDFs que no pudieron incluirse:</strong>
-                                <ul style="margin: 8px 0 0 20px; padding: 0;">
-                                    @foreach(array_slice($omittedList, 0, 10) as $omittedPdf)
-                                        <li style="margin: 4px 0;">{{ $omittedPdf }}</li>
-                                    @endforeach
-                                    @if(count($omittedList) > 10)
-                                        <li style="margin: 4px 0; color: #666;">... y {{ count($omittedList) - 10 }} más</li>
-                                    @endif
-                                </ul>
-                            </div>
-                            @endif
-                            <p style="margin-top: 15px; font-size: 12px; color: #666;">
-                                <strong>Nota:</strong> Algunos PDFs no pudieron ser incluidos porque utilizan una técnica de compresión no soportada por la versión gratuita de la librería FPDI. 
-                                Para incluir estos PDFs, considere convertirlos a un formato compatible o usar una librería de pago.
-                            </p>
-                        </div>
-                    `,
-                    confirmButtonText: 'Entendido',
-                    confirmButtonColor: '#4a8af4',
-                    width: '600px',
-                    allowOutsideClick: false
-                }).then(() => {
-                    // Limpiar la información después de que el usuario confirme el mensaje
-                    fetch('{{ route("imports.clear-omitted-info") }}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/json'
-                        }
-                    }).catch(error => console.error('Error al limpiar información:', error));
-                });
-            @endif
-        });
-        </script>
-        @endif
-
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
             <h2 class="mb-0" style="color:#333;font-weight:bold; flex: 1; min-width: 200px;">Gestión de Importaciones</h2>
-            
-            <!-- Botón para descargar informe general (solo admin) -->
-            <a href="{{ route('imports.export-all-reports') }}" class="btn btn-primary" style="background: #198754; border-color: #198754; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s;" onmouseover="this.style.background='#157347'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#198754'; this.style.transform='translateY(0)';">
-                <i class="bi bi-file-earmark-pdf" style="font-size: 18px;"></i>
-                <span>Descargar Informe General (Todos los DO)</span>
-            </a>
         </div>
         
         <!-- Campo de búsqueda -->
@@ -320,7 +169,6 @@
                     <th>Estado</th>
                     <th>Créditos</th>
                     <th>Archivos</th>
-                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -433,14 +281,14 @@
                                             <div class="container-ref">{{ $container->reference }}</div>
                                             <div class="files-grid">
                                                 @if($container->pdf_path)
-                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="PDF con información del contenedor">
+                                                    <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                         <i class="bi bi-file-pdf"></i> Info PDF
-                                                    </a>
+                                                    </span>
                                                 @endif
                                                 @if($container->image_pdf_path)
-                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" target="_blank" class="file-viewer" title="PDF con imágenes del contenedor">
+                                                    <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                         <i class="bi bi-file-pdf"></i> Imágenes PDF
-                                                    </a>
+                                                    </span>
                                                 @endif
                                             </div>
                                         </div>
@@ -453,44 +301,44 @@
                                     <div class="files-section-title">Documentos</div>
                                     <div class="files-grid">
                                         @if($import->proforma_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'proforma_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Proforma
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->proforma_invoice_low_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice Low">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Proforma Low
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->invoice_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'invoice_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Invoice
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->commercial_invoice_low_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice Low">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Invoice Low
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->packing_list_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" target="_blank" class="file-viewer" title="Packing List">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Packing List
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->bl_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" target="_blank" class="file-viewer" title="Bill of Lading">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> BL
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->apostillamiento_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" title="Apostillamiento">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Apostillamiento
-                                            </a>
+                                            </span>
                                         @endif
                                         @if($import->other_documents_pdf)
-                                            <a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" target="_blank" class="file-viewer" title="Otros Documentos">
+                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
                                                 <i class="bi bi-file-pdf"></i> Otros
-                                            </a>
+                                            </span>
                                         @endif
                                     </div>
                                 </div>
@@ -501,22 +349,10 @@
                             @endif
                         </div>
                     </td>
-                    <td class="actions">
-                        <a href="{{ route('imports.report', $import->id) }}" class="btn-report" target="_blank">
-                            <i class="bi bi-file-pdf me-1"></i>Reporte
-                        </a>
-                        <form action="{{ route('imports.destroy', $import->id) }}" method="POST" class="delete-form" data-do-code="{{ $import->do_code }}">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn-delete">
-                                <i class="bi bi-trash me-1"></i>Eliminar
-                            </button>
-                        </form>
-                    </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="15" class="text-center text-muted py-5">
+                    <td colspan="14" class="text-center text-muted py-5">
                         <i class="bi bi-upload text-secondary" style="font-size:2.2em;"></i><br>
                         <div class="mt-2">No hay importaciones registradas.</div>
                     </td>
@@ -542,28 +378,5 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
-    // Confirmación para eliminar importaciones
-    const deleteForms = document.querySelectorAll('.delete-form');
-    deleteForms.forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const doCode = form.getAttribute('data-do-code');
-            Swal.fire({
-                title: '¿Estás seguro?',
-                text: `¿Deseas eliminar la importación ${doCode}? Esta acción no se puede deshacer.`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc3545',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
-                }
-            });
-        });
-    });
 });
 </script>

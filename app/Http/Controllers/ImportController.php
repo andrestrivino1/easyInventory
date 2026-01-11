@@ -36,6 +36,23 @@ class ImportController extends Controller
         return view('imports.index', compact('imports'));
     }
 
+    // IMPORT_VIEWER: Show all imports (read-only)
+    public function viewerIndex()
+    {
+        if (Auth::user()->rol !== 'import_viewer') {
+            abort(403);
+        }
+        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        
+        // Update status based on dates
+        $this->updateImportStatuses($imports);
+        
+        // Reload to get updated statuses
+        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        
+        return view('imports.viewer-index', compact('imports'));
+    }
+
     // PROVIDER: Show their imports
     public function providerIndex()
     {
@@ -364,12 +381,12 @@ class ImportController extends Controller
         return redirect()->route('imports.provider-index')->with('success', 'Import updated successfully!');
     }
 
-    // ADMIN/PROVIDER: View files
+    // ADMIN/PROVIDER/IMPORT_VIEWER: View files
     public function viewFile($id, $fileType)
     {
         $import = Import::with('containers')->findOrFail($id);
-        // Only admin or owner can view
-        if (Auth::user()->rol !== 'admin' && $import->user_id !== Auth::id()) {
+        // Only admin, owner, or import_viewer can view
+        if (!in_array(Auth::user()->rol, ['admin', 'import_viewer']) && $import->user_id !== Auth::id()) {
             abort(403);
         }
         
@@ -1480,6 +1497,66 @@ class ImportController extends Controller
      * Update import statuses based on dates
      * Changes status to 'completed' when arrival date has passed
      */
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        // Solo admin puede eliminar importaciones
+        if (Auth::user()->rol !== 'admin') {
+            return redirect()->route('imports.index')->with('error', 'No tienes permiso para eliminar importaciones.');
+        }
+
+        $import = Import::with('containers')->findOrFail($id);
+
+        try {
+            // Eliminar archivos PDF de la importación
+            $pdfFields = [
+                'proforma_pdf',
+                'proforma_invoice_low_pdf',
+                'invoice_pdf',
+                'commercial_invoice_low_pdf',
+                'bl_pdf',
+                'packing_list_pdf',
+                'apostillamiento_pdf',
+                'other_documents_pdf'
+            ];
+
+            foreach ($pdfFields as $field) {
+                if ($import->$field) {
+                    Storage::delete($import->$field);
+                }
+            }
+
+            // Eliminar archivos PDF de los contenedores
+            foreach ($import->containers as $container) {
+                if ($container->pdf_path) {
+                    Storage::delete($container->pdf_path);
+                }
+                if ($container->image_pdf_path) {
+                    Storage::delete($container->image_pdf_path);
+                }
+            }
+
+            // Eliminar la importación (esto eliminará automáticamente los contenedores por cascade delete)
+            $import->delete();
+
+            return redirect()->route('imports.index')->with('success', 'Importación eliminada correctamente.');
+            
+        } catch (\Exception $e) {
+            \Log::error('IMPORT destroy - Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'import_id' => $import->id ?? null
+            ]);
+            return back()->with('error', 'Error al eliminar la importación: ' . $e->getMessage());
+        }
+    }
+
     private function updateImportStatuses($imports)
     {
         $today = now()->startOfDay();

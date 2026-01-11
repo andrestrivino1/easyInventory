@@ -371,8 +371,9 @@
                 $isPabloRojas = $user && ($user->rol === 'admin' || $user->almacen_id == $ID_PABLO_ROJAS);
                 $isFuncionario = $user && $user->rol === 'funcionario';
                 $isImporter = $user && $user->rol === 'importer';
+                $isImportViewer = $user && $user->rol === 'import_viewer';
             @endphp
-            @if(!$isImporter)
+            @if(!$isImporter && !$isImportViewer)
             <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i class="bi bi-bar-chart"></i> {{ __('common.movimientos') }}</a></li>
             <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i> {{ __('common.productos') }}</a></li>
             @if($user && $user->rol === 'admin')
@@ -387,10 +388,10 @@
             <li><a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><i class="bi bi-clipboard-data"></i> {{ __('common.stock') }}</a></li>
             <li><a class="nav-link {{ request()->routeIs('traceability.*') ? 'active' : '' }}" href="{{ route('traceability.index') }}"><i class="bi bi-diagram-3"></i> {{ __('common.trazabilidad') }}</a></li>
             @endif
-            @if($user && in_array($user->rol, ['admin', 'importer', 'funcionario']))
-            <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') || request()->routeIs('imports.funcionario-index') ? 'active' : '' }}" href="{{ $user->rol === 'admin' ? route('imports.index') : ($user->rol === 'funcionario' ? route('imports.funcionario-index') : route('imports.provider-index')) }}"><i class="bi bi-upload"></i> {{ __('common.importacion') }}</a></li>
+            @if($user && in_array($user->rol, ['admin', 'importer', 'funcionario', 'import_viewer']))
+            <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') || request()->routeIs('imports.funcionario-index') || request()->routeIs('imports.viewer-index') ? 'active' : '' }}" href="{{ $user->rol === 'admin' ? route('imports.index') : ($user->rol === 'funcionario' ? route('imports.funcionario-index') : ($user->rol === 'import_viewer' ? route('imports.viewer-index') : route('imports.provider-index'))) }}"><i class="bi bi-upload"></i> {{ __('common.importacion') }}</a></li>
             @endif  
-            @if($user && $user->rol === 'admin' && !$isImporter)
+            @if($user && $user->rol === 'admin' && !$isImporter && !$isImportViewer)
               <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i> {{ __('common.usuarios') }}</a></li>
             @endif
         </ul>

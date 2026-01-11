@@ -48,6 +48,7 @@
                 <option value="clientes" {{ old('rol', $usuario->rol)=='clientes' ? 'selected':'' }}>Clientes</option>
                 <option value="funcionario" {{ old('rol', $usuario->rol)=='funcionario' ? 'selected':'' }}>Funcionario</option>
                 <option value="importer" {{ old('rol', $usuario->rol)=='importer' ? 'selected':'' }}>Proveedor/Importer</option>
+                <option value="import_viewer" {{ old('rol', $usuario->rol)=='import_viewer' ? 'selected':'' }}>Visualizador de Importaciones</option>
                 <option value="admin" {{ old('rol', $usuario->rol)=='admin' ? 'selected':'' }}>Administrador</option>
             </select>
             @error('rol')<div class="invalid-feedback">{{ $message }}</div>@enderror

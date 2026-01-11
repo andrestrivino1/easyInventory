@@ -235,6 +235,8 @@
                     <th>{{ __('common.destino') }}</th>
                     <th>{{ __('common.fecha_salida_table') }}</th>
                     <th>{{ __('common.fecha_llegada_table') }}</th>
+                    <th>{{ __('common.naviera_agente') }}</th>
+                    <th>{{ __('common.dias_libres_destino') }}</th>
                     <th>{{ __('common.estado') }}</th>
                     <th>{{ __('common.creditos') }}</th>
                     <th>{{ __('common.archivos') }}</th>
@@ -276,6 +278,8 @@
                     <td>{{ $import->destination ?? __('common.colombia') }}</td>
                     <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
                     <td>{{ $import->arrival_date ? $arrivalDate->format('d/m/Y') : '-' }}</td>
+                    <td>{{ $import->shipping_company ?? '-' }}</td>
+                    <td>{{ $import->free_days_at_dest ?? '-' }}</td>
                     <td>
                         <div>
                             @if($import->status === 'pending')
@@ -422,7 +426,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="12" class="text-center text-muted py-5">
+                    <td colspan="14" class="text-center text-muted py-5">
                         <i class="bi bi-upload text-secondary" style="font-size:2.2em;"></i><br>
                         <div class="mt-2">No hay importaciones registradas.</div>
                     </td>

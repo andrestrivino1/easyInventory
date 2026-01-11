@@ -35,12 +35,15 @@ use App\Http\Controllers\ImportController;
 Route::middleware(['auth'])->group(function () {
     // ADMIN: see all imports
     Route::get('imports', [ImportController::class, 'index'])->name('imports.index');
+    // IMPORT_VIEWER: see all imports (read-only)
+    Route::get('imports-viewer', [ImportController::class, 'viewerIndex'])->name('imports.viewer-index');
     // PROVIDER: see own imports
     Route::get('my-imports', [ImportController::class, 'providerIndex'])->name('imports.provider-index');
     Route::get('imports/create', [ImportController::class, 'create'])->name('imports.create');
     Route::post('imports', [ImportController::class, 'store'])->name('imports.store');
     Route::get('imports/{id}/edit', [ImportController::class, 'edit'])->name('imports.edit');
     Route::put('imports/{id}', [ImportController::class, 'update'])->name('imports.update');
+    Route::delete('imports/{id}', [ImportController::class, 'destroy'])->name('imports.destroy');
     Route::get('imports/{id}/view/{file}', [ImportController::class, 'viewFile'])->name('imports.view');
     Route::get('imports/{id}/download/{file}', [ImportController::class, 'downloadFile'])->name('imports.download');
     // ADMIN: Export all DO reports (debe ir ANTES de la ruta con parámetro {id})

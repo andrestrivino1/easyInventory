@@ -108,17 +108,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 @endif
             </td>
             <td style="white-space:nowrap;">
-                <a href="{{ route('products.edit', $producto->id) }}" class="btn btn-warning btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                <form action="{{ route('products.destroy', $producto->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('¿Estás seguro de eliminar este producto?');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
-                </form>
+                @if(auth()->user()->rol !== 'clientes')
+                    <a href="{{ route('products.edit', $producto->id) }}" class="btn btn-warning btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></a>
+                    <form action="{{ route('products.destroy', $producto->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('¿Estás seguro de eliminar este producto?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
+                    </form>
+                @else
+                    <span style="color: #999; font-size: 12px;">-</span>
+                @endif
             </td>
         </tr>
         @empty
         <tr>
-            <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
+            <td colspan="5" style="text-align: center; padding: 40px; color: #999;">
                 <i class="bi bi-box" style="font-size: 3em; display: block; margin-bottom: 10px;"></i>
                 <div>No hay productos registrados</div>
             </td>

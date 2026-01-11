@@ -114,7 +114,13 @@
                         {{ $user->almacen ? $user->almacen->nombre . ($user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '') : '-' }}
                     @endif
                 </td>
-                <td>{{ ucfirst($user->rol) }}</td>
+                <td>
+                    @if($user->rol === 'import_viewer')
+                        Visualizador de Importaciones
+                    @else
+                        {{ ucfirst($user->rol) }}
+                    @endif
+                </td>
                 <td class="actions">
                     <a href="{{ route('users.edit', $user) }}" class="btn-edit">Editar</a>
                     @if(auth()->user()->rol === 'admin' && auth()->id() !== $user->id)

@@ -80,7 +80,10 @@
     </table>
 
     <!-- Sección de Contenedores -->
-    @if($selectedWarehouseId == $ID_PABLO_ROJAS || !$selectedWarehouseId)
+    @php
+        $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
+    @endphp
+    @if(!$selectedWarehouseId || in_array($selectedWarehouseId, $bodegasQueRecibenIds))
     <div class="section-title">CONTENEDORES</div>
     <table>
         <thead>
