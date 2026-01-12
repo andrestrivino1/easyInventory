@@ -57,10 +57,12 @@ class BlockImporterAccess
                     return redirect()->route('imports.provider-index')->with('error', 'Acceso no autorizado. Solo puedes acceder al módulo de importaciones.');
                 }
             } elseif ($userRole === 'import_viewer') {
-                // Allow access only to viewer route (read-only) and home
+                // Allow access to viewer route, view files, download files, and report generation
                 $allowedRoutes = [
                     'imports.viewer-index',
                     'imports.view',
+                    'imports.download',
+                    'imports.report',
                     'language.switch',
                     'home',
                     'logout'
@@ -71,7 +73,7 @@ class BlockImporterAccess
                 
                 // Also check the URI path
                 $path = $request->path();
-                $allowedPaths = ['imports-viewer', 'imports/view', 'home', 'logout', 'language'];
+                $allowedPaths = ['imports-viewer', 'imports/view', 'imports/download', 'imports/report', 'home', 'logout', 'language'];
                 
                 // Check if path starts with any allowed path
                 $isAllowedPath = false;

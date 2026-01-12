@@ -136,6 +136,31 @@
         padding-top: 6px;
         margin-top: 4px;
     }
+    .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .btn-report {
+        background: #0d6efd;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        transition: background 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-report:hover {
+        background: #0b5ed7;
+        color: white;
+        text-decoration: none;
+    }
 </style>
 
 <div class="container-fluid" style="padding-top:32px; padding-bottom:40px; min-height:88vh;">
@@ -169,6 +194,7 @@
                     <th>Estado</th>
                     <th>Créditos</th>
                     <th>Archivos</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -281,14 +307,14 @@
                                             <div class="container-ref">{{ $container->reference }}</div>
                                             <div class="files-grid">
                                                 @if($container->pdf_path)
-                                                    <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_pdf']) }}" target="_blank" class="file-viewer" title="PDF con información del contenedor">
                                                         <i class="bi bi-file-pdf"></i> Info PDF
-                                                    </span>
+                                                    </a>
                                                 @endif
                                                 @if($container->image_pdf_path)
-                                                    <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                                    <a href="{{ route('imports.view', [$import->id, 'container_'.$container->id.'_image_pdf']) }}" target="_blank" class="file-viewer" title="PDF con imágenes del contenedor">
                                                         <i class="bi bi-file-pdf"></i> Imágenes PDF
-                                                    </span>
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
@@ -301,44 +327,44 @@
                                     <div class="files-section-title">Documentos</div>
                                     <div class="files-grid">
                                         @if($import->proforma_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'proforma_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice">
                                                 <i class="bi bi-file-pdf"></i> Proforma
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->proforma_invoice_low_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'proforma_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Proforma Invoice Low">
                                                 <i class="bi bi-file-pdf"></i> Proforma Low
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->invoice_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'invoice_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice">
                                                 <i class="bi bi-file-pdf"></i> Invoice
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->commercial_invoice_low_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'commercial_invoice_low_pdf']) }}" target="_blank" class="file-viewer" title="Commercial Invoice Low">
                                                 <i class="bi bi-file-pdf"></i> Invoice Low
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->packing_list_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'packing_list_pdf']) }}" target="_blank" class="file-viewer" title="Packing List">
                                                 <i class="bi bi-file-pdf"></i> Packing List
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->bl_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'bl_pdf']) }}" target="_blank" class="file-viewer" title="Bill of Lading">
                                                 <i class="bi bi-file-pdf"></i> BL
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->apostillamiento_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'apostillamiento_pdf']) }}" target="_blank" class="file-viewer" title="Apostillamiento">
                                                 <i class="bi bi-file-pdf"></i> Apostillamiento
-                                            </span>
+                                            </a>
                                         @endif
                                         @if($import->other_documents_pdf)
-                                            <span class="file-viewer" style="opacity: 0.6; cursor: not-allowed;" title="Solo visualización - No se pueden descargar archivos">
+                                            <a href="{{ route('imports.view', [$import->id, 'other_documents_pdf']) }}" target="_blank" class="file-viewer" title="Otros Documentos">
                                                 <i class="bi bi-file-pdf"></i> Otros
-                                            </span>
+                                            </a>
                                         @endif
                                     </div>
                                 </div>
@@ -349,10 +375,15 @@
                             @endif
                         </div>
                     </td>
+                    <td class="actions">
+                        <a href="{{ route('imports.report', $import->id) }}" class="btn-report" target="_blank">
+                            <i class="bi bi-file-pdf me-1"></i>Reporte
+                        </a>
+                    </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="14" class="text-center text-muted py-5">
+                    <td colspan="15" class="text-center text-muted py-5">
                         <i class="bi bi-upload text-secondary" style="font-size:2.2em;"></i><br>
                         <div class="mt-2">No hay importaciones registradas.</div>
                     </td>

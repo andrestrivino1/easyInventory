@@ -28,6 +28,11 @@ class HomeController extends Controller
             return redirect()->route('imports.provider-index');
         }
         
+        // Si el usuario es import_viewer, redirigir a la vista de importaciones (solo lectura)
+        if (auth()->check() && auth()->user()->rol === 'import_viewer') {
+            return redirect()->route('imports.viewer-index');
+        }
+        
         // Invoca directamente la lógica de WelcomeController
         return app(\App\Http\Controllers\WelcomeController::class)->index();
     }

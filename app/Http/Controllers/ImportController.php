@@ -492,8 +492,8 @@ class ImportController extends Controller
      */
     public function report($id)
     {
-        // Permitir acceso a admin y funcionario
-        if (!in_array(Auth::user()->rol, ['admin', 'funcionario'])) {
+        // Permitir acceso a admin, funcionario e import_viewer
+        if (!in_array(Auth::user()->rol, ['admin', 'funcionario', 'import_viewer'])) {
             abort(403);
         }
         

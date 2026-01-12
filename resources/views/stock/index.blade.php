@@ -287,6 +287,24 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Paginación -->
+        @if(method_exists($products, 'total') && $products->total() > $products->perPage())
+        <div style="padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #666; font-size: 14px;">
+                    Mostrando {{ $products->firstItem() ?? 0 }} - {{ $products->lastItem() ?? 0 }} de {{ $products->total() }} productos
+                </div>
+                <div>
+                    {!! $products->appends(request()->query())->links() !!}
+                </div>
+            </div>
+        </div>
+        @elseif(method_exists($products, 'total') && $products->total() > 0)
+        <div style="padding: 15px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
+            Mostrando {{ $products->total() }} producto(s)
+        </div>
+        @endif
 
         <!-- Sección de Contenedores -->
         @php
