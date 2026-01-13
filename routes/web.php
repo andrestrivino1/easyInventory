@@ -48,7 +48,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('imports/{id}/download/{file}', [ImportController::class, 'downloadFile'])->name('imports.download');
     // ADMIN: Export all DO reports (debe ir ANTES de la ruta con parámetro {id})
     Route::get('imports/export-all-reports', [ImportController::class, 'exportAllReports'])->name('imports.export-all-reports');
+    // ADMIN: Export to Excel
+    Route::get('imports/export-excel', [ImportController::class, 'exportExcel'])->name('imports.export-excel');
     Route::post('imports/clear-omitted-info', [ImportController::class, 'clearOmittedInfo'])->name('imports.clear-omitted-info');
+    // ADMIN: Mark import as nationalized
+    Route::post('imports/{id}/nationalize', [ImportController::class, 'markAsNationalized'])->name('imports.nationalize');
     Route::get('imports/{id}/report', [ImportController::class, 'report'])->name('imports.report');
     // FUNCIONARIO routes
     Route::get('imports-funcionario', [ImportController::class, 'funcionarioIndex'])->name('imports.funcionario-index');
@@ -72,6 +76,10 @@ Route::get('containers/{container}/print', [App\Http\Controllers\ContainerContro
 Route::get('stock', [App\Http\Controllers\StockController::class, 'index'])->name('stock.index');
 Route::get('stock/export-pdf', [App\Http\Controllers\StockController::class, 'exportPdf'])->name('stock.export-pdf');
 Route::get('stock/export-excel', [App\Http\Controllers\StockController::class, 'exportExcel'])->name('stock.export-excel');
+Route::get('stock/export-excel-products', [App\Http\Controllers\StockController::class, 'exportExcelProducts'])->name('stock.export-excel-products');
+Route::get('stock/export-excel-containers', [App\Http\Controllers\StockController::class, 'exportExcelContainers'])->name('stock.export-excel-containers');
+Route::get('stock/export-excel-transfers', [App\Http\Controllers\StockController::class, 'exportExcelTransfers'])->name('stock.export-excel-transfers');
+Route::get('stock/export-excel-salidas', [App\Http\Controllers\StockController::class, 'exportExcelSalidas'])->name('stock.export-excel-salidas');
 Route::get('traceability', [App\Http\Controllers\TraceabilityController::class, 'index'])->name('traceability.index');
 Route::get('traceability/export-pdf', [App\Http\Controllers\TraceabilityController::class, 'exportPdf'])->name('traceability.export-pdf');
 Route::get('traceability/export-excel', [App\Http\Controllers\TraceabilityController::class, 'exportExcel'])->name('traceability.export-excel');

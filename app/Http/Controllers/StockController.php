@@ -18,6 +18,10 @@ class StockController extends Controller
     {
         $user = Auth::user();
         $selectedWarehouseId = $request->get('warehouse_id');
+        $transfersDateFrom = $request->get('transfers_date_from');
+        $transfersDateTo = $request->get('transfers_date_to');
+        $salidasDateFrom = $request->get('salidas_date_from');
+        $salidasDateTo = $request->get('salidas_date_to');
         
         // Obtener bodegas según el rol del usuario
         if (in_array($user->rol, ['admin', 'funcionario'])) {
@@ -215,38 +219,58 @@ class StockController extends Controller
                         $cantidadesPorContenedor = $productosCantidadesPorContenedorTemp->get($product->id);
                     }
                     
-                    if ($cantidadesPorContenedor->count() > 0) {
+                    // Verificar si tiene stock en esta bodega (ya sea por contenedores o por transferencias)
+                    $hasStock = false;
+                    if ($productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        $stock = $stockPorBodega->get($warehouse->id, 0);
+                        $hasStock = $stock > 0;
+                    }
+                    
+                    // Si tiene contenedores o tiene stock, agregarlo
+                    if ($cantidadesPorContenedor->count() > 0 || $hasStock) {
                         $productKey = $product->codigo . '|' . $product->nombre . '|' . ($product->medidas ?? '');
                         
-                        // Verificar si ya existe este producto (por código/nombre/medidas)
+                        // Verificar si ya existe este producto en esta bodega específica
                         $exists = $products->contains(function($p) use ($productKey, $warehouse) {
                             $pKey = $p->codigo . '|' . $p->nombre . '|' . ($p->medidas ?? '');
                             return $pKey === $productKey && isset($p->container_warehouse_id) && $p->container_warehouse_id == $warehouse->id;
                         });
                         
                         if (!$exists) {
-                $productCopy = clone $product;
+                            $productCopy = clone $product;
                             $productCopy->container_ids = collect();
                             $productCopy->container_references = collect();
                             $productCopy->container_warehouse_id = $warehouse->id;
                             $productCopy->cajas_en_contenedor = 0;
                             $productCopy->laminas_en_contenedor = 0;
                             
-                            foreach ($cantidadesPorContenedor as $containerId => $cantidad) {
-                                if (is_numeric($containerId) && $containerId > 0) {
-                                    $productCopy->container_ids->push($containerId);
-                                    $productCopy->container_references->push($cantidad['container_reference'] ?? '-');
-                                    $productCopy->cajas_en_contenedor += $cantidad['cajas'] ?? 0;
-                                    $productCopy->laminas_en_contenedor += $cantidad['laminas'] ?? 0;
+                            if ($cantidadesPorContenedor->count() > 0) {
+                                foreach ($cantidadesPorContenedor as $containerId => $cantidad) {
+                                    if (is_numeric($containerId) && $containerId > 0) {
+                                        $productCopy->container_ids->push($containerId);
+                                        $productCopy->container_references->push($cantidad['container_reference'] ?? '-');
+                                        $productCopy->cajas_en_contenedor += $cantidad['cajas'] ?? 0;
+                                        $productCopy->laminas_en_contenedor += $cantidad['laminas'] ?? 0;
+                                    }
+                                }
+                                
+                                if ($productCopy->container_references->count() > 0) {
+                                    $productCopy->container_reference = $productCopy->container_references->unique()->filter()->implode(', ');
+                                }
+                            } else {
+                                // Si no tiene contenedores pero tiene stock, usar el stock calculado
+                                if ($productosStockPorBodega->has($product->id)) {
+                                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                                    $stock = $stockPorBodega->get($warehouse->id, 0);
+                                    $productCopy->laminas_en_contenedor = $stock;
+                                    $productCopy->container_reference = '-';
                                 }
                             }
                             
-                            if ($productCopy->container_references->count() > 0) {
-                                $productCopy->container_reference = $productCopy->container_references->unique()->filter()->implode(', ');
-                                unset($productCopy->container_ids);
-                                unset($productCopy->container_references);
-                                $productsFromOtherWarehouses->push($productCopy);
-                            }
+                            unset($productCopy->container_ids);
+                            unset($productCopy->container_references);
+                            $productsFromOtherWarehouses->push($productCopy);
                         }
                     }
                 }
@@ -351,7 +375,7 @@ class StockController extends Controller
             // Si se selecciona una bodega que recibe contenedores, mostrar solo sus contenedores
             if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
                 $containers = Container::where('warehouse_id', $selectedWarehouseId)
-                    ->with('products')
+                    ->with(['products', 'warehouse'])
                     ->orderByDesc('id')
                     ->get();
             } else {
@@ -360,58 +384,69 @@ class StockController extends Controller
             }
         } else {
             // Si no hay filtro, mostrar todos los contenedores
-            $containers = Container::with('products')->orderByDesc('id')->get();
+            $containers = Container::with(['products', 'warehouse'])->orderByDesc('id')->get();
         }
         
-        // Obtener transferencias
+        // Obtener transferencias con filtro de fechas
+        $transferOrdersQuery = TransferOrder::with(['from', 'to', 'products', 'driver']);
+        
         if ($selectedWarehouseId) {
-            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
-                ->where(function($query) use ($selectedWarehouseId) {
-                    $query->where('warehouse_from_id', $selectedWarehouseId)
-                          ->orWhere('warehouse_to_id', $selectedWarehouseId);
-                })
-                ->orderByDesc('date')
-                ->get();
-        } else {
-            $transferOrders = TransferOrder::with(['from', 'to', 'products', 'driver'])
-                ->orderByDesc('date')
-                ->get();
+            $transferOrdersQuery->where(function($query) use ($selectedWarehouseId) {
+                $query->where('warehouse_from_id', $selectedWarehouseId)
+                      ->orWhere('warehouse_to_id', $selectedWarehouseId);
+            });
         }
+        
+        // Filtro de fechas para transferencias
+        if ($transfersDateFrom) {
+            $transferOrdersQuery->whereDate('date', '>=', $transfersDateFrom);
+        }
+        if ($transfersDateTo) {
+            $transferOrdersQuery->whereDate('date', '<=', $transfersDateTo);
+        }
+        
+        $transferOrders = $transferOrdersQuery->orderByDesc('date')->get();
         
         // Guardar una copia de la colección completa antes de paginar (para cálculos)
         $allProductsForCalculations = $products;
         
-        // Obtener salidas
+        // Obtener salidas con filtro de fechas
+        $salidasQuery = Salida::with(['warehouse', 'products']);
+        
         if ($selectedWarehouseId) {
-            $salidas = Salida::with(['warehouse', 'products'])
-                ->where('warehouse_id', $selectedWarehouseId)
-                ->orderByDesc('fecha')
-                ->get();
-        } else {
-            $salidas = Salida::with(['warehouse', 'products'])
-                ->orderByDesc('fecha')
-                ->get();
+            $salidasQuery->where('warehouse_id', $selectedWarehouseId);
         }
+        
+        // Filtro de fechas para salidas
+        if ($salidasDateFrom) {
+            $salidasQuery->whereDate('fecha', '>=', $salidasDateFrom);
+        }
+        if ($salidasDateTo) {
+            $salidasQuery->whereDate('fecha', '<=', $salidasDateTo);
+        }
+        
+        $salidas = $salidasQuery->orderByDesc('fecha')->get();
         
         $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
         
         // Paginación manual para productos (ya que es una colección procesada, no un query builder)
-        $perPage = 10;
-        $currentPage = (int) $request->get('page', 1);
-        $total = $products->count();
+        $productsPerPage = 10;
+        $productsCurrentPage = (int) $request->get('products_page', 1);
+        $productsTotal = $products->count();
         
         // Solo paginar si hay más de 10 productos
-        if ($total > $perPage) {
-            $items = $products->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        if ($productsTotal > $productsPerPage) {
+            $productsItems = $products->slice(($productsCurrentPage - 1) * $productsPerPage, $productsPerPage)->values();
             
             // Crear paginador manual
             $products = new \Illuminate\Pagination\LengthAwarePaginator(
-                $items,
-                $total,
-                $perPage,
-                $currentPage,
+                $productsItems,
+                $productsTotal,
+                $productsPerPage,
+                $productsCurrentPage,
                 [
                     'path' => $request->url(),
+                    'pageName' => 'products_page',
                     'query' => $request->query(),
                 ]
             );
@@ -419,6 +454,63 @@ class StockController extends Controller
             // Asegurar que el paginador tenga los métodos necesarios
             $products->setPath($request->url());
         }
+        
+        // Paginación manual para contenedores
+        $containersPerPage = 10;
+        $containersCurrentPage = (int) $request->get('containers_page', 1);
+        $containersTotal = $containers->count();
+        
+        $containersItems = $containers->slice(($containersCurrentPage - 1) * $containersPerPage, $containersPerPage)->values();
+        $containers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $containersItems,
+            $containersTotal,
+            $containersPerPage,
+            $containersCurrentPage,
+            [
+                'path' => $request->url(),
+                'pageName' => 'containers_page',
+                'query' => $request->query(),
+            ]
+        );
+        $containers->setPath($request->url());
+        
+        // Paginación manual para transferencias
+        $transfersPerPage = 10;
+        $transfersCurrentPage = (int) $request->get('transfers_page', 1);
+        $transfersTotal = $transferOrders->count();
+        
+        $transfersItems = $transferOrders->slice(($transfersCurrentPage - 1) * $transfersPerPage, $transfersPerPage)->values();
+        $transferOrders = new \Illuminate\Pagination\LengthAwarePaginator(
+            $transfersItems,
+            $transfersTotal,
+            $transfersPerPage,
+            $transfersCurrentPage,
+            [
+                'path' => $request->url(),
+                'pageName' => 'transfers_page',
+                'query' => $request->query(),
+            ]
+        );
+        $transferOrders->setPath($request->url());
+        
+        // Paginación manual para salidas
+        $salidasPerPage = 10;
+        $salidasCurrentPage = (int) $request->get('salidas_page', 1);
+        $salidasTotal = $salidas->count();
+        
+        $salidasItems = $salidas->slice(($salidasCurrentPage - 1) * $salidasPerPage, $salidasPerPage)->values();
+        $salidas = new \Illuminate\Pagination\LengthAwarePaginator(
+            $salidasItems,
+            $salidasTotal,
+            $salidasPerPage,
+            $salidasCurrentPage,
+            [
+                'path' => $request->url(),
+                'pageName' => 'salidas_page',
+                'query' => $request->query(),
+            ]
+        );
+        $salidas->setPath($request->url());
         
         // Calcular cantidades por contenedor para cada producto (usar la colección completa)
         $productosCantidadesPorContenedor = $this->calcularCantidadesPorContenedor($allProductsForCalculations);
@@ -636,14 +728,14 @@ class StockController extends Controller
         if ($selectedWarehouseId) {
             if (in_array($selectedWarehouseId, $bodegasQueRecibenContenedores)) {
                 $containers = Container::where('warehouse_id', $selectedWarehouseId)
-                    ->with('products')
+                    ->with(['products', 'warehouse'])
                     ->orderByDesc('id')
                     ->get();
             } else {
                 $containers = collect();
             }
         } else {
-            $containers = Container::with('products')->orderByDesc('id')->get();
+            $containers = Container::with(['products', 'warehouse'])->orderByDesc('id')->get();
         }
         
         // Obtener transferencias
@@ -1015,7 +1107,7 @@ class StockController extends Controller
         extract($data);
         
         $isExport = true;
-        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'bodegasQueRecibenContenedores', 'isExport'));
+        $pdf = Pdf::loadView('stock.pdf', compact('warehouses', 'products', 'containers', 'transferOrders', 'selectedWarehouseId', 'bodegasQueRecibenContenedores', 'isExport', 'productosStockPorBodega', 'productosCantidadesPorContenedor'));
         
         $warehouseName = $selectedWarehouseId 
             ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
@@ -1073,8 +1165,9 @@ class StockController extends Controller
                 <tr>
                     <th>Código</th>
                     <th>Nombre</th>
-                    <th>Almacén</th>
+                    <th>Bodega</th>
                     <th>Medidas</th>
+                    <th>Contenedor</th>
                     <th>Cajas</th>
                     <th>Láminas</th>
                     <th>Estado</th>
@@ -1083,14 +1176,73 @@ class StockController extends Controller
             <tbody>';
         
         foreach ($products as $product) {
-            $cajas = ($product->tipo_medida === 'caja' && $product->cajas !== null) ? number_format($product->cajas, 0) : '-';
+            // Determinar la bodega a mostrar
+            $warehouseIdToShow = null;
+            $warehouseName = '-';
+            if (isset($product->container_warehouse_id)) {
+                $warehouseIdToShow = $product->container_warehouse_id;
+            } elseif ($selectedWarehouseId) {
+                $warehouseIdToShow = $selectedWarehouseId;
+            }
+            
+            if ($warehouseIdToShow) {
+                $warehouse = $warehouses->where('id', $warehouseIdToShow)->first();
+                if ($warehouse) {
+                    $warehouseName = $warehouse->nombre . ($warehouse->ciudad ? ' - ' . $warehouse->ciudad : '');
+                }
+            } elseif (!$selectedWarehouseId) {
+                $warehouseName = 'Todas';
+            }
+            
+            // Obtener referencia de contenedor
+            $containerRef = '-';
+            if (isset($product->container_reference)) {
+                $containerRef = $product->container_reference;
+            } elseif (isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id)) {
+                $cantidadesPorContenedor = $productosCantidadesPorContenedor->get($product->id);
+                $containerRefs = $cantidadesPorContenedor->pluck('container_reference')->unique()->filter()->implode(', ');
+                $containerRef = $containerRefs ?: '-';
+            }
+            
+            // Calcular cajas
+            $cajas = '-';
+            if (isset($product->cajas_en_contenedor)) {
+                $cajas = number_format($product->cajas_en_contenedor, 0);
+            } elseif ($product->tipo_medida === 'caja') {
+                // Calcular cajas desde stock si es tipo caja
+                $laminas = isset($product->laminas_en_contenedor) ? $product->laminas_en_contenedor : 0;
+                if ($laminas > 0 && $product->unidades_por_caja > 0) {
+                    $cajas = number_format(ceil($laminas / $product->unidades_por_caja), 0);
+                } elseif ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    $stock = $warehouseIdToShow ? $stockPorBodega->get($warehouseIdToShow, 0) : $stockPorBodega->sum();
+                    if ($stock > 0 && $product->unidades_por_caja > 0) {
+                        $cajas = number_format(ceil($stock / $product->unidades_por_caja), 0);
+                    }
+                }
+            }
+            
+            // Calcular láminas
+            $laminas = 0;
+            if (isset($product->laminas_en_contenedor)) {
+                $laminas = $product->laminas_en_contenedor;
+            } elseif ($productosStockPorBodega->has($product->id)) {
+                $stockPorBodega = $productosStockPorBodega->get($product->id);
+                if ($warehouseIdToShow) {
+                    $laminas = $stockPorBodega->get($warehouseIdToShow, 0);
+                } else {
+                    $laminas = $stockPorBodega->sum();
+                }
+            }
+            
             $html .= '<tr>
                 <td>' . htmlspecialchars($product->codigo) . '</td>
                 <td>' . htmlspecialchars($product->nombre) . '</td>
-                <td>' . htmlspecialchars($product->almacen->nombre ?? '-') . '</td>
+                <td>' . htmlspecialchars($warehouseName) . '</td>
                 <td>' . htmlspecialchars($product->medidas ?? '-') . '</td>
+                <td>' . htmlspecialchars($containerRef) . '</td>
                 <td>' . $cajas . '</td>
-                <td>' . number_format($product->stock, 0) . '</td>
+                <td>' . number_format($laminas, 0) . '</td>
                 <td>' . ($product->estado ? 'Activo' : 'Inactivo') . '</td>
             </tr>';
         }
@@ -1106,6 +1258,7 @@ class StockController extends Controller
                 <thead>
                     <tr>
                         <th>Referencia</th>
+                        <th>Bodega</th>
                         <th>Productos</th>
                         <th>Total Cajas</th>
                         <th>Total Láminas</th>
@@ -1123,8 +1276,13 @@ class StockController extends Controller
                     $totalSheets += ($product->pivot->boxes * $product->pivot->sheets_per_box);
                     $productNames[] = $product->nombre . ' (' . $product->pivot->boxes . ' cajas × ' . $product->pivot->sheets_per_box . ' láminas)';
                 }
+                $warehouseName = '-';
+                if ($container->warehouse) {
+                    $warehouseName = $container->warehouse->nombre . ($container->warehouse->ciudad ? ' - ' . $container->warehouse->ciudad : '');
+                }
                 $html .= '<tr>
                     <td>' . htmlspecialchars($container->reference) . '</td>
+                    <td>' . htmlspecialchars($warehouseName) . '</td>
                     <td>' . htmlspecialchars(implode(' | ', $productNames)) . '</td>
                     <td>' . number_format($totalBoxes, 0) . '</td>
                     <td>' . number_format($totalSheets, 0) . '</td>
@@ -1179,6 +1337,363 @@ class StockController extends Controller
         ];
         
         return response($html, 200, $headers);
+    }
+
+    public function exportExcelProducts(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->rol !== 'admin') {
+            return redirect()->route('stock.index')->with('error', 'No tienes permiso para descargar este archivo.');
+        }
+        
+        $data = $this->getStockData($request);
+        extract($data);
+        
+        $warehouseName = $selectedWarehouseId 
+            ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
+            : 'Todos';
+        $filename = 'Productos-Stock-' . str_replace(' ', '-', $warehouseName) . '-' . date('Y-m-d') . '.xls';
+        
+        $html = $this->generateExcelHeader('PRODUCTOS', $warehouseName, $selectedWarehouseId, $warehouses);
+        $html .= $this->generateProductsTable($products, $warehouses, $selectedWarehouseId, $productosStockPorBodega, $productosCantidadesPorContenedor);
+        $html .= '</body></html>';
+        
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        return response($html, 200, $headers);
+    }
+
+    public function exportExcelContainers(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->rol !== 'admin') {
+            return redirect()->route('stock.index')->with('error', 'No tienes permiso para descargar este archivo.');
+        }
+        
+        $data = $this->getStockData($request);
+        extract($data);
+        
+        $warehouseName = $selectedWarehouseId 
+            ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
+            : 'Todos';
+        $filename = 'Contenedores-Stock-' . str_replace(' ', '-', $warehouseName) . '-' . date('Y-m-d') . '.xls';
+        
+        $html = $this->generateExcelHeader('CONTENEDORES', $warehouseName, $selectedWarehouseId, $warehouses);
+        $html .= $this->generateContainersTable($containers, $bodegasQueRecibenContenedores, $selectedWarehouseId);
+        $html .= '</body></html>';
+        
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        return response($html, 200, $headers);
+    }
+
+    public function exportExcelTransfers(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->rol !== 'admin') {
+            return redirect()->route('stock.index')->with('error', 'No tienes permiso para descargar este archivo.');
+        }
+        
+        $data = $this->getStockData($request);
+        extract($data);
+        
+        $warehouseName = $selectedWarehouseId 
+            ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
+            : 'Todos';
+        $filename = 'Transferencias-Stock-' . str_replace(' ', '-', $warehouseName) . '-' . date('Y-m-d') . '.xls';
+        
+        $html = $this->generateExcelHeader('TRANSFERENCIAS', $warehouseName, $selectedWarehouseId, $warehouses);
+        $html .= $this->generateTransfersTable($transferOrders);
+        $html .= '</body></html>';
+        
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        return response($html, 200, $headers);
+    }
+
+    public function exportExcelSalidas(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->rol !== 'admin') {
+            return redirect()->route('stock.index')->with('error', 'No tienes permiso para descargar este archivo.');
+        }
+        
+        $data = $this->getStockData($request);
+        extract($data);
+        
+        $warehouseName = $selectedWarehouseId 
+            ? $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? 'Todos' 
+            : 'Todos';
+        $filename = 'Salidas-Stock-' . str_replace(' ', '-', $warehouseName) . '-' . date('Y-m-d') . '.xls';
+        
+        $html = $this->generateExcelHeader('SALIDAS', $warehouseName, $selectedWarehouseId, $warehouses);
+        $html .= $this->generateSalidasTable($salidas);
+        $html .= '</body></html>';
+        
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        return response($html, 200, $headers);
+    }
+
+    private function generateExcelHeader($section, $warehouseName, $selectedWarehouseId, $warehouses)
+    {
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; }
+        .header { font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+        .info { margin-bottom: 5px; }
+        .section-title { font-size: 13px; font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #0066cc; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 20px; }
+        th { background-color: #0066cc; color: white; font-weight: bold; padding: 8px; border: 1px solid #000; text-align: center; }
+        td { padding: 6px; border: 1px solid #000; }
+    </style>
+</head>
+<body>
+    <div class="header">INVENTARIO DE STOCK - ' . $section . '</div>
+    <div class="info">Fecha: ' . date('d/m/Y H:i') . '</div>';
+        
+        if ($selectedWarehouseId) {
+            $warehouseName = $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '';
+            $html .= '<div class="info">Almacén: ' . htmlspecialchars($warehouseName) . '</div>';
+        } else {
+            $html .= '<div class="info">Almacén: Todos los almacenes</div>';
+        }
+        
+        return $html;
+    }
+
+    private function generateProductsTable($products, $warehouses, $selectedWarehouseId, $productosStockPorBodega, $productosCantidadesPorContenedor)
+    {
+        $html = '<div class="section-title">SECCIÓN: PRODUCTOS</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Bodega</th>
+                    <th>Medidas</th>
+                    <th>Contenedor</th>
+                    <th>Cajas</th>
+                    <th>Láminas</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        foreach ($products as $product) {
+            // Determinar la bodega a mostrar
+            $warehouseIdToShow = null;
+            $warehouseName = '-';
+            if (isset($product->container_warehouse_id)) {
+                $warehouseIdToShow = $product->container_warehouse_id;
+            } elseif ($selectedWarehouseId) {
+                $warehouseIdToShow = $selectedWarehouseId;
+            }
+            
+            if ($warehouseIdToShow) {
+                $warehouse = $warehouses->where('id', $warehouseIdToShow)->first();
+                if ($warehouse) {
+                    $warehouseName = $warehouse->nombre . ($warehouse->ciudad ? ' - ' . $warehouse->ciudad : '');
+                }
+            } elseif (!$selectedWarehouseId) {
+                $warehouseName = 'Todas';
+            }
+            
+            // Obtener referencia de contenedor
+            $containerRef = '-';
+            if (isset($product->container_reference)) {
+                $containerRef = $product->container_reference;
+            } elseif (isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id)) {
+                $cantidadesPorContenedor = $productosCantidadesPorContenedor->get($product->id);
+                $containerRefs = $cantidadesPorContenedor->pluck('container_reference')->unique()->filter()->implode(', ');
+                $containerRef = $containerRefs ?: '-';
+            }
+            
+            // Calcular cajas
+            $cajas = '-';
+            if (isset($product->cajas_en_contenedor)) {
+                $cajas = number_format($product->cajas_en_contenedor, 0);
+            } elseif ($product->tipo_medida === 'caja') {
+                // Calcular cajas desde stock si es tipo caja
+                $laminas = isset($product->laminas_en_contenedor) ? $product->laminas_en_contenedor : 0;
+                if ($laminas > 0 && $product->unidades_por_caja > 0) {
+                    $cajas = number_format(ceil($laminas / $product->unidades_por_caja), 0);
+                } elseif ($productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    $stock = $warehouseIdToShow ? $stockPorBodega->get($warehouseIdToShow, 0) : $stockPorBodega->sum();
+                    if ($stock > 0 && $product->unidades_por_caja > 0) {
+                        $cajas = number_format(ceil($stock / $product->unidades_por_caja), 0);
+                    }
+                }
+            }
+            
+            // Calcular láminas
+            $laminas = 0;
+            if (isset($product->laminas_en_contenedor)) {
+                $laminas = $product->laminas_en_contenedor;
+            } elseif ($productosStockPorBodega->has($product->id)) {
+                $stockPorBodega = $productosStockPorBodega->get($product->id);
+                if ($warehouseIdToShow) {
+                    $laminas = $stockPorBodega->get($warehouseIdToShow, 0);
+                } else {
+                    $laminas = $stockPorBodega->sum();
+                }
+            }
+            
+            $html .= '<tr>
+                <td>' . htmlspecialchars($product->codigo) . '</td>
+                <td>' . htmlspecialchars($product->nombre) . '</td>
+                <td>' . htmlspecialchars($warehouseName) . '</td>
+                <td>' . htmlspecialchars($product->medidas ?? '-') . '</td>
+                <td>' . htmlspecialchars($containerRef) . '</td>
+                <td>' . $cajas . '</td>
+                <td>' . number_format($laminas, 0) . '</td>
+                <td>' . ($product->estado ? 'Activo' : 'Inactivo') . '</td>
+            </tr>';
+        }
+        
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function generateContainersTable($containers, $bodegasQueRecibenContenedores, $selectedWarehouseId)
+    {
+        $html = '<div class="section-title">SECCIÓN: CONTENEDORES</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Referencia</th>
+                    <th>Bodega</th>
+                    <th>Productos</th>
+                    <th>Total Cajas</th>
+                    <th>Total Láminas</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        if ($containers && $containers->count() > 0) {
+            foreach ($containers as $container) {
+                $totalBoxes = 0;
+                $totalSheets = 0;
+                $productNames = [];
+                foreach($container->products as $product) {
+                    $totalBoxes += $product->pivot->boxes;
+                    $totalSheets += ($product->pivot->boxes * $product->pivot->sheets_per_box);
+                    $productNames[] = $product->nombre . ' (' . $product->pivot->boxes . ' cajas × ' . $product->pivot->sheets_per_box . ' láminas)';
+                }
+                $warehouseName = '-';
+                if ($container->warehouse) {
+                    $warehouseName = $container->warehouse->nombre . ($container->warehouse->ciudad ? ' - ' . $container->warehouse->ciudad : '');
+                }
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($container->reference) . '</td>
+                    <td>' . htmlspecialchars($warehouseName) . '</td>
+                    <td>' . htmlspecialchars(implode(' | ', $productNames)) . '</td>
+                    <td>' . number_format($totalBoxes, 0) . '</td>
+                    <td>' . number_format($totalSheets, 0) . '</td>
+                    <td>' . htmlspecialchars($container->note ?? '-') . '</td>
+                </tr>';
+            }
+        } else {
+            $html .= '<tr><td colspan="6" style="text-align: center;">No hay contenedores registrados</td></tr>';
+        }
+        
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function generateTransfersTable($transferOrders)
+    {
+        $html = '<div class="section-title">SECCIÓN: TRANSFERENCIAS</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>No. Orden</th>
+                    <th>Origen</th>
+                    <th>Destino</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Productos</th>
+                    <th>Conductor</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        if ($transferOrders && $transferOrders->count() > 0) {
+            foreach ($transferOrders as $transfer) {
+                $productNames = [];
+                foreach($transfer->products as $prod) {
+                    $productNames[] = $prod->nombre . ' (' . $prod->pivot->quantity . ' ' . ($prod->tipo_medida === 'caja' ? 'cajas' : 'unidades') . ')';
+                }
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($transfer->order_number) . '</td>
+                    <td>' . htmlspecialchars($transfer->from->nombre ?? '-') . '</td>
+                    <td>' . htmlspecialchars($transfer->to->nombre ?? '-') . '</td>
+                    <td>' . htmlspecialchars(ucfirst($transfer->status)) . '</td>
+                    <td>' . htmlspecialchars($transfer->date->format('d/m/Y H:i')) . '</td>
+                    <td>' . htmlspecialchars(implode(' | ', $productNames)) . '</td>
+                    <td>' . htmlspecialchars($transfer->driver->name ?? '-') . '</td>
+                </tr>';
+            }
+        } else {
+            $html .= '<tr><td colspan="7" style="text-align: center;">No hay transferencias registradas</td></tr>';
+        }
+        
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function generateSalidasTable($salidas)
+    {
+        $html = '<div class="section-title">SECCIÓN: SALIDAS</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>No. Salida</th>
+                    <th>Bodega</th>
+                    <th>Fecha</th>
+                    <th>Productos</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        if ($salidas && $salidas->count() > 0) {
+            foreach ($salidas as $salida) {
+                $productNames = [];
+                foreach($salida->products as $prod) {
+                    $productNames[] = $prod->nombre . ' (' . number_format($prod->pivot->quantity, 0) . ' láminas)';
+                }
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($salida->salida_number ?? 'N/A') . '</td>
+                    <td>' . htmlspecialchars($salida->warehouse->nombre ?? '-') . '</td>
+                    <td>' . htmlspecialchars($salida->fecha ? \Carbon\Carbon::parse($salida->fecha)->format('d/m/Y') : '-') . '</td>
+                    <td>' . htmlspecialchars(implode(' | ', $productNames)) . '</td>
+                    <td>' . htmlspecialchars($salida->note ?? '-') . '</td>
+                </tr>';
+            }
+        } else {
+            $html .= '<tr><td colspan="5" style="text-align: center;">No hay salidas registradas</td></tr>';
+        }
+        
+        $html .= '</tbody></table>';
+        return $html;
     }
     
     /**

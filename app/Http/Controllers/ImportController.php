@@ -20,18 +20,127 @@ class ImportController extends Controller
     }
 
     // ADMIN: Show all imports
-    public function index()
+    public function index(Request $request)
     {
         if (Auth::user()->rol !== 'admin') {
             abort(403);
         }
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        
+        $query = Import::with(['user', 'containers']);
+        
+        // Filtro de búsqueda (texto)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        // Filtro de fechas (fecha de llegada)
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        
+        // Filtro de tiempo de crédito
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
         
         // Update status based on dates
         $this->updateImportStatuses($imports);
         
         // Reload to get updated statuses
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        $query = Import::with(['user', 'containers']);
+        
+        // Aplicar los mismos filtros después de actualizar estados
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
+        
+        // Filtro de porcentaje de progreso (aplicar después de calcular)
+        $progressMinValue = $request->input('progress_min');
+        if ($progressMinValue !== null && $progressMinValue !== '') {
+            $progressMin = (float) $progressMinValue;
+            
+            if ($progressMin >= 0 && $progressMin <= 100) {
+                $imports = $imports->filter(function($import) use ($progressMin) {
+                    $progress = $this->calculateProgress($import);
+                    // Redondear el progreso igual que en la vista para comparar
+                    $progressRounded = round($progress);
+                    // Solo incluir las que tienen exactamente el porcentaje buscado
+                    return $progressRounded == $progressMin;
+                })->values(); // Reindexar la colección
+            }
+        }
+        
+        // Ordenar: pendientes por % descendente, luego completadas
+        $imports = $this->sortImportsByProgress($imports);
+        
+        // Paginación manual (porque aplicamos filtros después de obtener los datos)
+        $perPage = 10;
+        $currentPage = (int) $request->get('page', 1);
+        $total = $imports->count();
+        
+        if ($total > $perPage) {
+            $items = $imports->slice(($currentPage - 1) * $perPage, $perPage)->values();
+            
+            $imports = new \Illuminate\Pagination\LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $currentPage,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+            $imports->setPath($request->url());
+        }
         
         return view('imports.index', compact('imports'));
     }
@@ -42,13 +151,37 @@ class ImportController extends Controller
         if (Auth::user()->rol !== 'import_viewer') {
             abort(403);
         }
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        $imports = Import::with(['user', 'containers'])->get();
         
         // Update status based on dates
         $this->updateImportStatuses($imports);
         
         // Reload to get updated statuses
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        $imports = Import::with(['user', 'containers'])->get();
+        
+        // Ordenar: pendientes por % descendente, luego completadas
+        $imports = $this->sortImportsByProgress($imports);
+        
+        // Paginación manual
+        $perPage = 10;
+        $currentPage = (int) request()->get('page', 1);
+        $total = $imports->count();
+        
+        if ($total > $perPage) {
+            $items = $imports->slice(($currentPage - 1) * $perPage, $perPage)->values();
+            
+            $imports = new \Illuminate\Pagination\LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $currentPage,
+                [
+                    'path' => request()->url(),
+                    'query' => request()->query(),
+                ]
+            );
+            $imports->setPath(request()->url());
+        }
         
         return view('imports.viewer-index', compact('imports'));
     }
@@ -59,13 +192,37 @@ class ImportController extends Controller
         if (!in_array(Auth::user()->rol, ['importer','admin'])) {
             abort(403);
         }
-        $imports = Import::with('containers')->where('user_id', Auth::id())->orderByDesc('created_at')->get();
+        $imports = Import::with('containers')->where('user_id', Auth::id())->get();
         
         // Update status based on dates
         $this->updateImportStatuses($imports);
         
         // Reload to get updated statuses
-        $imports = Import::with('containers')->where('user_id', Auth::id())->orderByDesc('created_at')->get();
+        $imports = Import::with('containers')->where('user_id', Auth::id())->get();
+        
+        // Ordenar: pendientes por % descendente, luego completadas
+        $imports = $this->sortImportsByProgress($imports);
+        
+        // Paginación manual
+        $perPage = 10;
+        $currentPage = (int) request()->get('page', 1);
+        $total = $imports->count();
+        
+        if ($total > $perPage) {
+            $items = $imports->slice(($currentPage - 1) * $perPage, $perPage)->values();
+            
+            $imports = new \Illuminate\Pagination\LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $currentPage,
+                [
+                    'path' => request()->url(),
+                    'query' => request()->query(),
+                ]
+            );
+            $imports->setPath(request()->url());
+        }
         
         return view('imports.provider-index', compact('imports'));
     }
@@ -86,15 +243,16 @@ class ImportController extends Controller
             abort(403);
         }
         $data = $request->validate([
-            'commercial_invoice_number' => 'required|string|max:255',
-            'origin' => 'required|string|max:255',
-            'departure_date' => 'required|date',
-            'arrival_date' => 'required|date',
+            'commercial_invoice_number' => 'nullable|string|max:255',
+            'origin' => 'nullable|string|max:255',
+            'departure_date' => 'nullable|date',
+            'arrival_date' => 'nullable|date',
             'proforma_invoice_number' => 'nullable|string|max:255',
             'bl_number' => 'nullable|string|max:255',
-            'containers' => 'required|array|min:1',
-            'containers.*.reference' => 'required|string|max:255',
+            'containers' => 'nullable|array',
+            'containers.*.reference' => 'nullable|string|max:255',
             'containers.*.pdf' => 'nullable|file|mimes:pdf',
+            'containers.*.image_pdf' => 'nullable|file|mimes:pdf',
             'proforma_pdf' => 'nullable|file|mimes:pdf',
             'invoice_pdf' => 'nullable|file|mimes:pdf',
             'bl_pdf' => 'nullable|file|mimes:pdf',
@@ -148,12 +306,22 @@ class ImportController extends Controller
             $otherDocumentsPdfPath = $request->file('other_documents_pdf')->store('imports');
         }
 
-        // DO code calculation based on arrival_date
-        $arrivalDate = $data['arrival_date'];
-        $year = date('y', strtotime($arrivalDate));
+        // DO code calculation based on arrival_date or current year
+        $arrivalDate = $data['arrival_date'] ?? null;
+        if ($arrivalDate) {
+            $year = date('y', strtotime($arrivalDate));
+        } else {
+            $year = date('y'); // Usar año actual si no hay fecha de llegada
+        }
         
         $lastImport = Import::whereRaw('SUBSTRING(do_code, 4, 2) = ?', [$year])
-            ->whereYear('arrival_date', '20'.$year)
+            ->where(function($query) use ($year, $arrivalDate) {
+                if ($arrivalDate) {
+                    $query->whereYear('arrival_date', '20'.$year);
+                } else {
+                    $query->whereYear('created_at', '20'.$year);
+                }
+            })
             ->orderByDesc('do_code')
             ->first();
         $next = 1;
@@ -176,13 +344,13 @@ class ImportController extends Controller
 
         $import = Import::create([
             'user_id' => Auth::id(),
-            'commercial_invoice_number' => $data['commercial_invoice_number'],
+            'commercial_invoice_number' => $data['commercial_invoice_number'] ?? null,
             'proforma_invoice_number' => $data['proforma_invoice_number'] ?? null,
             'bl_number' => $data['bl_number'] ?? null,
-            'origin' => $data['origin'],
+            'origin' => $data['origin'] ?? null,
             'destination' => 'Colombia', // Always Colombia
-            'departure_date' => $data['departure_date'],
-            'arrival_date' => $data['arrival_date'],
+            'departure_date' => $data['departure_date'] ?? null,
+            'arrival_date' => $data['arrival_date'] ?? null,
             'proforma_pdf' => $proformaPdfPath,
             'proforma_invoice_low_pdf' => $proformaInvoiceLowPdfPath,
             'invoice_pdf' => $invoicePdfPath,
@@ -199,25 +367,28 @@ class ImportController extends Controller
             'do_code' => $doCode,
         ]);
 
-        // Handle multiple containers
-        if ($request->has('containers')) {
+        // Handle multiple containers (solo si tienen referencia)
+        if ($request->has('containers') && is_array($request->containers)) {
             foreach ($request->containers as $index => $containerData) {
-                $pdfPath = null;
-                if ($request->hasFile("containers.{$index}.pdf")) {
-                    $pdfPath = $request->file("containers.{$index}.pdf")->store('imports');
-                }
+                // Solo crear contenedor si tiene referencia
+                if (!empty($containerData['reference'])) {
+                    $pdfPath = null;
+                    if ($request->hasFile("containers.{$index}.pdf")) {
+                        $pdfPath = $request->file("containers.{$index}.pdf")->store('imports');
+                    }
 
-                $imagePdfPath = null;
-                if ($request->hasFile("containers.{$index}.image_pdf")) {
-                    $imagePdfPath = $request->file("containers.{$index}.image_pdf")->store('imports');
-                }
+                    $imagePdfPath = null;
+                    if ($request->hasFile("containers.{$index}.image_pdf")) {
+                        $imagePdfPath = $request->file("containers.{$index}.image_pdf")->store('imports');
+                    }
 
-                \App\Models\ImportContainer::create([
-                    'import_id' => $import->id,
-                    'reference' => $containerData['reference'],
-                    'pdf_path' => $pdfPath,
-                    'image_pdf_path' => $imagePdfPath,
-                ]);
+                    \App\Models\ImportContainer::create([
+                        'import_id' => $import->id,
+                        'reference' => $containerData['reference'],
+                        'pdf_path' => $pdfPath,
+                        'image_pdf_path' => $imagePdfPath,
+                    ]);
+                }
             }
         }
 
@@ -235,15 +406,15 @@ class ImportController extends Controller
     {
         $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
         $data = $request->validate([
-            'commercial_invoice_number' => 'required|string|max:255',
-            'origin' => 'required|string|max:255',
-            'departure_date' => 'required|date',
-            'arrival_date' => 'required|date',
+            'commercial_invoice_number' => 'nullable|string|max:255',
+            'origin' => 'nullable|string|max:255',
+            'departure_date' => 'nullable|date',
+            'arrival_date' => 'nullable|date',
             'proforma_invoice_number' => 'nullable|string|max:255',
             'bl_number' => 'nullable|string|max:255',
-            'containers' => 'required|array|min:1',
+            'containers' => 'nullable|array',
             'containers.*.id' => 'nullable|exists:import_containers,id',
-            'containers.*.reference' => 'required|string|max:255',
+            'containers.*.reference' => 'nullable|string|max:255',
             'containers.*.pdf' => 'nullable|file|mimes:pdf',
             'containers.*.image_pdf' => 'nullable|file|mimes:pdf',
             'proforma_pdf' => 'nullable|file|mimes:pdf',
@@ -327,10 +498,15 @@ class ImportController extends Controller
         
         $import->update($data);
 
-        // Handle containers
+        // Handle containers (solo si tienen referencia)
         $existingContainerIds = [];
-        if ($request->has('containers')) {
+        if ($request->has('containers') && is_array($request->containers)) {
             foreach ($request->containers as $index => $containerData) {
+                // Solo procesar contenedor si tiene referencia
+                if (empty($containerData['reference'])) {
+                    continue;
+                }
+                
                 $containerId = $containerData['id'] ?? null;
                 
                 $pdfPath = null;
@@ -1015,6 +1191,264 @@ class ImportController extends Controller
      * Export all DO reports - Genera un PDF unificado con todos los reportes de importaciones y sus PDFs adjuntos
      * Solo el admin puede acceder a este método
      */
+    /**
+     * Export imports to Excel
+     */
+    public function exportExcel(Request $request)
+    {
+        if (Auth::user()->rol !== 'admin') {
+            abort(403);
+        }
+        
+        // Aplicar los mismos filtros que en index()
+        $query = Import::with(['user', 'containers']);
+        
+        // Filtro de búsqueda (texto)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        // Filtro de fechas (fecha de llegada)
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        
+        // Filtro de tiempo de crédito
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
+        
+        // Update status based on dates
+        $this->updateImportStatuses($imports);
+        
+        // Reload to get updated statuses
+        $query = Import::with(['user', 'containers']);
+        
+        // Aplicar los mismos filtros después de actualizar estados
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
+        
+        // Filtro de porcentaje de progreso (aplicar después de calcular)
+        $progressMinValue = $request->input('progress_min');
+        if ($progressMinValue !== null && $progressMinValue !== '') {
+            $progressMin = (float) $progressMinValue;
+            
+            if ($progressMin >= 0 && $progressMin <= 100) {
+                $imports = $imports->filter(function($import) use ($progressMin) {
+                    $progress = $this->calculateProgress($import);
+                    $progressRounded = round($progress);
+                    return $progressRounded == $progressMin;
+                })->values();
+            }
+        }
+        
+        // Ordenar: pendientes por % descendente, luego completadas
+        $imports = $this->sortImportsByProgress($imports);
+        
+        $filename = 'Importaciones-' . date('Y-m-d') . '.xls';
+        
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; }
+        .header { font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+        .info { margin-bottom: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 20px; }
+        th { background-color: #0066cc; color: white; font-weight: bold; padding: 8px; border: 1px solid #000; text-align: center; }
+        td { padding: 6px; border: 1px solid #000; }
+    </style>
+</head>
+<body>
+    <div class="header">INFORME DE IMPORTACIONES</div>
+    <div class="info">Fecha: ' . date('d/m/Y H:i') . '</div>
+    <table>
+        <thead>
+            <tr>
+                <th>DO</th>
+                <th>Usuario</th>
+                <th>N° Comercial Invoice</th>
+                <th>N° Proforma Invoice</th>
+                <th>N° Bill of Lading</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th>Fecha Salida</th>
+                <th>Fecha Llegada</th>
+                <th>Fecha Creación</th>
+                <th>Naviera/Agencia</th>
+                <th>Días Libres Destino</th>
+                <th>Estado</th>
+                <th>Créditos</th>
+            </tr>
+        </thead>
+        <tbody>';
+        
+        foreach ($imports as $import) {
+            $departureDate = $import->departure_date ? \Carbon\Carbon::parse($import->departure_date) : null;
+            $arrivalDate = $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date) : null;
+            $progress = $this->calculateProgress($import);
+            $progressRounded = round($progress);
+            
+            // Determinar estado
+            $statusText = '';
+            if ($import->status === 'pending') {
+                $statusText = 'Pendiente';
+            } elseif ($import->status === 'completed') {
+                $statusText = 'Completado';
+            } elseif ($import->status === 'in_transit') {
+                $statusText = 'En tránsito';
+            } elseif ($import->status === 'recibido') {
+                $statusText = 'Recibido';
+            } else {
+                $statusText = ucfirst($import->status);
+            }
+            
+            $html .= '<tr>
+                <td>' . htmlspecialchars($import->do_code) . '</td>
+                <td>' . htmlspecialchars($import->user->nombre_completo ?? $import->user->email) . '</td>
+                <td>' . htmlspecialchars($import->commercial_invoice_number ?? '-') . '</td>
+                <td>' . htmlspecialchars($import->proforma_invoice_number ?? '-') . '</td>
+                <td>' . htmlspecialchars($import->bl_number ?? '-') . '</td>
+                <td>' . htmlspecialchars($import->origin ?? '-') . '</td>
+                <td>' . htmlspecialchars($import->destination ?? 'Colombia') . '</td>
+                <td>' . ($departureDate ? $departureDate->format('d/m/Y') : '-') . '</td>
+                <td>' . ($arrivalDate ? $arrivalDate->format('d/m/Y') : '-') . '</td>
+                <td>' . ($import->created_at ? $import->created_at->format('d/m/Y H:i') : '-') . '</td>
+                <td>' . htmlspecialchars($import->shipping_company ?? '-') . '</td>
+                <td>' . ($import->free_days_at_dest ?? '-') . '</td>
+                <td>' . htmlspecialchars($statusText) . ' (' . $progressRounded . '%)</td>
+                <td>' . ($import->credit_time ? $import->credit_time . ' días' : 'Sin crédito') . '</td>
+            </tr>';
+        }
+        
+        $html .= '</tbody>
+    </table>
+</body>
+</html>';
+        
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        return response($html, 200, $headers);
+    }
+
+    /**
+     * Calculate progress percentage for an import
+     */
+    private function calculateProgress($import)
+    {
+        if (!$import->departure_date || !$import->arrival_date) {
+            return 0;
+        }
+        
+        $departureDate = \Carbon\Carbon::parse($import->departure_date);
+        $arrivalDate = \Carbon\Carbon::parse($import->arrival_date);
+        $today = \Carbon\Carbon::now();
+        
+        $totalDays = $departureDate->diffInDays($arrivalDate);
+        
+        if ($totalDays <= 0) {
+            return 0;
+        }
+        
+        $elapsedDays = $departureDate->diffInDays($today);
+        
+        if ($elapsedDays < 0) {
+            return 0;
+        } elseif ($elapsedDays >= $totalDays) {
+            return 100;
+        } else {
+            return ($elapsedDays / $totalDays) * 100;
+        }
+    }
+
+    /**
+     * Sort imports: pending by progress % descending, then completed by arrival date descending
+     */
+    private function sortImportsByProgress($imports)
+    {
+        // Separar importaciones: las que faltan por llegar primero, luego las completadas
+        $pendingImports = $imports->filter(function($import) {
+            return $import->status !== 'completed';
+        })->values();
+        
+        $completedImports = $imports->filter(function($import) {
+            return $import->status === 'completed';
+        })->values();
+        
+        // Ordenar las que faltan por llegar: por porcentaje de progreso descendente (las más cercanas a completarse primero)
+        $pendingImports = $pendingImports->sortByDesc(function($import) {
+            return $this->calculateProgress($import);
+        })->values();
+        
+        // Ordenar las completadas: por fecha de llegada (más recientes primero)
+        $completedImports = $completedImports->sortByDesc(function($import) {
+            // Usar fecha real de llegada si existe, sino fecha estimada, sino fecha de creación
+            if ($import->actual_arrival_date) {
+                return \Carbon\Carbon::parse($import->actual_arrival_date)->timestamp;
+            } elseif ($import->arrival_date) {
+                return \Carbon\Carbon::parse($import->arrival_date)->timestamp;
+            } else {
+                return $import->created_at->timestamp;
+            }
+        })->values();
+        
+        // Combinar: primero las que faltan por llegar (ordenadas por % descendente), luego las completadas
+        return $pendingImports->merge($completedImports)->values();
+    }
+
     public function exportAllReports()
     {
         try {
@@ -1022,165 +1456,27 @@ class ImportController extends Controller
                 abort(403);
             }
             
-            // Obtener todas las importaciones ordenadas por fecha de creación
-            $imports = Import::with(['user', 'containers'])->orderBy('created_at', 'desc')->get();
+            // Obtener todas las importaciones con sus relaciones
+            $imports = Import::with(['user', 'containers'])->get();
             
             if ($imports->isEmpty()) {
                 return redirect()->route('imports.index')->with('error', 'No hay importaciones para generar el informe.');
             }
             
+            // Ordenar: pendientes por % descendente, luego completadas
+            $imports = $this->sortImportsByProgress($imports);
+            
             \Log::info('Iniciando generación de informe general. Total de importaciones: ' . $imports->count());
             
-            $isExport = true;
-            $currentUser = Auth::user();
+            // Generar el PDF del informe general con todas las importaciones en formato tabla
+            $pdf = Pdf::loadView('imports.general-report', compact('imports'));
             
-            // Crear directorio temporal si no existe
-            $tempDir = storage_path('app/temp_pdfs');
-            if (!File::exists($tempDir)) {
-                File::makeDirectory($tempDir, 0755, true);
-            }
+            $filename = 'Informe-General-Todos-los-DO-' . date('Y-m-d') . '.pdf';
             
-            // Lista de TODOS los PDFs a unificar (reportes + PDFs adjuntos de cada importación)
-            $allPdfsToMerge = [];
-            $timestamp = time();
+            \Log::info('Informe general generado exitosamente. Archivo: ' . $filename);
             
-            // Para cada importación, generar el reporte y recopilar sus PDFs adjuntos
-            foreach ($imports as $index => $import) {
-                try {
-                    \Log::info('Procesando importación ' . ($index + 1) . '/' . $imports->count() . ' - DO: ' . $import->do_code);
-                    
-                    // 1. Generar el PDF del reporte individual
-                    $pdf = Pdf::loadView('imports.report', compact('import', 'isExport', 'currentUser'));
-                    
-                    // Guardar el PDF del reporte temporalmente
-                    $reportPdfPath = $tempDir . '/report_all_' . $import->id . '_' . $timestamp . '.pdf';
-                    file_put_contents($reportPdfPath, $pdf->output());
-                    
-                    // Verificar que el reporte se guardó correctamente
-                    if (File::exists($reportPdfPath) && filesize($reportPdfPath) > 0) {
-                        // Agregar el reporte primero
-                        $allPdfsToMerge[] = [
-                            'path' => $reportPdfPath,
-                            'name' => 'Reporte ' . $import->do_code,
-                            'is_temp' => true
-                        ];
-                        \Log::info('Reporte generado exitosamente para DO: ' . $import->do_code);
-                    } else {
-                        \Log::warning('El reporte PDF no se generó correctamente para DO: ' . $import->do_code);
-                        continue; // Continuar con la siguiente importación si no se pudo generar el reporte
-                    }
-                    
-                    // 2. Recopilar todos los PDFs adjuntos de esta importación (ADMIN puede ver todos)
-                    // Proforma Invoice
-                    if ($import->proforma_pdf && Storage::exists($import->proforma_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->proforma_pdf),
-                            'name' => 'Proforma Invoice - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Proforma Invoice Low
-                    if ($import->proforma_invoice_low_pdf && Storage::exists($import->proforma_invoice_low_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->proforma_invoice_low_pdf),
-                            'name' => 'Proforma Invoice Low - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Commercial Invoice
-                    if ($import->invoice_pdf && Storage::exists($import->invoice_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->invoice_pdf),
-                            'name' => 'Commercial Invoice - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Commercial Invoice Low
-                    if ($import->commercial_invoice_low_pdf && Storage::exists($import->commercial_invoice_low_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->commercial_invoice_low_pdf),
-                            'name' => 'Commercial Invoice Low - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Packing List
-                    if ($import->packing_list_pdf && Storage::exists($import->packing_list_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->packing_list_pdf),
-                            'name' => 'Packing List - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Bill of Lading (BL)
-                    if ($import->bl_pdf && Storage::exists($import->bl_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->bl_pdf),
-                            'name' => 'Bill of Lading - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Apostillamiento
-                    if ($import->apostillamiento_pdf && Storage::exists($import->apostillamiento_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->apostillamiento_pdf),
-                            'name' => 'Apostillamiento - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // Otros Documentos
-                    if ($import->other_documents_pdf && Storage::exists($import->other_documents_pdf)) {
-                        $allPdfsToMerge[] = [
-                            'path' => storage_path('app/' . $import->other_documents_pdf),
-                            'name' => 'Otros Documentos - ' . $import->do_code,
-                            'is_temp' => false
-                        ];
-                    }
-                    
-                    // PDFs de contenedores (por cada contenedor)
-                    if ($import->containers && $import->containers->count() > 0) {
-                        foreach ($import->containers as $container) {
-                            // PDF de información del contenedor
-                            if ($container->pdf_path && Storage::exists($container->pdf_path)) {
-                                $allPdfsToMerge[] = [
-                                    'path' => storage_path('app/' . $container->pdf_path),
-                                    'name' => 'Info Contenedor ' . $container->reference . ' - ' . $import->do_code,
-                                    'is_temp' => false
-                                ];
-                            }
-                            
-                            // PDF de imágenes del contenedor
-                            if ($container->image_pdf_path && Storage::exists($container->image_pdf_path)) {
-                                $allPdfsToMerge[] = [
-                                    'path' => storage_path('app/' . $container->image_pdf_path),
-                                    'name' => 'Imágenes Contenedor ' . $container->reference . ' - ' . $import->do_code,
-                                    'is_temp' => false
-                                ];
-                            }
-                        }
-                    }
-                    
-                } catch (\Exception $e) {
-                    \Log::error('Error al procesar importación ' . $import->do_code . ': ' . $e->getMessage());
-                    continue; // Continuar con la siguiente importación
-                }
-            }
-            
-            if (empty($allPdfsToMerge)) {
-                \Log::error('No se generó ningún PDF para unificar');
-                return redirect()->route('imports.index')->with('error', 'No se pudieron generar los PDFs para unificar.');
-            }
-            
-            \Log::info('Total de PDFs a unificar: ' . count($allPdfsToMerge) . '. Iniciando unificación...');
-            
-            // Usar el método robusto de merge (similar al método report)
-            return $this->mergeAllPdfsRobust($allPdfsToMerge, $tempDir, $timestamp);
+            // Descargar el PDF
+            return $pdf->download($filename);
             
         } catch (\Exception $e) {
             \Log::error('Error fatal en exportAllReports: ' . $e->getMessage(), [
@@ -1438,19 +1734,126 @@ class ImportController extends Controller
     }
 
     // FUNCIONARIO: Show imports assigned to them
-    public function funcionarioIndex()
+    public function funcionarioIndex(Request $request)
     {
         if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
             abort(403);
         }
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
         
+        $query = Import::with(['user', 'containers']);
+        
+        // Filtro de búsqueda (texto)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        // Filtro de fechas (fecha de llegada)
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        
+        // Filtro de tiempo de crédito
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
+
         // Update status based on dates
         $this->updateImportStatuses($imports);
-        
+
         // Reload to get updated statuses
-        $imports = Import::with(['user', 'containers'])->orderByDesc('created_at')->get();
+        $query = Import::with(['user', 'containers']);
         
+        // Aplicar los mismos filtros después de actualizar estados
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_code', 'like', "%{$search}%")
+                  ->orWhere('commercial_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('proforma_invoice_number', 'like', "%{$search}%")
+                  ->orWhere('bl_number', 'like', "%{$search}%")
+                  ->orWhere('origin', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nombre_completo', 'like', "%{$search}%");
+                  });
+            });
+        }
+        if ($request->filled('date_from')) {
+            $query->where('arrival_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->where('arrival_date', '<=', $request->date_to);
+        }
+        if ($request->filled('credit_time')) {
+            if ($request->credit_time === 'sin_credito') {
+                $query->whereNull('credit_time');
+            } else {
+                $query->where('credit_time', $request->credit_time);
+            }
+        }
+        
+        $imports = $query->get();
+        
+        // Filtro de porcentaje de progreso (aplicar después de calcular)
+        $progressMinValue = $request->input('progress_min');
+        if ($progressMinValue !== null && $progressMinValue !== '') {
+            $progressMin = (float) $progressMinValue;
+            
+            if ($progressMin >= 0 && $progressMin <= 100) {
+                $imports = $imports->filter(function($import) use ($progressMin) {
+                    $progress = $this->calculateProgress($import);
+                    $progressRounded = round($progress);
+                    return $progressRounded == $progressMin;
+                })->values();
+            }
+        }
+
+        // Ordenar: pendientes por % descendente, luego completadas
+        $imports = $this->sortImportsByProgress($imports);
+
+        // Paginación manual
+        $perPage = 10;
+        $currentPage = (int) $request->get('page', 1);
+        $total = $imports->count();
+        
+        if ($total > $perPage) {
+            $items = $imports->slice(($currentPage - 1) * $perPage, $perPage)->values();
+            
+            $imports = new \Illuminate\Pagination\LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $currentPage,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+            $imports->setPath($request->url());
+        }
+
         return view('imports.funcionario-index', compact('imports'));
     }
 
@@ -1481,6 +1884,28 @@ class ImportController extends Controller
         }
         
         return redirect()->back()->with('success', 'Fecha de llegada actualizada y marcada como recibido.');
+    }
+
+    // ADMIN: Mark import as nationalized
+    public function markAsNationalized($id)
+    {
+        if (Auth::user()->rol !== 'admin') {
+            abort(403);
+        }
+        
+        $import = Import::findOrFail($id);
+        
+        // Verificar que esté completado y en 100%
+        $progress = $this->calculateProgress($import);
+        if ($import->status !== 'completed' || $progress < 100) {
+            return redirect()->back()->with('error', 'Solo se pueden nacionalizar importaciones completadas al 100%.');
+        }
+        
+        $import->update([
+            'nationalized' => true,
+        ]);
+        
+        return redirect()->back()->with('success', 'Importación marcada como nacionalizada.');
     }
 
     /**

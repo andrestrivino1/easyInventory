@@ -53,6 +53,7 @@
                 <th>Nombre</th>
                 <th>Bodega</th>
                 <th>Medidas</th>
+                <th>Contenedor</th>
                 <th>Cajas</th>
                 <th>Láminas</th>
                 <th>Estado</th>
@@ -60,19 +61,73 @@
         </thead>
         <tbody>
             @foreach($products as $product)
+            @php
+                // Determinar la bodega a mostrar
+                $warehouseIdToShow = null;
+                $warehouseName = '-';
+                if (isset($product->container_warehouse_id)) {
+                    $warehouseIdToShow = $product->container_warehouse_id;
+                } elseif ($selectedWarehouseId) {
+                    $warehouseIdToShow = $selectedWarehouseId;
+                }
+                
+                if ($warehouseIdToShow) {
+                    $warehouse = $warehouses->where('id', $warehouseIdToShow)->first();
+                    if ($warehouse) {
+                        $warehouseName = $warehouse->nombre . ($warehouse->ciudad ? ' - ' . $warehouse->ciudad : '');
+                    }
+                } elseif (!$selectedWarehouseId) {
+                    $warehouseName = 'Todas';
+                }
+                
+                // Obtener referencia de contenedor
+                $containerRef = '-';
+                if (isset($product->container_reference)) {
+                    $containerRef = $product->container_reference;
+                } elseif (isset($productosCantidadesPorContenedor) && $productosCantidadesPorContenedor->has($product->id)) {
+                    $cantidadesPorContenedor = $productosCantidadesPorContenedor->get($product->id);
+                    $containerRefs = $cantidadesPorContenedor->pluck('container_reference')->unique()->filter()->implode(', ');
+                    $containerRef = $containerRefs ?: '-';
+                }
+                
+                // Calcular cajas
+                $cajas = '-';
+                if (isset($product->cajas_en_contenedor)) {
+                    $cajas = number_format($product->cajas_en_contenedor, 0);
+                } elseif ($product->tipo_medida === 'caja') {
+                    $laminas = isset($product->laminas_en_contenedor) ? $product->laminas_en_contenedor : 0;
+                    if ($laminas > 0 && $product->unidades_por_caja > 0) {
+                        $cajas = number_format(ceil($laminas / $product->unidades_por_caja), 0);
+                    } elseif (isset($productosStockPorBodega) && $productosStockPorBodega->has($product->id)) {
+                        $stockPorBodega = $productosStockPorBodega->get($product->id);
+                        $stock = $warehouseIdToShow ? $stockPorBodega->get($warehouseIdToShow, 0) : $stockPorBodega->sum();
+                        if ($stock > 0 && $product->unidades_por_caja > 0) {
+                            $cajas = number_format(ceil($stock / $product->unidades_por_caja), 0);
+                        }
+                    }
+                }
+                
+                // Calcular láminas
+                $laminas = 0;
+                if (isset($product->laminas_en_contenedor)) {
+                    $laminas = $product->laminas_en_contenedor;
+                } elseif (isset($productosStockPorBodega) && $productosStockPorBodega->has($product->id)) {
+                    $stockPorBodega = $productosStockPorBodega->get($product->id);
+                    if ($warehouseIdToShow) {
+                        $laminas = $stockPorBodega->get($warehouseIdToShow, 0);
+                    } else {
+                        $laminas = $stockPorBodega->sum();
+                    }
+                }
+            @endphp
             <tr>
                 <td>{{ $product->codigo }}</td>
                 <td>{{ $product->nombre }}</td>
-                <td>{{ $product->almacen->nombre ?? '-' }}</td>
+                <td>{{ $warehouseName }}</td>
                 <td>{{ $product->medidas ?? '-' }}</td>
-                <td>
-                    @if($product->tipo_medida === 'caja' && $product->cajas !== null)
-                        {{ number_format($product->cajas, 0) }}
-                    @else
-                        -
-                    @endif
-                </td>
-                <td>{{ number_format($product->stock, 0) }}</td>
+                <td>{{ $containerRef }}</td>
+                <td>{{ $cajas }}</td>
+                <td>{{ number_format($laminas, 0) }}</td>
                 <td>{{ $product->estado ? 'Activo' : 'Inactivo' }}</td>
             </tr>
             @endforeach
@@ -89,6 +144,7 @@
         <thead>
             <tr>
                 <th>Referencia</th>
+                <th>Bodega</th>
                 <th>Productos</th>
                 <th>Total Cajas</th>
                 <th>Total Láminas</th>
@@ -104,9 +160,14 @@
                     $totalBoxes += $product->pivot->boxes;
                     $totalSheets += ($product->pivot->boxes * $product->pivot->sheets_per_box);
                 }
+                $warehouseName = '-';
+                if ($container->warehouse) {
+                    $warehouseName = $container->warehouse->nombre . ($container->warehouse->ciudad ? ' - ' . $container->warehouse->ciudad : '');
+                }
             @endphp
             <tr>
                 <td><strong>{{ $container->reference }}</strong></td>
+                <td>{{ $warehouseName }}</td>
                 <td>
                     @foreach($container->products as $product)
                         {{ $product->nombre }} ({{ $product->pivot->boxes }} cajas × {{ $product->pivot->sheets_per_box }} láminas)@if(!$loop->last)<br>@endif

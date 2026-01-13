@@ -176,8 +176,8 @@
             </div>
 
             <div class="form-group">
-                <label for="commercial_invoice_number">{{ __('common.comercial_invoice') }} *</label>
-                <input type="text" name="commercial_invoice_number" id="commercial_invoice_number" class="@error('commercial_invoice_number') is-invalid @enderror" value="{{ old('commercial_invoice_number') }}" placeholder="{{ __('common.comercial_invoice') }}" required />
+                <label for="commercial_invoice_number">{{ __('common.comercial_invoice') }}</label>
+                <input type="text" name="commercial_invoice_number" id="commercial_invoice_number" class="@error('commercial_invoice_number') is-invalid @enderror" value="{{ old('commercial_invoice_number') }}" placeholder="{{ __('common.comercial_invoice') }}" />
                 @error('commercial_invoice_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
@@ -194,8 +194,8 @@
             </div>
 
             <div class="form-group">
-                <label for="origin">{{ __('common.origen') }} *</label>
-                <input type="text" name="origin" id="origin" class="@error('origin') is-invalid @enderror" value="{{ old('origin') }}" placeholder="{{ __('common.origen') }}" required />
+                <label for="origin">{{ __('common.origen') }}</label>
+                <input type="text" name="origin" id="origin" class="@error('origin') is-invalid @enderror" value="{{ old('origin') }}" placeholder="{{ __('common.origen') }}" />
                 @error('origin') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
@@ -205,19 +205,19 @@
             </div>
 
             <div class="form-group">
-                <label for="departure_date">{{ __('common.fecha_salida') }} *</label>
-                <input type="date" name="departure_date" id="departure_date" class="@error('departure_date') is-invalid @enderror" value="{{ old('departure_date') }}" required />
+                <label for="departure_date">{{ __('common.fecha_salida') }}</label>
+                <input type="date" name="departure_date" id="departure_date" class="@error('departure_date') is-invalid @enderror" value="{{ old('departure_date') }}" />
                 @error('departure_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
-                <label for="arrival_date">{{ __('common.fecha_llegada') }} *</label>
-                <input type="date" name="arrival_date" id="arrival_date" class="@error('arrival_date') is-invalid @enderror" value="{{ old('arrival_date') }}" required />
+                <label for="arrival_date">{{ __('common.fecha_llegada') }}</label>
+                <input type="date" name="arrival_date" id="arrival_date" class="@error('arrival_date') is-invalid @enderror" value="{{ old('arrival_date') }}" />
                 @error('arrival_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
-                <label>{{ __('common.contenedores') }} *</label>
+                <label>{{ __('common.contenedores') }}</label>
                 <div id="containers-container">
                     <div class="container-item" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #f9f9f9;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -225,8 +225,8 @@
                             <button type="button" class="btn-remove-container" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; display: none;">{{ __('common.eliminar') }}</button>
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
-                            <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.referencia') }} *</label>
-                            <input type="text" name="containers[0][reference]" id="container_ref_0" class="form-control" style="padding: 8px 12px; font-size: 14px;" required />
+                            <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.referencia') }}</label>
+                            <input type="text" name="containers[0][reference]" id="container_ref_0" class="form-control" style="padding: 8px 12px; font-size: 14px;" />
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.pdf_informacion_contenedor') }}</label>
@@ -397,8 +397,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button type="button" class="btn-remove-container" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">{{ __('common.eliminar') }}</button>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.referencia') }} *</label>
-                    <input type="text" name="containers[${containerCount}][reference]" id="container_ref_${containerCount}" class="form-control" style="padding: 8px 12px; font-size: 14px;" required />
+                    <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.referencia') }}</label>
+                    <input type="text" name="containers[${containerCount}][reference]" id="container_ref_${containerCount}" class="form-control" style="padding: 8px 12px; font-size: 14px;" />
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 13px; margin-bottom: 4px;">{{ __('common.pdf_informacion_contenedor') }}</label>

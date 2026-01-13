@@ -85,16 +85,24 @@
                     $canExport = $user && $user->rol === 'admin'; // Solo admin puede descargar
                 @endphp
                 @if($isAdmin)
-                <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
-                    <label for="warehouse_id">Filtrar por Bodega:</label>
-                    <select name="warehouse_id" id="warehouse_id" onchange="this.form.submit()">
-                        <option value="">Todos los bodegas</option>
-                        @foreach($warehouses as $warehouse)
-                            <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
-                                {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
-                            </option>
-                        @endforeach
-                    </select>
+                <form method="GET" action="{{ route('stock.index') }}" id="filter-form" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="warehouse_id">Bodega:</label>
+                        <select name="warehouse_id" id="warehouse_id" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px;">
+                            <option value="">Todas los bodegas</option>
+                            @foreach($warehouses as $warehouse)
+                                <option value="{{ $warehouse->id }}" {{ $selectedWarehouseId == $warehouse->id ? 'selected' : '' }}>
+                                    {{ $warehouse->nombre }}{{ $warehouse->ciudad ? ' - ' . $warehouse->ciudad : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" style="background: #0066cc; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        <i class="bi bi-funnel"></i> Filtrar
+                    </button>
+                    <a href="{{ route('stock.index') }}" style="background: #6c757d; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; text-decoration: none;">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </a>
                 </form>
                 @elseif(($isFuncionario || $isCliente) && $warehouses->count() > 1)
                 <form method="GET" action="{{ route('stock.index') }}" style="display: flex; align-items: center; gap: 15px;">
@@ -133,12 +141,20 @@
         </div>
 
         <!-- Sección de Productos -->
-        <div class="section-title">
-            <i class="bi bi-box-seam me-2"></i>Productos
-            @if($selectedWarehouseId)
-                <span style="font-size: 14px; font-weight: normal; color: #666;">
-                    - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
-                </span>
+        <div id="products-section">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <i class="bi bi-box-seam me-2"></i>Productos
+                @if($selectedWarehouseId)
+                    <span style="font-size: 14px; font-weight: normal; color: #666;">
+                        - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
+                    </span>
+                @endif
+            </div>
+            @if($canExport)
+            <a href="{{ route('stock.export-excel-products', request()->query()) }}" class="btn btn-sm btn-success" style="padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 500; background: #28a745; color: white; font-size: 12px;">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
             @endif
         </div>
         <!-- Búsqueda de productos -->
@@ -289,6 +305,7 @@
         </div>
         
         <!-- Paginación -->
+        <div id="products-pagination">
         @if(method_exists($products, 'total') && $products->total() > $products->perPage())
         <div style="padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
@@ -305,18 +322,28 @@
             Mostrando {{ $products->total() }} producto(s)
         </div>
         @endif
+        </div>
+        </div>
 
         <!-- Sección de Contenedores -->
         @php
             $bodegasQueRecibenIds = is_array($bodegasQueRecibenContenedores) ? $bodegasQueRecibenContenedores : [];
         @endphp
         @if(!$selectedWarehouseId || in_array($selectedWarehouseId, $bodegasQueRecibenIds))
-        <div class="section-title">
-            <i class="bi bi-box me-2"></i>Contenedores
-            @if($selectedWarehouseId)
-                <span style="font-size: 14px; font-weight: normal; color: #666;">
-                    - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
-                </span>
+        <div id="containers-section">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <i class="bi bi-box me-2"></i>Contenedores
+                @if($selectedWarehouseId)
+                    <span style="font-size: 14px; font-weight: normal; color: #666;">
+                        - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
+                    </span>
+                @endif
+            </div>
+            @if($canExport)
+            <a href="{{ route('stock.export-excel-containers', request()->query()) }}" class="btn btn-sm btn-success" style="padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 500; background: #28a745; color: white; font-size: 12px;">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
             @endif
         </div>
         <!-- Búsqueda de contenedores -->
@@ -331,6 +358,7 @@
                 <thead>
                     <tr>
                         <th>Referencia</th>
+                        <th>Bodega</th>
                         <th>Productos</th>
                         <th>Total Cajas</th>
                         <th>Total Láminas</th>
@@ -349,6 +377,13 @@
                     @endphp
                     <tr>
                         <td><strong>{{ $container->reference }}</strong></td>
+                        <td>
+                            @if($container->warehouse)
+                                <span style="font-weight: 500;">{{ $container->warehouse->nombre }}{{ $container->warehouse->ciudad ? ' - ' . $container->warehouse->ciudad : '' }}</span>
+                            @else
+                                <span style="color: #666; font-style: italic;">-</span>
+                            @endif
+                        </td>
                         <td>
                             @if($container->products->count() > 0)
                                 <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -372,7 +407,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
+                        <td colspan="6" class="text-center text-muted py-4">
                             <i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br>
                             <div class="mt-2">No hay contenedores registrados.</div>
                         </td>
@@ -381,17 +416,74 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Paginación Contenedores -->
+        <div id="containers-pagination">
+        @if(method_exists($containers, 'total') && $containers->total() > $containers->perPage())
+        <div style="padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #666; font-size: 14px;">
+                    Mostrando {{ $containers->firstItem() ?? 0 }} - {{ $containers->lastItem() ?? 0 }} de {{ $containers->total() }} contenedores
+                </div>
+                <div>
+                    {!! $containers->appends(request()->query())->links() !!}
+                </div>
+            </div>
+        </div>
+        @elseif(method_exists($containers, 'total') && $containers->total() > 0)
+        <div style="padding: 15px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
+            Mostrando {{ $containers->total() }} contenedor(es)
+        </div>
+        @endif
+        </div>
+        </div>
         @endif
 
         <!-- Sección de Transferencias -->
-        <div class="section-title">
-            <i class="bi bi-arrow-left-right me-2"></i>Transferencias
-            @if($selectedWarehouseId)
-                <span style="font-size: 14px; font-weight: normal; color: #666;">
-                    - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
-                </span>
+        <div id="transfers-section">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <i class="bi bi-arrow-left-right me-2"></i>Transferencias
+                @if($selectedWarehouseId)
+                    <span style="font-size: 14px; font-weight: normal; color: #666;">
+                        - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
+                    </span>
+                @endif
+            </div>
+            @if($canExport)
+            <a href="{{ route('stock.export-excel-transfers', request()->query()) }}" class="btn btn-sm btn-success" style="padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 500; background: #28a745; color: white; font-size: 12px;">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
             @endif
         </div>
+        <!-- Filtro de fechas para transferencias -->
+        <form method="GET" action="{{ route('stock.index') }}" id="transfers-date-filter" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            @foreach(request()->except(['transfers_date_from', 'transfers_date_to', 'transfers_page']) as $key => $value)
+                @if(is_array($value))
+                    @foreach($value as $k => $v)
+                        <input type="hidden" name="{{ $key }}[{{ $k }}]" value="{{ $v }}">
+                    @endforeach
+                @else
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endif
+            @endforeach
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="transfers_date_from" style="font-weight: 500; color: #333; margin: 0;">Desde:</label>
+                <input type="date" name="transfers_date_from" id="transfers_date_from" value="{{ request('transfers_date_from') }}" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="transfers_date_to" style="font-weight: 500; color: #333; margin: 0;">Hasta:</label>
+                <input type="date" name="transfers_date_to" id="transfers_date_to" value="{{ request('transfers_date_to') }}" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px;">
+            </div>
+            <button type="submit" style="background: #0066cc; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+            @if(request('transfers_date_from') || request('transfers_date_to'))
+            <a href="{{ route('stock.index', array_merge(request()->except(['transfers_date_from', 'transfers_date_to', 'transfers_page']))) }}" style="background: #6c757d; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; text-decoration: none; font-size: 13px;">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+            @endif
+        </form>
         <!-- Búsqueda de transferencias -->
         <div class="mb-3" style="max-width: 400px;">
             <div style="position: relative;">
@@ -461,16 +553,73 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Paginación Transferencias -->
+        <div id="transfers-pagination">
+        @if(method_exists($transferOrders, 'total') && $transferOrders->total() > $transferOrders->perPage())
+        <div style="padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #666; font-size: 14px;">
+                    Mostrando {{ $transferOrders->firstItem() ?? 0 }} - {{ $transferOrders->lastItem() ?? 0 }} de {{ $transferOrders->total() }} transferencias
+                </div>
+                <div>
+                    {!! $transferOrders->appends(request()->query())->links() !!}
+                </div>
+            </div>
+        </div>
+        @elseif(method_exists($transferOrders, 'total') && $transferOrders->total() > 0)
+        <div style="padding: 15px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
+            Mostrando {{ $transferOrders->total() }} transferencia(s)
+        </div>
+        @endif
+        </div>
+        </div>
 
         <!-- Sección de Salidas -->
-        <div class="section-title">
-            <i class="bi bi-box-arrow-up-right me-2"></i>Salidas
-            @if($selectedWarehouseId)
-                <span style="font-size: 14px; font-weight: normal; color: #666;">
-                    - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
-                </span>
+        <div id="salidas-section">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <i class="bi bi-box-arrow-up-right me-2"></i>Salidas
+                @if($selectedWarehouseId)
+                    <span style="font-size: 14px; font-weight: normal; color: #666;">
+                        - {{ $warehouses->where('id', $selectedWarehouseId)->first()->nombre ?? '' }}
+                    </span>
+                @endif
+            </div>
+            @if($canExport)
+            <a href="{{ route('stock.export-excel-salidas', request()->query()) }}" class="btn btn-sm btn-success" style="padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 500; background: #28a745; color: white; font-size: 12px;">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
             @endif
         </div>
+        <!-- Filtro de fechas para salidas -->
+        <form method="GET" action="{{ route('stock.index') }}" id="salidas-date-filter" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            @foreach(request()->except(['salidas_date_from', 'salidas_date_to', 'salidas_page']) as $key => $value)
+                @if(is_array($value))
+                    @foreach($value as $k => $v)
+                        <input type="hidden" name="{{ $key }}[{{ $k }}]" value="{{ $v }}">
+                    @endforeach
+                @else
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endif
+            @endforeach
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="salidas_date_from" style="font-weight: 500; color: #333; margin: 0;">Desde:</label>
+                <input type="date" name="salidas_date_from" id="salidas_date_from" value="{{ request('salidas_date_from') }}" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="salidas_date_to" style="font-weight: 500; color: #333; margin: 0;">Hasta:</label>
+                <input type="date" name="salidas_date_to" id="salidas_date_to" value="{{ request('salidas_date_to') }}" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px;">
+            </div>
+            <button type="submit" style="background: #0066cc; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+            @if(request('salidas_date_from') || request('salidas_date_to'))
+            <a href="{{ route('stock.index', array_merge(request()->except(['salidas_date_from', 'salidas_date_to', 'salidas_page']))) }}" style="background: #6c757d; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; text-decoration: none; font-size: 13px;">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+            @endif
+        </form>
         <!-- Búsqueda de salidas -->
         <div class="mb-3" style="max-width: 400px;">
             <div style="position: relative;">
@@ -535,6 +684,27 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Paginación Salidas -->
+        <div id="salidas-pagination">
+        @if(method_exists($salidas, 'total') && $salidas->total() > $salidas->perPage())
+        <div style="padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #666; font-size: 14px;">
+                    Mostrando {{ $salidas->firstItem() ?? 0 }} - {{ $salidas->lastItem() ?? 0 }} de {{ $salidas->total() }} salidas
+                </div>
+                <div>
+                    {!! $salidas->appends(request()->query())->links() !!}
+                </div>
+            </div>
+        </div>
+        @elseif(method_exists($salidas, 'total') && $salidas->total() > 0)
+        <div style="padding: 15px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
+            Mostrando {{ $salidas->total() }} salida(s)
+        </div>
+        @endif
+        </div>
+        </div>
     </div>
 </div>
 @endsection
@@ -595,6 +765,168 @@ document.addEventListener("DOMContentLoaded", function() {
                 row.style.display = text.includes(searchTerm) ? '' : 'none';
             });
         });
+    }
+    
+    // Usar delegación de eventos para paginación AJAX (funciona con contenido dinámico)
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (!link || !link.href) return;
+        
+        const url = new URL(link.href);
+        const pathname = url.pathname;
+        const currentPath = window.location.pathname;
+        
+        // Verificar que es una petición a la misma página de stock
+        if (pathname !== currentPath) return;
+        
+        // Verificar si es un link de paginación
+        const isProductsPage = url.searchParams.has('products_page');
+        const isContainersPage = url.searchParams.has('containers_page');
+        const isTransfersPage = url.searchParams.has('transfers_page');
+        const isSalidasPage = url.searchParams.has('salidas_page');
+        
+        if (!isProductsPage && !isContainersPage && !isTransfersPage && !isSalidasPage) return;
+        
+        e.preventDefault();
+        
+        // Determinar qué sección actualizar
+        let sectionId, pageParam;
+        if (isProductsPage) {
+            sectionId = 'products-section';
+            pageParam = 'products_page';
+        } else if (isContainersPage) {
+            sectionId = 'containers-section';
+            pageParam = 'containers_page';
+        } else if (isTransfersPage) {
+            sectionId = 'transfers-section';
+            pageParam = 'transfers_page';
+        } else if (isSalidasPage) {
+            sectionId = 'salidas-section';
+            pageParam = 'salidas_page';
+        }
+        
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+        
+        // Mostrar indicador de carga
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'loading-' + sectionId;
+        loadingIndicator.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 9999;';
+        loadingIndicator.innerHTML = '<div style="text-align: center;"><i class="bi bi-hourglass-split" style="font-size: 24px; display: block; margin-bottom: 10px;"></i>Cargando...</div>';
+        document.body.appendChild(loadingIndicator);
+        
+        // Hacer petición AJAX
+        fetch(link.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Crear un elemento temporal para parsear el HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // Extraer solo la sección correspondiente del HTML recibido
+            const newSection = tempDiv.querySelector('#' + sectionId);
+            if (newSection) {
+                // Reemplazar la sección completa
+                section.outerHTML = newSection.outerHTML;
+                
+                // Re-inicializar búsquedas para la nueva sección
+                initializeSearch();
+                
+                // Scroll suave hacia la sección actualizada
+                const updatedSection = document.getElementById(sectionId);
+                if (updatedSection) {
+                    updatedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+            
+            // Actualizar URL sin recargar
+            window.history.pushState({}, '', link.href);
+        })
+        .catch(error => {
+            console.error('Error en paginación AJAX:', error);
+            // Si falla, hacer navegación normal
+            window.location.href = link.href;
+        })
+        .finally(() => {
+            // Remover indicador de carga
+            const loading = document.getElementById('loading-' + sectionId);
+            if (loading) {
+                loading.remove();
+            }
+        });
+    });
+    
+    function initializeSearch() {
+        // Re-inicializar búsquedas después de actualizar contenido
+        const searchProducts = document.getElementById('search-products-stock');
+        const productsTable = document.getElementById('products-stock-table');
+        if (searchProducts && productsTable) {
+            // Remover listeners anteriores si existen
+            const newSearchProducts = searchProducts.cloneNode(true);
+            searchProducts.parentNode.replaceChild(newSearchProducts, searchProducts);
+            
+            newSearchProducts.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const rows = productsTable.querySelectorAll('tbody tr');
+                rows.forEach(function(row) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            });
+        }
+        
+        const searchContainers = document.getElementById('search-containers');
+        const containersTable = document.getElementById('containers-table');
+        if (searchContainers && containersTable) {
+            const newSearchContainers = searchContainers.cloneNode(true);
+            searchContainers.parentNode.replaceChild(newSearchContainers, searchContainers);
+            
+            newSearchContainers.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const rows = containersTable.querySelectorAll('tbody tr');
+                rows.forEach(function(row) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            });
+        }
+        
+        const searchTransfers = document.getElementById('search-transfers');
+        const transfersTable = document.getElementById('transfers-table');
+        if (searchTransfers && transfersTable) {
+            const newSearchTransfers = searchTransfers.cloneNode(true);
+            searchTransfers.parentNode.replaceChild(newSearchTransfers, searchTransfers);
+            
+            newSearchTransfers.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const rows = transfersTable.querySelectorAll('tbody tr');
+                rows.forEach(function(row) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            });
+        }
+        
+        const searchSalidas = document.getElementById('search-salidas');
+        const salidasTable = document.getElementById('salidas-table');
+        if (searchSalidas && salidasTable) {
+            const newSearchSalidas = searchSalidas.cloneNode(true);
+            searchSalidas.parentNode.replaceChild(newSearchSalidas, searchSalidas);
+            
+            newSearchSalidas.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const rows = salidasTable.querySelectorAll('tbody tr');
+                rows.forEach(function(row) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            });
+        }
     }
 });
 </script>

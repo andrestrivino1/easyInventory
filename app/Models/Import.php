@@ -19,6 +19,7 @@ class Import extends Model
         'actual_arrival_date',
         'received_at',
         'status',
+        'nationalized',
         'files',
         'credits',
         'do_code',

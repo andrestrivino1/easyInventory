@@ -2,29 +2,116 @@
 
 @section('content')
 <style>
+    .table-wrapper {
+        overflow-x: auto;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 20px;
+    }
+    .table-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+    .table-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
     .imports-table {
         width: 100%;
+        min-width: 1800px;
         border-collapse: collapse;
         background: white;
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-        font-size: 14px;
+        font-size: 12px;
     }
     .imports-table th {
         background: #0066cc;
         color: white;
         text-align: left;
-        padding: 16px 18px;
-        font-size: 15px;
+        padding: 10px 8px;
+        font-size: 11px;
         font-weight: 600;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
     }
     .imports-table td {
-        padding: 16px 18px;
+        padding: 10px 8px;
         border-bottom: 1px solid #ebebeb;
         vertical-align: middle;
-        font-size: 14px;
+        font-size: 11px;
+    }
+    .imports-table th:nth-child(1),
+    .imports-table td:nth-child(1) {
+        min-width: 90px;
+        max-width: 90px;
+    }
+    .imports-table th:nth-child(2),
+    .imports-table td:nth-child(2) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    .imports-table th:nth-child(3),
+    .imports-table td:nth-child(3),
+    .imports-table th:nth-child(4),
+    .imports-table td:nth-child(4),
+    .imports-table th:nth-child(5),
+    .imports-table td:nth-child(5) {
+        min-width: 110px;
+        max-width: 110px;
+    }
+    .imports-table th:nth-child(6),
+    .imports-table td:nth-child(6),
+    .imports-table th:nth-child(7),
+    .imports-table td:nth-child(7) {
+        min-width: 100px;
+        max-width: 100px;
+    }
+    .imports-table th:nth-child(8),
+    .imports-table td:nth-child(8),
+    .imports-table th:nth-child(9),
+    .imports-table td:nth-child(9),
+    .imports-table th:nth-child(10),
+    .imports-table td:nth-child(10) {
+        min-width: 100px;
+        max-width: 100px;
+    }
+    .imports-table th:nth-child(11),
+    .imports-table td:nth-child(11) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    .imports-table th:nth-child(12),
+    .imports-table td:nth-child(12) {
+        min-width: 80px;
+        max-width: 80px;
+    }
+    .imports-table th:nth-child(13),
+    .imports-table td:nth-child(13) {
+        min-width: 100px;
+        max-width: 100px;
+    }
+    .imports-table th:nth-child(14),
+    .imports-table td:nth-child(14) {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    .imports-table th:nth-child(15),
+    .imports-table td:nth-child(15) {
+        min-width: 200px;
+        max-width: 200px;
+    }
+    .imports-table th:nth-child(16),
+    .imports-table td:nth-child(16) {
+        min-width: 120px;
+        max-width: 120px;
     }
     .imports-table tbody tr:last-child td {
         border-bottom: none;
@@ -33,9 +120,9 @@
         background: #f2f8ff;
     }
     .status-badge {
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 10px;
         font-weight: 500;
         display: inline-block;
     }
@@ -56,33 +143,34 @@
     }
     .progress-bar-wrapper {
         background: #e9ecef;
-        border-radius: 10px;
-        height: 20px;
+        border-radius: 8px;
+        height: 16px;
         overflow: hidden;
         position: relative;
+        margin-top: 4px;
     }
     .progress-bar-fill {
         height: 100%;
         background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
-        border-radius: 10px;
+        border-radius: 8px;
         transition: width 0.3s ease;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 11px;
+        font-size: 9px;
         font-weight: 600;
     }
     .file-viewer {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
-        padding: 3px 8px;
+        gap: 2px;
+        padding: 2px 6px;
         background: #e3f2fd;
         color: #1565c0;
-        border-radius: 4px;
+        border-radius: 3px;
         text-decoration: none;
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 500;
         transition: background 0.2s;
         white-space: nowrap;
@@ -177,6 +265,7 @@
             </div>
         </div>
         
+        <div class="table-wrapper">
         <table class="imports-table" id="imports-table">
             <thead>
                 <tr>
@@ -189,6 +278,7 @@
                     <th>Destino</th>
                     <th>Fecha Salida</th>
                     <th>Fecha Llegada</th>
+                    <th>Fecha Creación</th>
                     <th>Naviera/Agencia</th>
                     <th>Días Libres Destino</th>
                     <th>Estado</th>
@@ -225,15 +315,41 @@
                 @endphp
                 <tr>
                     <td><strong>{{ $import->do_code }}</strong></td>
-                    <td>{{ $import->user->nombre_completo ?? $import->user->email }}</td>
-                    <td>{{ $import->commercial_invoice_number ?? $import->product_name ?? '-' }}</td>
-                    <td>{{ $import->proforma_invoice_number ?? '-' }}</td>
-                    <td>{{ $import->bl_number ?? '-' }}</td>
+                    <td style="word-break: break-word;">
+                        @php
+                            $userName = $import->user->nombre_completo ?? $import->user->email;
+                            echo strlen($userName) > 20 ? substr($userName, 0, 17) . '...' : $userName;
+                        @endphp
+                    </td>
+                    <td style="word-break: break-word;">
+                        @php
+                            $invoice = $import->commercial_invoice_number ?? $import->product_name ?? '-';
+                            echo strlen($invoice) > 15 ? substr($invoice, 0, 12) . '...' : $invoice;
+                        @endphp
+                    </td>
+                    <td style="word-break: break-word;">
+                        @php
+                            $proforma = $import->proforma_invoice_number ?? '-';
+                            echo strlen($proforma) > 15 ? substr($proforma, 0, 12) . '...' : $proforma;
+                        @endphp
+                    </td>
+                    <td style="word-break: break-word;">
+                        @php
+                            $bl = $import->bl_number ?? '-';
+                            echo strlen($bl) > 15 ? substr($bl, 0, 12) . '...' : $bl;
+                        @endphp
+                    </td>
                     <td>{{ $import->origin ?? '-' }}</td>
                     <td>{{ $import->destination ?? 'Colombia' }}</td>
-                    <td>{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
-                    <td>{{ $import->arrival_date ? $arrivalDate->format('d/m/Y') : '-' }}</td>
-                    <td>{{ $import->shipping_company ?? '-' }}</td>
+                    <td style="white-space: nowrap;">{{ $import->departure_date ? $departureDate->format('d/m/Y') : '-' }}</td>
+                    <td style="white-space: nowrap;">{{ $import->arrival_date ? $arrivalDate->format('d/m/Y') : '-' }}</td>
+                    <td style="white-space: nowrap; font-size: 10px;">{{ $import->created_at ? $import->created_at->format('d/m/Y H:i') : '-' }}</td>
+                    <td style="word-break: break-word;">
+                        @php
+                            $naviera = $import->shipping_company ?? '-';
+                            echo strlen($naviera) > 15 ? substr($naviera, 0, 12) . '...' : $naviera;
+                        @endphp
+                    </td>
                     <td>{{ $import->free_days_at_dest ?? '-' }}</td>
                     <td>
                         <div>
@@ -391,6 +507,14 @@
             @endforelse
             </tbody>
         </table>
+        </div>
+        
+        <!-- Paginación -->
+        @if(method_exists($imports, 'links'))
+        <div style="margin-top: 20px; display: flex; justify-content: center;">
+            {{ $imports->appends(request()->query())->links() }}
+        </div>
+        @endif
     </div>
 </div>
 @endsection
