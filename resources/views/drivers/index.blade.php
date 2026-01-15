@@ -24,19 +24,71 @@
 .driver-table tr:hover {
     background: #f1f7ff;
 }
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+}
+.actions form {
+    display: inline-block;
+    margin: 0;
+    width: 100%;
+}
 .actions button, .actions a {
     padding: 6px 12px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
-    margin-right: 6px;
-    display:inline-block;
-    text-decoration:none;
+    display: block;
+    text-decoration: none;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
 }
 .btn-edit {background: #1d7ff0; color: white;}
 .btn-delete {background: #ffb3b3; color: #b30000;}
 .actions button:hover, .actions a:hover { opacity: 0.85; }
+.driver-photo, .vehicle-photo {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 2px solid #e0e0e0;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    display: block;
+}
+.driver-photo:hover, .vehicle-photo:hover {
+    transform: scale(1.1);
+    border-color: #0066cc;
+    z-index: 10;
+    position: relative;
+}
+.photo-container {
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+}
+.photo-placeholder {
+    width: 60px;
+    height: 60px;
+    background: #f0f0f0;
+    border-radius: 6px;
+    border: 2px dashed #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 11px;
+    text-align: center;
+    padding: 5px;
+    box-sizing: border-box;
+}
 </style>
 <div class="container-fluid" style="padding-top:32px; min-height:88vh;">
   <div class="mx-auto" style="max-width:1050px;">
@@ -59,10 +111,14 @@
     <table class="driver-table" id="drivers-table">
       <thead>
         <tr>
+          <th>Foto Conductor</th>
           <th>Nombre</th>
           <th>Cédula</th>
           <th>Teléfono</th>
           <th>Placa</th>
+          <th>Foto Vehículo</th>
+          <th>Propietario</th>
+          <th>Fecha Seg. Social</th>
           <th>Estado</th>
           <th style="min-width:120px">Acciones</th>
         </tr>
@@ -70,10 +126,48 @@
       <tbody>
         @forelse($drivers as $driver)
         <tr>
+          <td class="photo-container">
+            @if($driver->photo_path)
+              <img src="{{ route('drivers.photo', $driver) }}" alt="Foto de {{ $driver->name }}" class="driver-photo" onclick="window.open('{{ route('drivers.photo', $driver) }}', '_blank')">
+            @else
+              <div class="photo-placeholder">Sin foto</div>
+            @endif
+          </td>
           <td>{{ $driver->name }}</td>
           <td>{{ $driver->identity }}</td>
           <td>{{ $driver->phone }}</td>
           <td>{{ $driver->vehicle_plate }}</td>
+          <td class="photo-container">
+            @if($driver->vehicle_photo_path)
+              <img src="{{ route('drivers.vehicle-photo', $driver) }}" alt="Foto vehículo {{ $driver->vehicle_plate }}" class="vehicle-photo" onclick="window.open('{{ route('drivers.vehicle-photo', $driver) }}', '_blank')">
+            @else
+              <div class="photo-placeholder">Sin foto</div>
+            @endif
+          </td>
+          <td>{{ $driver->vehicle_owner ?? '-' }}</td>
+          <td>
+            @if($driver->social_security_date)
+              @php
+                $securityDate = \Carbon\Carbon::parse($driver->social_security_date);
+                $isExpired = \Carbon\Carbon::today()->greaterThan($securityDate);
+              @endphp
+              <span style="color: {{ $isExpired ? '#dc3545' : '#333' }}; font-weight: {{ $isExpired ? 'bold' : 'normal' }};">
+                {{ $securityDate->format('d/m/Y') }}
+              </span>
+              @if($driver->social_security_pdf)
+                <a href="{{ route('drivers.social-security-pdf', $driver) }}" target="_blank" style="margin-left: 5px; color: #dc3545;" title="Ver PDF">
+                  <i class="bi bi-file-pdf"></i>
+                </a>
+              @endif
+              @if($isExpired)
+                <span style="color: #dc3545; margin-left: 5px;" title="Seguridad social vencida">
+                  <i class="bi bi-exclamation-triangle"></i>
+                </span>
+              @endif
+            @else
+              -
+            @endif
+          </td>
           <td>
             @if($driver->active)
               <span class="badge bg-success">Activo</span>
@@ -84,7 +178,7 @@
           <td class="actions">
             <a href="{{ route('drivers.edit', $driver) }}" class="btn-edit">Editar</a>
             @if($driver->active)
-            <form action="{{ route('drivers.destroy', $driver) }}" method="POST" style="display:inline;">
+            <form action="{{ route('drivers.destroy', $driver) }}" method="POST">
               @csrf @method('DELETE')
               <button type="submit" class="btn-delete">Desactivar</button>
             </form>
@@ -93,7 +187,7 @@
         </tr>
         @empty
         <tr>
-          <td colspan="6" class="text-center text-muted py-4">
+          <td colspan="10" class="text-center text-muted py-4">
             <i class="bi bi-truck text-secondary" style="font-size:2.2em;"></i><br>
             <div class="mt-2">No existen conductores registrados.</div>
           </td>

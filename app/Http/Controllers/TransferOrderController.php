@@ -96,7 +96,7 @@ class TransferOrderController extends Controller
         $warehousesTo = Warehouse::orderBy('nombre')->get();
         
         $products = Product::with('containers')->orderBy('nombre')->get();
-        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
         return view('transfer-orders.create', compact('warehousesFrom', 'warehousesTo', 'products', 'drivers'));
     }
 
@@ -388,7 +388,7 @@ class TransferOrderController extends Controller
         }
         $warehouses = Warehouse::orderBy('nombre')->get();
         $products = Product::with('containers')->orderBy('nombre')->get();
-        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
         return view('transfer-orders.edit', compact('transferOrder', 'warehouses', 'products', 'drivers'));
     }
 

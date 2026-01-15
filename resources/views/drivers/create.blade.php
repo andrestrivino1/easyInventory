@@ -47,7 +47,7 @@ body .form-bg {
 <div class="form-bg">
 <div class="form-container">
     <h2>Nuevo conductor</h2>
-    <form method="POST" action="{{ route('drivers.store') }}" autocomplete="off">
+    <form method="POST" action="{{ route('drivers.store') }}" autocomplete="off" enctype="multipart/form-data">
         @csrf
         <label for="name">Nombre*</label>
         <input name="name" type="text" class="form-control" required value="{{ old('name') }}">
@@ -61,9 +61,29 @@ body .form-bg {
         <input name="phone" type="text" class="form-control" maxlength="20" value="{{ old('phone') }}">
         @error('phone') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <label for="photo">Foto del conductor</label>
+        <input name="photo" type="file" class="form-control" accept="image/*">
+        @error('photo') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
         <label for="vehicle_plate">Placa*</label>
         <input name="vehicle_plate" type="text" class="form-control" required maxlength="20" value="{{ old('vehicle_plate') }}">
         @error('vehicle_plate') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="vehicle_photo">Foto del vehículo</label>
+        <input name="vehicle_photo" type="file" class="form-control" accept="image/*">
+        @error('vehicle_photo') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="social_security_date">Fecha de Seguridad Social</label>
+        <input name="social_security_date" type="date" class="form-control" value="{{ old('social_security_date') }}">
+        @error('social_security_date') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="social_security_pdf">PDF de Seguridad Social</label>
+        <input name="social_security_pdf" type="file" class="form-control" accept="application/pdf">
+        @error('social_security_pdf') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="vehicle_owner">Propietario del Vehículo</label>
+        <input name="vehicle_owner" type="text" class="form-control" maxlength="255" value="{{ old('vehicle_owner') }}">
+        @error('vehicle_owner') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
         <div class="actions">
             <a href="{{ route('drivers.index') }}" class="btn-cancel">Cancelar</a>

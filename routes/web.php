@@ -53,13 +53,20 @@ Route::middleware(['auth'])->group(function () {
     Route::post('imports/clear-omitted-info', [ImportController::class, 'clearOmittedInfo'])->name('imports.clear-omitted-info');
     // ADMIN: Mark import as nationalized
     Route::post('imports/{id}/nationalize', [ImportController::class, 'markAsNationalized'])->name('imports.nationalize');
+    // ADMIN: Mark credit as paid
+    Route::post('imports/{id}/mark-credit-paid', [ImportController::class, 'markCreditAsPaid'])->name('imports.mark-credit-paid');
     Route::get('imports/{id}/report', [ImportController::class, 'report'])->name('imports.report');
     // FUNCIONARIO routes
     Route::get('imports-funcionario', [ImportController::class, 'funcionarioIndex'])->name('imports.funcionario-index');
     Route::post('imports/{id}/update-arrival', [ImportController::class, 'updateArrival'])->name('imports.update-arrival');
+    Route::post('imports/{id}/update-estimated-arrival', [ImportController::class, 'updateEstimatedArrival'])->name('imports.update-estimated-arrival');
 });
 Route::resource('salidas', App\Http\Controllers\SalidaController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);
+// Rutas específicas deben ir ANTES de la ruta resource para evitar conflictos
+Route::get('drivers/{driver}/social-security-pdf', [App\Http\Controllers\DriverController::class, 'viewSocialSecurityPdf'])->name('drivers.social-security-pdf');
+Route::get('drivers/{driver}/photo', [App\Http\Controllers\DriverController::class, 'viewPhoto'])->name('drivers.photo');
+Route::get('drivers/{driver}/vehicle-photo', [App\Http\Controllers\DriverController::class, 'viewVehiclePhoto'])->name('drivers.vehicle-photo');
 Route::resource('drivers', App\Http\Controllers\DriverController::class);
 Route::resource('containers', App\Http\Controllers\ContainerController::class);
 Auth::routes();

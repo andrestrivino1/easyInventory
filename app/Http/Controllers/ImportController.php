@@ -557,12 +557,12 @@ class ImportController extends Controller
         return redirect()->route('imports.provider-index')->with('success', 'Import updated successfully!');
     }
 
-    // ADMIN/PROVIDER/IMPORT_VIEWER: View files
+    // ADMIN/PROVIDER/IMPORT_VIEWER/FUNCIONARIO: View files
     public function viewFile($id, $fileType)
     {
         $import = Import::with('containers')->findOrFail($id);
-        // Only admin, owner, or import_viewer can view
-        if (!in_array(Auth::user()->rol, ['admin', 'import_viewer']) && $import->user_id !== Auth::id()) {
+        // Only admin, funcionario, owner, or import_viewer can view
+        if (!in_array(Auth::user()->rol, ['admin', 'funcionario', 'import_viewer']) && $import->user_id !== Auth::id()) {
             abort(403);
         }
         
@@ -614,12 +614,12 @@ class ImportController extends Controller
         ]);
     }
 
-    // ADMIN/PROVIDER: Download files
+    // ADMIN/PROVIDER/FUNCIONARIO: Download files
     public function downloadFile($id, $fileType)
     {
         $import = Import::with('containers')->findOrFail($id);
-        // Only admin or owner can download
-        if (Auth::user()->rol !== 'admin' && $import->user_id !== Auth::id()) {
+        // Only admin, funcionario, or owner can download
+        if (!in_array(Auth::user()->rol, ['admin', 'funcionario']) && $import->user_id !== Auth::id()) {
             abort(403);
         }
         
@@ -1349,6 +1349,8 @@ class ImportController extends Controller
                 $statusText = 'En tránsito';
             } elseif ($import->status === 'recibido') {
                 $statusText = 'Recibido';
+            } elseif ($import->status === 'pendiente_por_confirmar') {
+                $statusText = 'Pendiente por confirmar';
             } else {
                 $statusText = ucfirst($import->status);
             }
@@ -1886,6 +1888,38 @@ class ImportController extends Controller
         return redirect()->back()->with('success', 'Fecha de llegada actualizada y marcada como recibido.');
     }
 
+    // FUNCIONARIO/ADMIN: Update estimated arrival date when import is delayed
+    public function updateEstimatedArrival(Request $request, $id)
+    {
+        if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
+            abort(403);
+        }
+        
+        $import = Import::findOrFail($id);
+        
+        $data = $request->validate([
+            'arrival_date' => 'required|date',
+        ]);
+        
+        // Actualizar la fecha estimada y cambiar el estado a pending
+        // También limpiar received_at si existe, ya que si se retrasa, no debería estar marcado como recibido
+        $import->update([
+            'arrival_date' => $data['arrival_date'],
+            'status' => 'pending',
+            'received_at' => null,
+            'actual_arrival_date' => null, // Limpiar también la fecha real si existe
+        ]);
+        
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Fecha de llegada estimada actualizada. La importación ha vuelto al estado pendiente.'
+            ]);
+        }
+        
+        return redirect()->back()->with('success', 'Fecha de llegada estimada actualizada. La importación ha vuelto al estado pendiente.');
+    }
+
     // ADMIN: Mark import as nationalized
     public function markAsNationalized($id)
     {
@@ -1901,11 +1935,36 @@ class ImportController extends Controller
             return redirect()->back()->with('error', 'Solo se pueden nacionalizar importaciones completadas al 100%.');
         }
         
+        // Al nacionalizar, asegurar que el estado sea 'completed' (ya que nacionalizada significa que llegó)
         $import->update([
             'nationalized' => true,
+            'status' => 'completed', // Asegurar que esté como completado
         ]);
         
         return redirect()->back()->with('success', 'Importación marcada como nacionalizada.');
+    }
+
+    // ADMIN: Mark credit as paid
+    public function markCreditAsPaid($id)
+    {
+        if (Auth::user()->rol !== 'admin') {
+            abort(403);
+        }
+        
+        $import = Import::findOrFail($id);
+        
+        $import->update([
+            'credit_paid' => true,
+        ]);
+        
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Crédito marcado como pagado.'
+            ]);
+        }
+        
+        return redirect()->back()->with('success', 'Crédito marcado como pagado.');
     }
 
     /**
@@ -1987,13 +2046,18 @@ class ImportController extends Controller
         $today = now()->startOfDay();
         
         foreach ($imports as $import) {
-            if ($import->arrival_date && $import->status === 'pending') {
+            if ($import->arrival_date) {
                 $arrivalDate = \Carbon\Carbon::parse($import->arrival_date)->startOfDay();
                 
-                // If arrival date has passed, change status to completed
+                // Si la fecha estimada ha llegado o pasado
                 if ($today->greaterThanOrEqualTo($arrivalDate)) {
-                    $import->status = 'completed';
-                    $import->save();
+                    // Si no ha sido confirmado el recibido, cambiar a "pendiente_por_confirmar"
+                    if (!$import->received_at) {
+                        if (in_array($import->status, ['pending', 'completed'])) {
+                            $import->status = 'pendiente_por_confirmar';
+                            $import->save();
+                        }
+                    }
                 }
             }
         }

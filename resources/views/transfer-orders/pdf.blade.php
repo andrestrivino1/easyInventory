@@ -2,116 +2,174 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Orden de Transferencia</title>
+    <title>Orden de Cargue</title>
     <style>
+        @page {
+            margin: 6mm;
+            size: A4 portrait;
+        }
         body { 
             font-family: Arial, sans-serif; 
-            font-size: 12px; 
+            font-size: 9px; 
             color: #232323; 
             margin: 0;
-            padding: 20px;
+            padding: 3px;
         }
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            align-items: flex-start;
+            margin-bottom: 8px;
             border-bottom: 2px solid #333;
-            padding-bottom: 15px;
+            padding-bottom: 6px;
+        }
+        .header-left {
+            flex: 1;
+        }
+        .header-right {
+            flex: 0 0 auto;
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+            margin-left: 15px;
+            min-width: 100px;
         }
         .logo-section {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
+            margin-bottom: 5px;
         }
         .logo-section img {
-            max-width: 80px;
-            max-height: 80px;
+            max-width: 50px;
+            max-height: 50px;
         }
         .company-info {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 11px;
         }
         .company-info .company-name {
-            font-size: 16px;
-            margin-bottom: 4px;
+            font-size: 13px;
+            margin-bottom: 2px;
         }
         .title-section {
-            text-align: center;
-            margin: 20px 0;
+            text-align: left;
+            margin: 5px 0;
         }
         .main-title {
             font-size: 18px;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 3px;
             text-transform: uppercase;
+        }
+        .photos-section {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            align-items: flex-start;
+            justify-content: flex-end;
+            width: 100%;
+        }
+        .photo-item {
+            text-align: center;
+            width: auto;
+            max-width: 70px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .photo-item img {
+            max-width: 70px;
+            max-height: 70px;
+            width: 70px;
+            height: 70px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+        .photo-label {
+            font-size: 8px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            text-align: center;
         }
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 6px;
+            margin-bottom: 6px;
         }
         .info-box {
             border: 1px solid #ddd;
-            padding: 12px;
+            padding: 5px;
             background: #f9f9f9;
         }
         .info-label {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 9px;
             color: #666;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             text-transform: uppercase;
         }
         .info-value {
-            font-size: 13px;
+            font-size: 11px;
             color: #232323;
         }
         .products-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            margin-bottom: 20px;
+            margin-top: 6px;
+            margin-bottom: 6px;
         }
         .products-table th {
             background: #edf5ff;
             border: 1px solid #ccc;
-            padding: 10px;
+            padding: 4px;
             text-align: left;
-            font-size: 11px;
+            font-size: 8px;
             font-weight: bold;
             text-transform: uppercase;
         }
         .products-table td {
             border: 1px solid #ccc;
-            padding: 8px;
-            font-size: 12px;
+            padding: 3px;
+            font-size: 9px;
         }
         .total-row {
             background: #f0f0f0;
             font-weight: bold;
         }
         .signature-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 40px;
-            margin-top: 60px;
+            display: table;
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 8px 0;
+            margin-top: 35px;
         }
         .signature-box {
-            border-top: 1px solid #333;
-            padding-top: 10px;
+            display: table-cell;
+            width: 33.33%;
             text-align: center;
-            font-size: 11px;
+            font-size: 8px;
+            vertical-align: top;
+            border-top: 1px solid #333;
+            padding-top: 40px;
+            min-height: 80px;
+        }
+        .signature-line {
+            display: none;
         }
         .signature-label {
             font-weight: bold;
-            margin-bottom: 50px;
+            margin-top: 5px;
         }
         .footer {
-            margin-top: 30px;
+            margin-top: 3px;
             text-align: right;
-            font-size: 11px;
+            font-size: 8px;
             color: #777;
         }
         @media print {
@@ -128,52 +186,94 @@
     </div>
     @endif
 
-    <!-- Header con logo y datos de empresa -->
+    <!-- Header con logo, título y fotos -->
     <div class="header">
-        <div class="logo-section">
-            @php
-                $logoPath = public_path('logo.png');
-                $logoBase64 = '';
-                if (file_exists($logoPath)) {
-                    $logoData = file_get_contents($logoPath);
-                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
-                }
-            @endphp
-            @if($logoBase64)
-                <img src="{{ $logoBase64 }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
-            @else
-                <img src="{{ asset('logo.png') }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
-            @endif
-            <div class="company-info">
-                <div class="company-name">VIDRIOS J&P S.A.S.</div>
-                <div>NIT: 901.701.161-4</div>
+        <div class="header-left">
+            <div class="logo-section">
+                @php
+                    $logoPath = public_path('logo.png');
+                    $logoBase64 = '';
+                    if (file_exists($logoPath)) {
+                        $logoData = file_get_contents($logoPath);
+                        $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                    }
+                @endphp
+                @if($logoBase64)
+                    <img src="{{ $logoBase64 }}" alt="Logo" style="max-width: 50px; max-height: 50px;">
+                @else
+                    <img src="{{ asset('logo.png') }}" alt="Logo" style="max-width: 50px; max-height: 50px;">
+                @endif
+                <div class="company-info">
+                    <div class="company-name">VIDRIOS J&P S.A.S.</div>
+                    <div style="font-size: 10px;">NIT: 901.701.161-4</div>
+                </div>
             </div>
+            <!-- Título principal a la izquierda -->
+            <div class="title-section">
+                <div class="main-title">ORDEN DE CARGUE</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <!-- Fotos del conductor y vehículo a la derecha -->
+            @if($transferOrder->driver && ($transferOrder->driver->photo_path || $transferOrder->driver->vehicle_photo_path))
+            <div class="photos-section">
+                @if($transferOrder->driver->photo_path)
+                    @php
+                        $photoPath = storage_path('app/public/' . $transferOrder->driver->photo_path);
+                        $photoBase64 = '';
+                        if (file_exists($photoPath)) {
+                            $photoData = file_get_contents($photoPath);
+                            $imageInfo = @getimagesize($photoPath);
+                            $mimeType = $imageInfo ? $imageInfo['mime'] : 'image/jpeg';
+                            $photoBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($photoData);
+                        }
+                    @endphp
+                    @if($photoBase64)
+                        <div class="photo-item">
+                            <div class="photo-label">Foto del conductor</div>
+                            <img src="{{ $photoBase64 }}" alt="Foto del conductor">
+                        </div>
+                    @endif
+                @endif
+                @if($transferOrder->driver->vehicle_photo_path)
+                    @php
+                        $vehiclePhotoPath = storage_path('app/public/' . $transferOrder->driver->vehicle_photo_path);
+                        $vehiclePhotoBase64 = '';
+                        if (file_exists($vehiclePhotoPath)) {
+                            $vehiclePhotoData = file_get_contents($vehiclePhotoPath);
+                            $imageInfo = @getimagesize($vehiclePhotoPath);
+                            $mimeType = $imageInfo ? $imageInfo['mime'] : 'image/jpeg';
+                            $vehiclePhotoBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($vehiclePhotoData);
+                        }
+                    @endphp
+                    @if($vehiclePhotoBase64)
+                        <div class="photo-item">
+                            <div class="photo-label">Foto del vehículo</div>
+                            <img src="{{ $vehiclePhotoBase64 }}" alt="Foto del vehículo">
+                        </div>
+                    @endif
+                @endif
+            </div>
+            @endif
         </div>
     </div>
 
-    <!-- Título principal -->
-    <div class="title-section">
-        <div class="main-title">ORDEN DE TRANSFERENCIA</div>
-        <div style="font-size: 13px; margin-top: 5px;">VIDRIOS JYP SAS</div>
-        <div style="font-size: 12px; color: #666;">NIT: 901.701.161-4</div>
-    </div>
-
-    <!-- Información de elaboración y aprobación -->
+    <!-- Información de elaboración y propietario de la carga -->
     <div class="info-grid">
         <div class="info-box">
             <div class="info-label">ELABORO</div>
-            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $currentUser->nombre_completo ?? $currentUser->name ?? '' }}</div>
+            <div class="info-value" style="min-height: 15px; border-bottom: 1px solid #ccc;">{{ $currentUser->nombre_completo ?? $currentUser->name ?? '' }}</div>
         </div>
         <div class="info-box">
-            <div class="info-label">APROBO</div>
-            <div class="info-value" style="min-height: 20px; border-bottom: 1px solid #ccc;">{{ $transferOrder->aprobo ?? '' }}</div>
+            <div class="info-label">PROPIETARIO DE LA CARGA</div>
+            <div class="info-value" style="min-height: 15px; border-bottom: 1px solid #ccc;">{{ $transferOrder->driver->vehicle_owner ?? ($transferOrder->aprobo ?? '') }}</div>
         </div>
     </div>
 
     <!-- Información de orden y bodegas -->
     <div class="info-grid">
         <div class="info-box">
-            <div class="info-label">ORDEN DE TRANSFERENCIA No.</div>
+            <div class="info-label">ORDEN DE CARGUE No.</div>
             <div class="info-value">{{ $transferOrder->order_number }}</div>
         </div>
         <div class="info-box">
@@ -214,11 +314,11 @@
             <div class="info-label">ESTADO</div>
             <div class="info-value">
                 @if($transferOrder->status == 'en_transito')
-                    <span style="background:#ffc107;color:#212529;padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">En tránsito</span>
+                    <span style="background:#ffc107;color:#212529;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:bold;">En tránsito</span>
                 @elseif($transferOrder->status == 'recibido')
-                    <span style="background:#4caf50;color:white;padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">Recibido</span>
+                    <span style="background:#4caf50;color:white;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:bold;">Recibido</span>
                 @else
-                    <span style="padding:2px 11px;border-radius:5px;font-size:13px;font-weight:bold;">{{ ucfirst($transferOrder->status) }}</span>
+                    <span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:bold;">{{ ucfirst($transferOrder->status) }}</span>
                 @endif
             </div>
         </div>
@@ -292,25 +392,26 @@
         </div>
     </div>
 
+
     @if($transferOrder->note)
-    <div style="margin-top: 15px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd;">
+    <div style="margin-top: 10px; padding: 8px; background: #f9f9f9; border: 1px solid #ddd;">
         <div class="info-label">NOTAS</div>
-        <div style="font-size: 12px; margin-top: 5px;">{{ $transferOrder->note }}</div>
+        <div style="font-size: 10px; margin-top: 3px;">{{ $transferOrder->note }}</div>
     </div>
     @endif
 
     <!-- Firmas -->
-    <div class="signature-section">
+    <div class="signature-section" style="margin-top: 30px;">
         <div class="signature-box">
             <div class="signature-label">Patio de despacho</div>
-                </div>
+        </div>
         <div class="signature-box">
             <div class="signature-label">Firma conductor</div>
-                </div>
+        </div>
         <div class="signature-box">
             <div class="signature-label">Firma recibido</div>
-                    </div>
-                </div>
+        </div>
+    </div>
 
     <div class="footer">
         Generado por VIDRIOS J&P S.A.S. - {{ now()->format('d/m/Y h:i A') }}

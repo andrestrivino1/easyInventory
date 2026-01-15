@@ -39,6 +39,7 @@ class Import extends Model
         'shipping_company',
         'free_days_at_dest',
         'credit_time',
+        'credit_paid',
     ];
 
     public function user()

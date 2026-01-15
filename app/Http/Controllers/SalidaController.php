@@ -105,7 +105,7 @@ class SalidaController extends Controller
             $warehouses = collect([$user->almacen]);
         }
         
-        $drivers = \App\Models\Driver::where('active', true)->orderBy('name')->get();
+        $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
         return view('salidas.create', compact('products', 'warehouses', 'drivers'));
     }
 

@@ -572,6 +572,8 @@
                                 <span class="status-badge status-in-transit">En tránsito</span>
                             @elseif($import->status === 'recibido')
                                 <span class="status-badge" style="background: #17a2b8; color: white;">Recibido</span>
+                            @elseif($import->status === 'pendiente_por_confirmar')
+                                <span class="status-badge" style="background: #ff9800; color: white;">Pendiente por confirmar</span>
                             @else
                                 <span class="status-badge">{{ ucfirst($import->status) }}</span>
                             @endif
@@ -610,6 +612,13 @@
                                             {{ __('common.vencimiento') }}: {{ $creditExpiration->format('d/m/Y') }}
                                         </span>
                                     @endif
+                                </div>
+                            @endif
+                            @if($import->credit_paid)
+                                <div style="margin-top: 4px; font-size: 11px;">
+                                    <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: 600;">
+                                        ✓ Crédito pago
+                                    </span>
                                 </div>
                             @endif
                         @else
@@ -703,6 +712,16 @@
                         </div>
                     </td>
                     <td class="actions">
+                        @if(Auth::user()->rol === 'admin')
+                            @if($import->credit_time && !$import->credit_paid)
+                                <form action="{{ route('imports.mark-credit-paid', $import->id) }}" method="POST" style="display: inline-flex; margin: 0 4px 4px 0;">
+                                    @csrf
+                                    <button type="submit" class="btn-pay" onclick="return confirm('¿Deseas marcar el crédito como pagado?');" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="bi bi-currency-dollar"></i> Pagar
+                                    </button>
+                                </form>
+                            @endif
+                        @endif
                         @if($import->status === 'completed' && $progress >= 100)
                             @if($import->nationalized)
                                 <button class="btn-nationalized" disabled>

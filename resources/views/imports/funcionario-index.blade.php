@@ -423,19 +423,22 @@
                 <td>{{ $import->free_days_at_dest ?? '-' }}</td>
                 <td>
                     <div>
-                        @if($import->status == 'pending')
+                        @if($import->nationalized)
+                            {{-- Si está nacionalizada, siempre mostrar como completado --}}
+                            <span class="badge badge-completed">Completado</span>
+                            <span class="badge-nationalized">
+                                <i class="bi bi-check-circle"></i> Nacionalizada
+                            </span>
+                        @elseif($import->status == 'pending')
                             <span class="badge badge-pending">Pendiente</span>
                         @elseif($import->status == 'completed')
                             <span class="badge badge-completed">Completado</span>
                         @elseif($import->status == 'recibido')
                             <span class="badge badge-received">Recibido</span>
+                        @elseif($import->status == 'pendiente_por_confirmar')
+                            <span class="badge" style="background: #ff9800; color: white;">Pendiente por confirmar</span>
                         @else
                             <span class="badge">{{ $import->status }}</span>
-                        @endif
-                        @if($import->nationalized)
-                            <span class="badge-nationalized">
-                                <i class="bi bi-check-circle"></i> Nacionalizada
-                            </span>
                         @endif
                     </div>
                     @if($arrivalDate)
@@ -528,7 +531,19 @@
                 </td>
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                        @if($import->status != 'recibido')
+                        @if($import->nationalized)
+                            {{-- Si está nacionalizada, no mostrar opciones de actualizar fecha --}}
+                            <span style="color: #28a745; font-size: 12px; margin-bottom: 5px;">
+                                <i class="bi bi-check-circle"></i> Nacionalizada
+                            </span>
+                        @elseif($import->status == 'pendiente_por_confirmar')
+                            <button class="btn-update-estimated" onclick="openUpdateEstimatedModal({{ $import->id }}, '{{ $import->do_code }}', '{{ $import->arrival_date ? \Carbon\Carbon::parse($import->arrival_date)->format('Y-m-d') : '' }}')" style="background: #ff9800; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="bi bi-calendar-event me-1"></i>Actualizar Fecha Estimada
+                            </button>
+                            <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
+                                Marcar Recibido
+                            </button>
+                        @elseif($import->status != 'recibido')
                             <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
                                 Marcar Recibido
                             </button>
@@ -578,6 +593,29 @@
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" onclick="closeUpdateModal()">Cancelar</button>
                 <button type="submit" class="btn-save">Marcar como Recibido</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para actualizar fecha estimada de llegada -->
+<div id="updateEstimatedModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Actualizar Fecha Estimada de Llegada</h3>
+        </div>
+        <form id="updateEstimatedArrivalForm" method="POST" action="">
+            @csrf
+            <div class="form-group">
+                <label for="estimated_arrival_date">Nueva Fecha Estimada de Llegada *</label>
+                <input type="date" name="arrival_date" id="estimated_arrival_date" required />
+                <small style="color: #666; font-size: 11px; display: block; margin-top: 5px;">
+                    Al actualizar la fecha estimada, la importación volverá al estado "Pendiente".
+                </small>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeUpdateEstimatedModal()">Cancelar</button>
+                <button type="submit" class="btn-save" style="background: #ff9800;">Actualizar Fecha</button>
             </div>
         </form>
     </div>
@@ -672,7 +710,12 @@ if (hasFilters && searchInput) {
 
 // Modal functions
 function openUpdateModal(importId, doCode) {
-    document.getElementById('updateArrivalForm').action = `/imports/${importId}/update-arrival`;
+    // Usar la función route de Laravel para generar la URL correctamente
+    // Generar la URL usando route con un ID temporal (0) y luego reemplazarlo
+    const routeTemplate = '{{ route("imports.update-arrival", 0) }}';
+    // Reemplazar el ID temporal (0) con el ID real, usando una expresión regular para asegurar que solo reemplace el ID en la ruta
+    const url = routeTemplate.replace(/\/0(\/update-arrival)/, '/' + importId + '$1');
+    document.getElementById('updateArrivalForm').action = url;
     document.getElementById('updateModal').style.display = 'block';
     document.getElementById('actual_arrival_date').value = new Date().toISOString().split('T')[0];
 }
@@ -681,11 +724,36 @@ function closeUpdateModal() {
     document.getElementById('updateModal').style.display = 'none';
 }
 
+// Modal functions for estimated arrival date
+function openUpdateEstimatedModal(importId, doCode, currentDate) {
+    // Usar la función route de Laravel para generar la URL correctamente
+    // Generar la URL usando route con un ID temporal (0) y luego reemplazarlo
+    const routeTemplate = '{{ route("imports.update-estimated-arrival", 0) }}';
+    // Reemplazar el ID temporal (0) con el ID real, usando una expresión regular para asegurar que solo reemplace el ID en la ruta
+    const url = routeTemplate.replace(/\/0(\/update-estimated-arrival)/, '/' + importId + '$1');
+    document.getElementById('updateEstimatedArrivalForm').action = url;
+    document.getElementById('updateEstimatedModal').style.display = 'block';
+    if (currentDate) {
+        document.getElementById('estimated_arrival_date').value = currentDate;
+    } else {
+        // Si no hay fecha actual, usar la fecha de hoy
+        document.getElementById('estimated_arrival_date').value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function closeUpdateEstimatedModal() {
+    document.getElementById('updateEstimatedModal').style.display = 'none';
+}
+
 // Cerrar modal al hacer clic fuera
 window.onclick = function(event) {
     const modal = document.getElementById('updateModal');
+    const estimatedModal = document.getElementById('updateEstimatedModal');
     if (event.target == modal) {
         closeUpdateModal();
+    }
+    if (event.target == estimatedModal) {
+        closeUpdateEstimatedModal();
     }
 }
 

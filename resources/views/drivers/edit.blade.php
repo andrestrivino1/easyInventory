@@ -47,7 +47,7 @@ body .form-bg {
 <div class="form-bg">
 <div class="form-container">
     <h2>Editar conductor</h2>
-    <form method="POST" action="{{ route('drivers.update', $driver) }}" autocomplete="off">
+    <form method="POST" action="{{ route('drivers.update', $driver) }}" autocomplete="off" enctype="multipart/form-data">
         @csrf
         @method('PUT')
         <label for="name">Nombre*</label>
@@ -62,9 +62,46 @@ body .form-bg {
         <input name="phone" type="text" class="form-control" maxlength="20" value="{{ old('phone', $driver->phone) }}">
         @error('phone') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
+        <label for="photo">Foto del conductor</label>
+        @if($driver->photo_path)
+            <div style="margin-bottom: 8px;">
+                <img src="{{ Storage::url($driver->photo_path) }}" alt="Foto del conductor" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+        @endif
+        <input name="photo" type="file" class="form-control" accept="image/*">
+        @error('photo') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
         <label for="vehicle_plate">Placa*</label>
         <input name="vehicle_plate" type="text" class="form-control" required maxlength="20" value="{{ old('vehicle_plate', $driver->vehicle_plate) }}">
         @error('vehicle_plate') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="vehicle_photo">Foto del vehículo</label>
+        @if($driver->vehicle_photo_path)
+            <div style="margin-bottom: 8px;">
+                <img src="{{ Storage::url($driver->vehicle_photo_path) }}" alt="Foto del vehículo" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+        @endif
+        <input name="vehicle_photo" type="file" class="form-control" accept="image/*">
+        @error('vehicle_photo') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="social_security_date">Fecha de Seguridad Social</label>
+        <input name="social_security_date" type="date" class="form-control" value="{{ old('social_security_date', $driver->social_security_date ? \Carbon\Carbon::parse($driver->social_security_date)->format('Y-m-d') : '') }}">
+        @error('social_security_date') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="social_security_pdf">PDF de Seguridad Social</label>
+        @if($driver->social_security_pdf)
+            <div style="margin-bottom: 8px;">
+                <a href="{{ route('drivers.social-security-pdf', $driver) }}" target="_blank" style="color: #4a8af4; text-decoration: underline;">
+                    <i class="bi bi-file-pdf"></i> Ver PDF actual
+                </a>
+            </div>
+        @endif
+        <input name="social_security_pdf" type="file" class="form-control" accept="application/pdf">
+        @error('social_security_pdf') <div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        <label for="vehicle_owner">Propietario del Vehículo</label>
+        <input name="vehicle_owner" type="text" class="form-control" maxlength="255" value="{{ old('vehicle_owner', $driver->vehicle_owner) }}">
+        @error('vehicle_owner') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
         <label for="active">Estado</label>
         <select name="active" class="form-select">

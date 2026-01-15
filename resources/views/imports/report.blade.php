@@ -196,6 +196,8 @@
                     <span class="status-badge status-in-transit">En tránsito</span>
                 @elseif($import->status === 'recibido')
                     <span class="status-badge" style="background: #17a2b8; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; display: inline-block;">Recibido</span>
+                @elseif($import->status === 'pendiente_por_confirmar')
+                    <span class="status-badge" style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; display: inline-block;">Pendiente por confirmar</span>
                 @else
                     {{ ucfirst($import->status) }}
                 @endif
