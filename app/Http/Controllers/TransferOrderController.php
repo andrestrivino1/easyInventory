@@ -8,6 +8,9 @@ use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use iio\libmergepdf\Merger;
 
 class TransferOrderController extends Controller
 {
@@ -879,8 +882,60 @@ class TransferOrderController extends Controller
         $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
         $currentUser = $user;
         $isExport = true;
+        
+        // Generar el PDF de transferencia
         $pdf = \PDF::loadView('transfer-orders.pdf', compact('transferOrder', 'showSignatures', 'currentUser', 'isExport'));
-        return $pdf->download("transferencia_{$transferOrder->id}.pdf");
+        
+        // Crear directorio temporal si no existe
+        $tempDir = storage_path('app/temp_pdfs');
+        if (!File::exists($tempDir)) {
+            File::makeDirectory($tempDir, 0755, true);
+        }
+        
+        // Guardar el PDF de transferencia temporalmente
+        $transferPdfPath = $tempDir . '/transfer_' . $transferOrder->id . '_' . time() . '.pdf';
+        file_put_contents($transferPdfPath, $pdf->output());
+        
+        // Verificar si el conductor tiene PDF de seguridad social
+        $socialSecurityPdfPath = null;
+        if ($transferOrder->driver && $transferOrder->driver->social_security_pdf) {
+            $fullPath = storage_path('app/public/' . $transferOrder->driver->social_security_pdf);
+            if (File::exists($fullPath) && filesize($fullPath) > 0) {
+                $socialSecurityPdfPath = $fullPath;
+            }
+        }
+        
+        // Si hay PDF de seguridad social, unirlo al PDF de transferencia
+        if ($socialSecurityPdfPath) {
+            try {
+                $merger = new Merger();
+                $merger->addFile($transferPdfPath);
+                $merger->addFile($socialSecurityPdfPath);
+                
+                $mergedPdf = $merger->merge();
+                
+                // Limpiar el PDF temporal de transferencia
+                @File::delete($transferPdfPath);
+                
+                // Devolver el PDF unido
+                return response($mergedPdf)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'attachment; filename="transferencia_' . $transferOrder->id . '.pdf"');
+            } catch (\Exception $e) {
+                // Si falla la unión, devolver solo el PDF de transferencia
+                \Log::warning('Error al unir PDF de seguridad social: ' . $e->getMessage());
+                return response()->file($transferPdfPath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="transferencia_' . $transferOrder->id . '.pdf"'
+                ])->deleteFileAfterSend(true);
+            }
+        }
+        
+        // Si no hay PDF de seguridad social, devolver solo el PDF de transferencia
+        return response()->file($transferPdfPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="transferencia_' . $transferOrder->id . '.pdf"'
+        ])->deleteFileAfterSend(true);
     }
 
     /**
@@ -894,8 +949,61 @@ class TransferOrderController extends Controller
         }, 'driver']);
         $showSignatures = session("transfer_signatures_{$transferOrder->id}", false);
         $currentUser = $user;
-        $isExport = false;
-        return view('transfer-orders.pdf', compact('transferOrder', 'showSignatures', 'currentUser', 'isExport'));
+        $isExport = true;
+        
+        // Generar el PDF de transferencia
+        $pdf = \PDF::loadView('transfer-orders.pdf', compact('transferOrder', 'showSignatures', 'currentUser', 'isExport'));
+        
+        // Crear directorio temporal si no existe
+        $tempDir = storage_path('app/temp_pdfs');
+        if (!File::exists($tempDir)) {
+            File::makeDirectory($tempDir, 0755, true);
+        }
+        
+        // Guardar el PDF de transferencia temporalmente
+        $transferPdfPath = $tempDir . '/transfer_' . $transferOrder->id . '_' . time() . '.pdf';
+        file_put_contents($transferPdfPath, $pdf->output());
+        
+        // Verificar si el conductor tiene PDF de seguridad social
+        $socialSecurityPdfPath = null;
+        if ($transferOrder->driver && $transferOrder->driver->social_security_pdf) {
+            $fullPath = storage_path('app/public/' . $transferOrder->driver->social_security_pdf);
+            if (File::exists($fullPath) && filesize($fullPath) > 0) {
+                $socialSecurityPdfPath = $fullPath;
+            }
+        }
+        
+        // Si hay PDF de seguridad social, unirlo al PDF de transferencia
+        if ($socialSecurityPdfPath) {
+            try {
+                $merger = new Merger();
+                $merger->addFile($transferPdfPath);
+                $merger->addFile($socialSecurityPdfPath);
+                
+                $mergedPdf = $merger->merge();
+                
+                // Limpiar el PDF temporal de transferencia
+                @File::delete($transferPdfPath);
+                
+                // Devolver el PDF unido para mostrar en el navegador (inline para imprimir)
+                return response($mergedPdf)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'inline; filename="transferencia_' . $transferOrder->id . '.pdf"');
+            } catch (\Exception $e) {
+                // Si falla la unión, devolver solo el PDF de transferencia
+                \Log::warning('Error al unir PDF de seguridad social en print: ' . $e->getMessage());
+                return response()->file($transferPdfPath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="transferencia_' . $transferOrder->id . '.pdf"'
+                ])->deleteFileAfterSend(true);
+            }
+        }
+        
+        // Si no hay PDF de seguridad social, devolver solo el PDF de transferencia
+        return response()->file($transferPdfPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="transferencia_' . $transferOrder->id . '.pdf"'
+        ])->deleteFileAfterSend(true);
     }
 
     /**
