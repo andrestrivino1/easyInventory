@@ -19,4 +19,22 @@ class ForgotPasswordController extends Controller
     */
 
     use SendsPasswordResetEmails;
+
+    /**
+     * Override method to reset password directly without email token.
+     * WARNING: Extremely insecure, but requested by the user to bypass email setup/DB issues.
+     */
+    public function sendResetLinkEmail(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = \App\Models\User::where('email', $request->email)->first();
+        $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
+        $user->save();
+
+        return back()->with('status', __('common.actualizado_exitoso'));
+    }
 }

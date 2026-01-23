@@ -26,7 +26,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        $usuarios = User::with('almacen', 'almacenes')->orderBy('nombre_completo')->get();
+        $usuarios = User::with('almacen', 'almacenes')->orderBy('nombre_completo')->paginate(10);
         return view('users.index', compact('usuarios'));
     }
 
@@ -57,7 +57,7 @@ class UserController extends Controller
         if (auth()->user()->rol !== 'admin') {
             return redirect()->route('users.index')->with('error', 'Solo los administradores pueden crear usuarios.');
         }
-        
+
         $rules = [
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
@@ -65,7 +65,7 @@ class UserController extends Controller
             'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer',
             'password' => 'required|string|min:6|confirmed',
         ];
-        
+
         // Validaciones según el rol
         if ($request->rol === 'funcionario') {
             $rules['almacenes'] = 'required|array|min:1';
@@ -75,24 +75,24 @@ class UserController extends Controller
             $rules['almacenes.*'] = 'exists:warehouses,id';
         }
         // admin no requiere almacen_id (puede ver todos)
-        
+
         $data = $request->validate($rules);
-        
+
         // Validar que funcionarios solo seleccionen bodegas de Buenaventura
         if ($request->rol === 'funcionario' && isset($request->almacenes)) {
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
             $almacenesSeleccionados = $request->almacenes;
-            
+
             foreach ($almacenesSeleccionados as $almacenId) {
                 if (!in_array($almacenId, $bodegasBuenaventuraIds)) {
                     return back()->withErrors(['almacenes' => 'Los funcionarios solo pueden seleccionar bodegas de Buenaventura.'])->withInput();
                 }
             }
         }
-        
+
         $data['password'] = Hash::make($data['password']);
         $data['name'] = $data['email']; // Generar name automáticamente desde email
-        
+
         // Guardar almacenes según el rol
         $almacenes = null;
         if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
@@ -102,14 +102,14 @@ class UserController extends Controller
         } elseif ($request->rol !== 'clientes') {
             $data['almacen_id'] = null; // admin no tiene almacen_id
         }
-        
+
         $usuario = User::create($data);
-        
+
         // Sincronizar almacenes para funcionarios y clientes
         if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
-        
+
         return redirect()->route('users.index')->with('success', 'Usuario creado correctamente.');
     }
 
@@ -134,7 +134,7 @@ class UserController extends Controller
     {
         $usuario = User::with('almacenes')->findOrFail($id);
         $almacenes = Warehouse::orderBy('nombre')->get();
-        return view('users.edit', compact('usuario','almacenes'));
+        return view('users.edit', compact('usuario', 'almacenes'));
     }
 
     /**
@@ -147,15 +147,15 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         $usuario = User::findOrFail($id);
-        
+
         $rules = [
             'nombre_completo' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,'.$usuario->id,
+            'email' => 'required|email|unique:users,email,' . $usuario->id,
             'telefono' => 'nullable|string|max:20',
             'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer',
             'password' => 'nullable|string|min:6|confirmed',
         ];
-        
+
         // Validaciones según el rol
         if ($request->rol === 'funcionario') {
             $rules['almacenes'] = 'required|array|min:1';
@@ -165,30 +165,30 @@ class UserController extends Controller
             $rules['almacenes.*'] = 'exists:warehouses,id';
         }
         // admin no requiere almacen_id
-        
+
         $data = $request->validate($rules);
-        
+
         // Validar que funcionarios solo seleccionen bodegas de Buenaventura
         if ($request->rol === 'funcionario' && isset($request->almacenes)) {
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
             $almacenesSeleccionados = $request->almacenes;
-            
+
             foreach ($almacenesSeleccionados as $almacenId) {
                 if (!in_array($almacenId, $bodegasBuenaventuraIds)) {
                     return back()->withErrors(['almacenes' => 'Los funcionarios solo pueden seleccionar bodegas de Buenaventura.'])->withInput();
                 }
             }
         }
-        
+
         $data['name'] = $data['email']; // Generar name automáticamente desde email
-        
+
         // Manejar contraseña
         if (isset($data['password']) && $data['password']) {
             $data['password'] = Hash::make($data['password']);
         } else {
-        unset($data['password']);
+            unset($data['password']);
         }
-        
+
         // Guardar almacenes según el rol
         $almacenes = null;
         if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
@@ -200,14 +200,14 @@ class UserController extends Controller
             // Limpiar relación pivot si cambiaron de funcionario/cliente a otro rol
             $usuario->almacenes()->detach();
         }
-        
+
         $usuario->update($data);
-        
+
         // Sincronizar almacenes para funcionarios y clientes
         if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
-        
+
         return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente.');
     }
 
@@ -220,8 +220,8 @@ class UserController extends Controller
     public function destroy($id)
     {
         // Solo admin puede eliminar usuarios
-        if(auth()->user()->rol !== 'admin') {
-            return back()->with('error','Solo los administradores pueden eliminar usuarios.');
+        if (auth()->user()->rol !== 'admin') {
+            return back()->with('error', 'Solo los administradores pueden eliminar usuarios.');
         }
         $usuario = User::findOrFail($id);
         if ($usuario->id === auth()->id()) {

@@ -5,7 +5,7 @@ return [
     'panel_inventario' => 'Panel de Inventario',
     'usuario' => 'Usuario',
     'cerrar_sesion' => 'Cerrar sesión',
-    
+
     // Sidebar Menu
     'movimientos' => 'Movimientos',
     'productos' => 'Productos',
@@ -20,7 +20,7 @@ return [
     'usuarios' => 'Usuarios',
     'reportes' => 'Reportes',
     'dashboard' => 'Dashboard',
-    
+
     // Common Actions
     'crear' => 'Crear',
     'editar' => 'Editar',
@@ -36,14 +36,14 @@ return [
     'subir' => 'Subir',
     'agregar' => 'Agregar',
     'actualizar' => 'Actualizar',
-    
+
     // Status
     'activo' => 'Activo',
     'inactivo' => 'Inactivo',
     'pendiente' => 'Pendiente',
     'completado' => 'Completado',
     'recibido' => 'Recibido',
-    
+
     // Import Module
     'comercial_invoice' => 'COMERCIAL INVOICE',
     'numero_proforma_invoice' => 'Número de Proforma Invoice',
@@ -54,7 +54,6 @@ return [
     'fecha_salida' => 'Fecha de salida',
     'fecha_llegada' => 'Fecha estimada de llegada',
     'fecha_llegada_real' => 'Fecha de llegada real',
-    'contenedores' => 'Contenedores',
     'referencia' => 'Referencia',
     'pdf_informacion_contenedor' => 'PDF con Información del Contenedor',
     'pdf_imagenes_contenedor' => 'PDF con Imágenes del Contenedor',
@@ -100,37 +99,47 @@ return [
     'colombia' => 'Colombia',
     'seleccione' => 'Seleccione...',
     'contenedor_num' => 'Contenedor #',
-    'eliminar' => 'Eliminar',
     'agregar_contenedor' => 'Agregar Contenedor',
     'seleccionar_archivo' => 'Seleccionar archivo',
     'ningun_archivo_seleccionado' => 'Ningún archivo seleccionado',
-    
+
     // Transfer Module
     'confirmar_recibido' => 'Confirmar recibido',
     'laminas_buenas' => 'Láminas buenas',
     'laminas_malas' => 'Láminas malas',
-    
+
     // Common Messages
     'guardado_exitoso' => 'Guardado exitosamente',
     'actualizado_exitoso' => 'Actualizado exitosamente',
     'eliminado_exitoso' => 'Eliminado exitosamente',
     'error_guardar' => 'Error al guardar',
     'confirmar_eliminar' => '¿Está seguro de eliminar este registro?',
-    
+
     // Login
     'iniciar_sesion' => 'Iniciar Sesión',
     'correo' => 'Correo',
     'ingresa_tu_correo' => 'Ingresa tu correo',
     'contraseña' => 'Contraseña',
     'ingresa_tu_contraseña' => 'Ingresa tu contraseña',
+    'confirmar_contraseña' => 'Confirmar Contraseña',
+    'por_favor_confirme_contraseña' => 'Por favor confirme su contraseña antes de continuar.',
     'ingresar' => 'Ingresar',
+    'olvidaste_contraseña' => '¿Olvidaste tu contraseña?',
+    'restablecer_contraseña' => 'Restablecer Contraseña',
+    'enviar_enlace' => 'Enviar enlace de restablecimiento',
+    'volver_al_login' => 'Volver al inicio de sesión',
     'error' => 'Error',
+    'exito' => 'Éxito',
     'espanol' => 'Español',
     'ingles' => 'English',
     'chino' => '中文',
-    
+
     // Credit Alerts
     'credito_vencido' => 'Crédito Vencido',
     'credito_por_vencer' => 'Crédito por Vencer',
     'vencimiento' => 'Vence',
+
+    // Session Management
+    'sesion_expirada' => 'Sesión Expirada',
+    'aceptar' => 'Aceptar',
 ];

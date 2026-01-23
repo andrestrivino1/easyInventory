@@ -69,6 +69,16 @@ Route::get('drivers/{driver}/photo', [App\Http\Controllers\DriverController::cla
 Route::get('drivers/{driver}/vehicle-photo', [App\Http\Controllers\DriverController::class, 'viewVehiclePhoto'])->name('drivers.vehicle-photo');
 Route::resource('drivers', App\Http\Controllers\DriverController::class);
 Route::resource('containers', App\Http\Controllers\ContainerController::class);
+
+// Fix for logout via GET
+// Fix for logout via GET triggering proper logout
+Route::get('logout', function () {
+    Auth::logout();
+    session()->invalidate();
+    session()->regenerateToken();
+    return redirect()->route('login')->with('error', 'Tu sesión ha cerrado correctamente.');
+});
+
 Auth::routes();
 Route::get('transfer-orders/{transferOrder}/export', [TransferOrderController::class, 'export'])->name('transfer-orders.export');
 Route::get('transfer-orders/{transferOrder}/print', [TransferOrderController::class, 'print'])->name('transfer-orders.print');

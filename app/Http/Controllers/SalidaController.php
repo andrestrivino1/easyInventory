@@ -10,21 +10,23 @@ use App\Models\TransferOrder;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use iio\libmergepdf\Merger;
 
 class SalidaController extends Controller
 {
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
      */
     public function index()
     {
         $user = Auth::user();
-        
+
         // Filtrar por bodega del usuario (excepto admin y funcionario que ven todas)
         if (in_array($user->rol, ['admin', 'funcionario'])) {
-            $salidas = Salida::with(['warehouse', 'products'])->orderByDesc('fecha')->get();
+            $salidas = Salida::with(['warehouse', 'products'])->orderByDesc('fecha')->paginate(10);
         } elseif ($user->rol === 'funcionario') {
         } elseif ($user->rol === 'clientes') {
             // Clientes ven salidas solo de sus bodegas asignadas
@@ -36,26 +38,26 @@ class SalidaController extends Controller
             $salidas = Salida::with(['warehouse', 'products'])
                 ->whereIn('warehouse_id', $bodegasAsignadasIds)
                 ->orderByDesc('fecha')
-                ->get();
+                ->paginate(10);
         } else {
             $salidas = Salida::with(['warehouse', 'products'])
                 ->where('warehouse_id', $user->almacen_id)
                 ->orderByDesc('fecha')
-                ->get();
+                ->paginate(10);
         }
-        
+
         return view('salidas.index', compact('salidas'));
     }
 
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
      */
     public function create()
     {
         $user = Auth::user();
-        
+
         // Obtener productos de la bodega del usuario
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden crear salidas en cualquier bodega
@@ -77,14 +79,14 @@ class SalidaController extends Controller
             // Clientes pueden crear salidas solo de sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
-            
+
             // Filtrar bodegas asignadas excluyendo las de Buenaventura
-            $bodegasParaSalidas = $bodegasAsignadas->reject(function($bodega) use ($bodegasBuenaventuraIds) {
+            $bodegasParaSalidas = $bodegasAsignadas->reject(function ($bodega) use ($bodegasBuenaventuraIds) {
                 return in_array($bodega->id, $bodegasBuenaventuraIds);
             });
-            
+
             $bodegasParaSalidasIds = $bodegasParaSalidas->pluck('id')->toArray();
-            
+
             if (!empty($bodegasParaSalidasIds)) {
                 $products = Product::with('containers')
                     ->whereIn('almacen_id', $bodegasParaSalidasIds)
@@ -94,7 +96,7 @@ class SalidaController extends Controller
             } else {
                 $products = collect();
             }
-            
+
             $warehouses = $bodegasParaSalidas->sortBy('nombre')->values();
         } else {
             $products = Product::with('containers')
@@ -104,7 +106,7 @@ class SalidaController extends Controller
                 ->get();
             $warehouses = collect([$user->almacen]);
         }
-        
+
         $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
         return view('salidas.create', compact('products', 'warehouses', 'drivers'));
     }
@@ -113,12 +115,12 @@ class SalidaController extends Controller
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
      */
     public function store(Request $request)
     {
         $user = Auth::user();
-        
+
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'fecha' => 'required|date',
@@ -132,7 +134,7 @@ class SalidaController extends Controller
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
         ]);
-        
+
         // Validar que el usuario tenga permiso para esta bodega
         if ($user->rol === 'admin') {
             // Admin puede crear salidas en cualquier bodega
@@ -143,14 +145,14 @@ class SalidaController extends Controller
             // Clientes solo pueden crear salidas en sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
-            
+
             // Filtrar bodegas asignadas excluyendo las de Buenaventura
-            $bodegasParaSalidas = $bodegasAsignadas->reject(function($bodega) use ($bodegasBuenaventuraIds) {
+            $bodegasParaSalidas = $bodegasAsignadas->reject(function ($bodega) use ($bodegasBuenaventuraIds) {
                 return in_array($bodega->id, $bodegasBuenaventuraIds);
             });
-            
+
             $bodegasParaSalidasIds = $bodegasParaSalidas->pluck('id')->toArray();
-            
+
             if (!in_array($data['warehouse_id'], $bodegasParaSalidasIds)) {
                 return back()->with('error', 'Solo puedes crear salidas en tus bodegas asignadas (no incluye bodegas de Buenaventura).')->withInput();
             }
@@ -160,36 +162,36 @@ class SalidaController extends Controller
                 return back()->with('error', 'No tienes permiso para crear salidas en esta bodega.')->withInput();
             }
         }
-        
+
         DB::beginTransaction();
         try {
             $warehouse = Warehouse::findOrFail($data['warehouse_id']);
             $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
             $productsToAttach = [];
-            
+
             // Validar cada producto y calcular stock real
             foreach ($data['products'] as $index => $productData) {
                 // Los productos son globales (almacen_id es null)
                 $product = Product::where('id', $productData['product_id'])
                     ->whereNull('almacen_id')
                     ->first();
-                    
+
                 if (!$product) {
                     DB::rollBack();
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto seleccionado no existe.")->withInput();
                 }
-                
+
                 // Validar que para bodegas de Buenaventura solo se permitan productos tipo "caja"
                 $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
                 if (in_array($data['warehouse_id'], $bodegasBuenaventuraIds) && $product->tipo_medida !== 'caja') {
                     DB::rollBack();
                     return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Las bodegas de Buenaventura solo pueden dar salida a productos medidos en cajas.")->withInput();
                 }
-                
+
                 // Calcular stock real de la bodega
                 $stock = 0;
                 $containerId = null;
-                
+
                 if (in_array($data['warehouse_id'], $bodegasQueRecibenContenedores)) {
                     // Bodega que recibe contenedores: stock desde container_product
                     // Calcular stock total de TODOS los contenedores (unificado)
@@ -200,7 +202,7 @@ class SalidaController extends Controller
                         ->where('container_product.boxes', '>', 0)
                         ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box')
                         ->get();
-                    
+
                     // Sumar stock de todos los contenedores
                     foreach ($containerProducts as $cp) {
                         $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
@@ -209,17 +211,19 @@ class SalidaController extends Controller
                             $containerId = $cp->container_id;
                         }
                     }
-                    
+
                     // Descontar salidas existentes (las salidas se descuentan del total unificado)
                     $salidas = Salida::where('warehouse_id', $data['warehouse_id'])
-                        ->whereHas('products', function($query) use ($product) {
+                        ->whereHas('products', function ($query) use ($product) {
                             $query->where('products.id', $product->id);
                         })
-                        ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
-                        }])
+                        ->with([
+                            'products' => function ($query) use ($product) {
+                                $query->where('products.id', $product->id)->withPivot('quantity');
+                            }
+                        ])
                         ->get();
-                    
+
                     foreach ($salidas as $salida) {
                         $productInSalida = $salida->products->first();
                         if ($productInSalida) {
@@ -237,7 +241,7 @@ class SalidaController extends Controller
                         ->where('transfer_order_products.product_id', $product->id)
                         ->select('transfer_order_products.quantity', 'transfer_order_products.good_sheets', 'transfer_order_products.bad_sheets', 'transfer_order_products.container_id', 'transfer_orders.id as transfer_id')
                         ->get();
-                    
+
                     foreach ($receivedQuantities as $received) {
                         // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
                         if ($received->good_sheets !== null) {
@@ -257,17 +261,19 @@ class SalidaController extends Controller
                             $containerId = $received->container_id;
                         }
                     }
-                    
+
                     // Descontar salidas existentes
                     $salidas = Salida::where('warehouse_id', $data['warehouse_id'])
-                        ->whereHas('products', function($query) use ($product) {
+                        ->whereHas('products', function ($query) use ($product) {
                             $query->where('products.id', $product->id);
                         })
-                        ->with(['products' => function($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
-                        }])
+                        ->with([
+                            'products' => function ($query) use ($product) {
+                                $query->where('products.id', $product->id)->withPivot('quantity');
+                            }
+                        ])
                         ->get();
-                    
+
                     foreach ($salidas as $salida) {
                         $productInSalida = $salida->products->first();
                         if ($productInSalida) {
@@ -276,11 +282,11 @@ class SalidaController extends Controller
                         }
                     }
                 }
-                
+
                 // Determinar si la bodega es de Buenaventura
                 $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
                 $isBuenaventura = in_array($data['warehouse_id'], $bodegasBuenaventuraIds);
-                
+
                 // Convertir cantidad según el tipo de bodega
                 $quantity = $productData['quantity'];
                 if ($isBuenaventura) {
@@ -290,7 +296,7 @@ class SalidaController extends Controller
                     }
                 }
                 // Para otras bodegas: la cantidad ya viene en láminas (unidades)
-                
+
                 // Validar stock suficiente
                 if ($stock < $quantity) {
                     DB::rollBack();
@@ -309,14 +315,14 @@ class SalidaController extends Controller
                         }
                     }
                 }
-                
+
                 $productsToAttach[] = [
                     'product_id' => $productData['product_id'],
                     'container_id' => $containerId, // Obtener el contenedor del producto
                     'quantity' => $quantity, // Cantidad en láminas (unidades) - siempre se guarda en láminas
                 ];
             }
-            
+
             // Crear la salida
             $salida = Salida::create([
                 'warehouse_id' => $data['warehouse_id'],
@@ -329,22 +335,22 @@ class SalidaController extends Controller
                 'aprobo' => $data['aprobo'] ?? null,
                 'ciudad_destino' => $data['ciudad_destino'] ?? null,
             ]);
-            
+
             // Asociar productos a la salida
             // El stock se calcula dinámicamente, así que solo necesitamos registrar la salida
             foreach ($productsToAttach as $index => $item) {
                 try {
                     $product = Product::findOrFail($item['product_id']);
-                    
+
                     // Asociar el producto a la salida
                     // La cantidad ya está en láminas (unidades) para clientes y funcionarios
                     $pivotData = [
                         'quantity' => $item['quantity'], // Cantidad en láminas (unidades)
                         'container_id' => $item['container_id']
                     ];
-                    
+
                     $salida->products()->attach($item['product_id'], $pivotData);
-                    
+
                     \Log::info('SALIDA store - producto asociado', [
                         'product_id' => $product->id,
                         'product_nombre' => $product->nombre,
@@ -355,29 +361,29 @@ class SalidaController extends Controller
                 } catch (\Exception $e) {
                     DB::rollBack();
                     \Log::error('SALIDA store - error al procesar producto', [
-                        'msg'=>$e->getMessage(), 
-                        'product_id'=>$item['product_id'],
-                        'warehouse_id'=>$data['warehouse_id'],
-                        'index'=>$index,
-                        'trace'=>$e->getTraceAsString()
+                        'msg' => $e->getMessage(),
+                        'product_id' => $item['product_id'],
+                        'warehouse_id' => $data['warehouse_id'],
+                        'index' => $index,
+                        'trace' => $e->getTraceAsString()
                     ]);
                     return back()->with('error', $e->getMessage())->withInput();
                 }
             }
-            
+
             DB::commit();
             return redirect()->route('salidas.index')->with('success', 'Salida creada correctamente.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            \Log::error('SALIDA store - validación fallida', ['errors'=>$e->errors()]);
+            \Log::error('SALIDA store - validación fallida', ['errors' => $e->errors()]);
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('SALIDA store - exception', [
-                'msg'=>$e->getMessage(), 
-                'file'=>$e->getFile(), 
-                'line'=>$e->getLine(),
-                'trace'=>$e->getTraceAsString()
+                'msg' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
             $errorMessage = "Error al crear la salida: " . $e->getMessage();
             if (config('app.debug')) {
@@ -391,12 +397,12 @@ class SalidaController extends Controller
      * Display the specified resource.
      *
      * @param  \App\Models\Salida  $salida
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
      */
     public function show(Salida $salida)
     {
         $user = Auth::user();
-        
+
         // Validar que el usuario tenga acceso a esta salida
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden ver todas las salidas
@@ -414,9 +420,9 @@ class SalidaController extends Controller
                 return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
             }
         }
-        
+
         $salida->load(['warehouse', 'products']);
-        
+
         return view('salidas.show', compact('salida'));
     }
 
@@ -426,7 +432,7 @@ class SalidaController extends Controller
     public function export(Salida $salida)
     {
         $user = Auth::user();
-        
+
         // Validar que el usuario tenga acceso a esta salida
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden descargar todas las salidas
@@ -443,14 +449,67 @@ class SalidaController extends Controller
                 return redirect()->route('salidas.index')->with('error', 'No tienes permiso para descargar esta salida.');
             }
         }
-        
-        $salida->load(['warehouse', 'products' => function($query) {
-            $query->withPivot('quantity', 'container_id');
-        }, 'user', 'driver']);
-        
+
+        $salida->load([
+            'warehouse',
+            'products' => function ($query) {
+                $query->withPivot('quantity', 'container_id');
+            },
+            'user',
+            'driver'
+        ]);
+
         $isExport = true;
         $currentUser = $user;
+
+        // Generar el PDF de salida
         $pdf = Pdf::loadView('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
+
+        // Crear directorio temporal si no existe
+        $tempDir = storage_path('app/temp_pdfs');
+        if (!\Illuminate\Support\Facades\File::exists($tempDir)) {
+            \Illuminate\Support\Facades\File::makeDirectory($tempDir, 0755, true);
+        }
+
+        // Guardar el PDF de salida temporalmente
+        $salidaPdfPath = $tempDir . '/salida_' . $salida->id . '_' . time() . '.pdf';
+        file_put_contents($salidaPdfPath, $pdf->output());
+
+        // Verificar si el conductor tiene PDF de seguridad social
+        $socialSecurityPdfPath = null;
+        if ($salida->driver && $salida->driver->social_security_pdf) {
+            $fullPath = storage_path('app/public/' . $salida->driver->social_security_pdf);
+            if (\Illuminate\Support\Facades\File::exists($fullPath) && filesize($fullPath) > 0) {
+                $socialSecurityPdfPath = $fullPath;
+            }
+        }
+
+        // Si hay PDF de seguridad social, unirlo al PDF de salida
+        if ($socialSecurityPdfPath) {
+            try {
+                $merger = new \iio\libmergepdf\Merger();
+                $merger->addFile($salidaPdfPath);
+                $merger->addFile($socialSecurityPdfPath);
+
+                $mergedPdfOutput = $merger->merge();
+                $filename = 'Salida-' . $salida->salida_number . '.pdf';
+
+                // Limpiar archivo temporal
+                @unlink($salidaPdfPath);
+
+                return response($mergedPdfOutput)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            } catch (\Exception $e) {
+                // Si falla la unión, descargar el PDF de salida original
+                @unlink($salidaPdfPath);
+                $filename = 'Salida-' . $salida->salida_number . '.pdf';
+                return $pdf->download($filename);
+            }
+        }
+
+        // Si no hay PDF de seguridad social, descargar el original
+        @unlink($salidaPdfPath);
         $filename = 'Salida-' . $salida->salida_number . '.pdf';
         return $pdf->download($filename);
     }
@@ -462,11 +521,11 @@ class SalidaController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if (!$user) {
                 return redirect()->route('login');
             }
-            
+
             // Validar que el usuario tenga acceso a esta salida
             if (in_array($user->rol, ['admin', 'funcionario'])) {
                 // Admin y funcionario pueden imprimir todas las salidas
@@ -483,11 +542,16 @@ class SalidaController extends Controller
                     return redirect()->route('salidas.index')->with('error', 'No tienes permiso para ver esta salida.');
                 }
             }
-            
-            $salida->load(['warehouse', 'products' => function($query) {
-                $query->withPivot('quantity', 'container_id');
-            }, 'user', 'driver']);
-            
+
+            $salida->load([
+                'warehouse',
+                'products' => function ($query) {
+                    $query->withPivot('quantity', 'container_id');
+                },
+                'user',
+                'driver'
+            ]);
+
             $isExport = false;
             $currentUser = $user;
             return view('salidas.pdf', compact('salida', 'isExport', 'currentUser'));
@@ -506,26 +570,26 @@ class SalidaController extends Controller
      * Remove the specified resource from storage.
      *
      * @param  \App\Models\Salida  $salida
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
      */
     public function destroy(Salida $salida)
     {
         $user = Auth::user();
-        
+
         // Solo admin puede eliminar salidas
         if ($user->rol !== 'admin') {
             return redirect()->route('salidas.index')->with('error', 'No tienes permiso para eliminar salidas.');
         }
-        
+
         DB::beginTransaction();
         try {
             // El stock se calcula dinámicamente, así que solo necesitamos eliminar la salida
             // No necesitamos restaurar stock porque se calcula desde transferencias recibidas menos salidas
             $salida->delete();
-            
+
             DB::commit();
             return redirect()->route('salidas.index')->with('success', 'Salida eliminada correctamente.');
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('SALIDA destroy - Error', [
@@ -546,14 +610,14 @@ class SalidaController extends Controller
         $user = Auth::user();
         $warehouse = Warehouse::findOrFail($warehouseId);
         $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
-        
+
         \Log::info('getProductsForWarehouse - Inicio', [
             'warehouse_id' => $warehouseId,
             'warehouse_name' => $warehouse->nombre,
             'user_id' => $user->id,
             'user_rol' => $user->rol
         ]);
-        
+
         // Validar permisos según el rol
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden ver productos de cualquier bodega
@@ -562,20 +626,20 @@ class SalidaController extends Controller
             // Clientes solo pueden ver productos de sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
-            
+
             // Filtrar bodegas asignadas excluyendo las de Buenaventura
-            $bodegasParaSalidas = $bodegasAsignadas->reject(function($bodega) use ($bodegasBuenaventuraIds) {
+            $bodegasParaSalidas = $bodegasAsignadas->reject(function ($bodega) use ($bodegasBuenaventuraIds) {
                 return in_array($bodega->id, $bodegasBuenaventuraIds);
             });
-            
+
             $bodegasParaSalidasIds = $bodegasParaSalidas->pluck('id')->toArray();
-            
+
             \Log::info('getProductsForWarehouse - Cliente', [
                 'bodegas_asignadas' => $bodegasAsignadas->pluck('id')->toArray(),
                 'bodegas_para_salidas' => $bodegasParaSalidasIds,
                 'warehouse_id' => $warehouseId
             ]);
-            
+
             if (!in_array($warehouseId, $bodegasParaSalidasIds)) {
                 \Log::warning('getProductsForWarehouse - Acceso denegado para cliente', ['warehouse_id' => $warehouseId]);
                 return response()->json([], 403);
@@ -587,30 +651,30 @@ class SalidaController extends Controller
                 return response()->json([], 403);
             }
         }
-        
+
         // Obtener todos los productos globales (sin almacen_id específico)
         $allProductsQuery = Product::whereNull('almacen_id');
-        
+
         // Si la bodega es de Buenaventura, solo mostrar productos tipo "caja"
         $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
         if (in_array($warehouseId, $bodegasBuenaventuraIds)) {
             $allProductsQuery->where('tipo_medida', 'caja');
         }
-        
+
         $allProducts = $allProductsQuery->orderBy('nombre')->get();
-        
+
         \Log::info('getProductsForWarehouse - Productos encontrados', [
             'total_productos' => $allProducts->count(),
             'bodega_recibe_contenedores' => in_array($warehouseId, $bodegasQueRecibenContenedores),
             'bodega_buenaventura' => in_array($warehouseId, $bodegasBuenaventuraIds),
             'filtro_tipo_caja' => in_array($warehouseId, $bodegasBuenaventuraIds)
         ]);
-        
+
         $productsWithStock = [];
-        
+
         foreach ($allProducts as $product) {
             $stock = 0;
-            
+
             if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
                 // Bodega que recibe contenedores: stock desde container_product
                 $containerProducts = DB::table('container_product')
@@ -619,7 +683,7 @@ class SalidaController extends Controller
                     ->where('containers.warehouse_id', $warehouseId)
                     ->select('container_product.boxes', 'container_product.sheets_per_box')
                     ->get();
-                
+
                 foreach ($containerProducts as $cp) {
                     $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
                 }
@@ -633,13 +697,13 @@ class SalidaController extends Controller
                     ->where('transfer_order_products.product_id', $product->id)
                     ->select('transfer_order_products.quantity', 'transfer_order_products.good_sheets', 'transfer_order_products.bad_sheets', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
                     ->get();
-                
+
                 \Log::info('getProductsForWarehouse - Transferencias recibidas (consulta directa)', [
                     'product_id' => $product->id,
                     'product_nombre' => $product->nombre,
                     'warehouse_id' => $warehouseId,
                     'transferencias_count' => $receivedQuantities->count(),
-                    'transferencias' => $receivedQuantities->map(function($t) {
+                    'transferencias' => $receivedQuantities->map(function ($t) {
                         return [
                             'transfer_id' => $t->transfer_id,
                             'order_number' => $t->order_number,
@@ -648,7 +712,7 @@ class SalidaController extends Controller
                         ];
                     })->toArray()
                 ]);
-                
+
                 // Sumar cantidades recibidas (solo las láminas buenas)
                 foreach ($receivedQuantities as $received) {
                     // Usar good_sheets si está disponible, sino usar quantity (para compatibilidad)
@@ -666,7 +730,7 @@ class SalidaController extends Controller
                         }
                         $stock += $quantity;
                     }
-                    
+
                     \Log::info('getProductsForWarehouse - Transferencia procesada', [
                         'transfer_id' => $received->transfer_id,
                         'transfer_order_number' => $received->order_number,
@@ -677,7 +741,7 @@ class SalidaController extends Controller
                         'stock_acumulado' => $stock
                     ]);
                 }
-                
+
                 // Descontar salidas usando consulta directa
                 $salidasQuantities = DB::table('salida_products')
                     ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
@@ -685,24 +749,24 @@ class SalidaController extends Controller
                     ->where('salida_products.product_id', $product->id)
                     ->select('salida_products.quantity', 'salidas.id as salida_id')
                     ->get();
-                
+
                 \Log::info('getProductsForWarehouse - Salidas encontradas (consulta directa)', [
                     'product_id' => $product->id,
                     'warehouse_id' => $warehouseId,
                     'salidas_count' => $salidasQuantities->count(),
-                    'salidas' => $salidasQuantities->map(function($s) {
+                    'salidas' => $salidasQuantities->map(function ($s) {
                         return [
                             'salida_id' => $s->salida_id,
                             'quantity' => $s->quantity
                         ];
                     })->toArray()
                 ]);
-                
+
                 foreach ($salidasQuantities as $salida) {
                     // Las salidas ya se guardan en láminas (unidades), no en cajas
                     $quantity = $salida->quantity;
                     $stock -= $quantity;
-                    
+
                     \Log::info('getProductsForWarehouse - Salida descontada', [
                         'salida_id' => $salida->salida_id,
                         'product_id' => $product->id,
@@ -711,10 +775,10 @@ class SalidaController extends Controller
                     ]);
                 }
             }
-            
+
             // Asegurarse de que el stock sea al menos 0 (no negativo)
             $finalStock = max(0, $stock);
-            
+
             // Verificar si hay transferencias recibidas para este producto
             $hasReceivedTransfers = false;
             if (!in_array($warehouseId, $bodegasQueRecibenContenedores)) {
@@ -725,7 +789,7 @@ class SalidaController extends Controller
                     ->where('transfer_order_products.product_id', $product->id)
                     ->exists();
             }
-            
+
             \Log::info('getProductsForWarehouse - Resumen producto', [
                 'product_id' => $product->id,
                 'product_nombre' => $product->nombre,
@@ -737,7 +801,7 @@ class SalidaController extends Controller
                 'unidades_por_caja' => $product->unidades_por_caja ?? 1,
                 'has_received_transfers' => $hasReceivedTransfers
             ]);
-            
+
             // Incluir productos con stock > 0
             // Si el stock es 0 pero hay transferencias recibidas, también incluirlo para diagnóstico
             // (esto ayuda a identificar problemas donde las salidas descontaron más de lo recibido)
@@ -751,7 +815,7 @@ class SalidaController extends Controller
                     'tipo_medida' => $product->tipo_medida,
                     'unidades_por_caja' => $product->unidades_por_caja ?? 1,
                 ];
-                
+
                 if ($finalStock == 0 && $hasReceivedTransfers) {
                     \Log::warning('getProductsForWarehouse - Producto incluido con stock 0 pero tiene transferencias recibidas', [
                         'product_id' => $product->id,
@@ -770,21 +834,21 @@ class SalidaController extends Controller
                 ]);
             }
         }
-        
+
         // Verificar transferencias recibidas para esta bodega (para debugging)
         $allReceivedTransfers = DB::table('transfer_orders')
             ->where('status', 'recibido')
             ->where('warehouse_to_id', $warehouseId)
             ->select('id', 'order_number', 'warehouse_to_id', 'status', 'date')
             ->get();
-        
+
         $transferProducts = DB::table('transfer_order_products')
             ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
             ->where('transfer_orders.status', 'recibido')
             ->where('transfer_orders.warehouse_to_id', $warehouseId)
             ->select('transfer_order_products.product_id', 'transfer_order_products.quantity', 'transfer_orders.id as transfer_id', 'transfer_orders.order_number')
             ->get();
-        
+
         \Log::info('getProductsForWarehouse - Resultado final', [
             'productos_con_stock' => count($productsWithStock),
             'total_productos_globales' => $allProducts->count(),
@@ -792,18 +856,18 @@ class SalidaController extends Controller
             'warehouse_nombre' => $warehouse->nombre,
             'bodega_recibe_contenedores' => in_array($warehouseId, $bodegasQueRecibenContenedores),
             'transferencias_recibidas_count' => $allReceivedTransfers->count(),
-            'transferencias_recibidas' => $allReceivedTransfers->map(function($t) {
+            'transferencias_recibidas' => $allReceivedTransfers->map(function ($t) {
                 return [
                     'id' => $t->id,
                     'order_number' => $t->order_number,
                     'date' => $t->date
                 ];
             })->toArray(),
-            'productos_en_transferencias' => $transferProducts->groupBy('product_id')->map(function($group) {
+            'productos_en_transferencias' => $transferProducts->groupBy('product_id')->map(function ($group) {
                 return [
                     'product_id' => $group->first()->product_id,
                     'total_quantity' => $group->sum('quantity'),
-                    'transfers' => $group->map(function($t) {
+                    'transfers' => $group->map(function ($t) {
                         return [
                             'transfer_id' => $t->transfer_id,
                             'order_number' => $t->order_number,
@@ -812,7 +876,7 @@ class SalidaController extends Controller
                     })->toArray()
                 ];
             })->values()->toArray(),
-            'productos' => array_map(function($p) {
+            'productos' => array_map(function ($p) {
                 return [
                     'id' => $p['id'],
                     'nombre' => $p['nombre'],
@@ -820,7 +884,7 @@ class SalidaController extends Controller
                 ];
             }, $productsWithStock)
         ]);
-        
+
         return response()->json($productsWithStock);
     }
 }

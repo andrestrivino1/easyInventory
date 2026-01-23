@@ -5,7 +5,7 @@ return [
     'panel_inventario' => '库存面板',
     'usuario' => '用户',
     'cerrar_sesion' => '登出',
-    
+
     // Sidebar Menu
     'movimientos' => '移动',
     'productos' => '产品',
@@ -20,7 +20,7 @@ return [
     'usuarios' => '用户',
     'reportes' => '报告',
     'dashboard' => '仪表板',
-    
+
     // Common Actions
     'crear' => '创建',
     'editar' => '编辑',
@@ -36,14 +36,14 @@ return [
     'subir' => '上传',
     'agregar' => '添加',
     'actualizar' => '更新',
-    
+
     // Status
     'activo' => '活跃',
     'inactivo' => '不活跃',
     'pendiente' => '待处理',
     'completado' => '已完成',
     'recibido' => '已收到',
-    
+
     // Import Module
     'comercial_invoice' => '商业发票',
     'numero_proforma_invoice' => '形式发票号码',
@@ -54,7 +54,6 @@ return [
     'fecha_salida' => '出发日期',
     'fecha_llegada' => '预计到达日期',
     'fecha_llegada_real' => '实际到达日期',
-    'contenedores' => '容器',
     'referencia' => '参考',
     'pdf_informacion_contenedor' => '容器信息PDF',
     'pdf_imagenes_contenedor' => '容器图像PDF',
@@ -100,35 +99,41 @@ return [
     'colombia' => '哥伦比亚',
     'seleccione' => '选择...',
     'contenedor_num' => '容器 #',
-    'eliminar' => '删除',
     'agregar_contenedor' => '添加容器',
     'seleccionar_archivo' => '选择文件',
     'ningun_archivo_seleccionado' => '未选择文件',
-    
+
     // Transfer Module
     'confirmar_recibido' => '确认收到',
     'laminas_buenas' => '好板材',
     'laminas_malas' => '坏板材',
-    
+
     // Common Messages
     'guardado_exitoso' => '保存成功',
     'actualizado_exitoso' => '更新成功',
     'eliminado_exitoso' => '删除成功',
     'error_guardar' => '保存错误',
     'confirmar_eliminar' => '您确定要删除此记录吗？',
-    
+
     // Login
     'iniciar_sesion' => '登录',
     'correo' => '电子邮件',
     'ingresa_tu_correo' => '输入您的电子邮件',
     'contraseña' => '密码',
     'ingresa_tu_contraseña' => '输入您的密码',
+    'confirmar_contraseña' => '确认密码',
+    'por_favor_confirme_contraseña' => '请在继续之前确认您的密码。',
     'ingresar' => '登录',
+    'olvidaste_contraseña' => '忘记密码？',
+    'restablecer_contraseña' => '重置密码',
+    'enviar_enlace' => '发送重置链接',
+    'volver_al_login' => '返回登录',
     'error' => '错误',
+    'exito' => '成功',
     'espanol' => '西班牙语',
     'ingles' => '英语',
     'chino' => '中文',
-    
+
     // Credit Alerts
     'credito_vencido' => '信用已过期',
     'credito_por_vencer' => '信用即将到期',

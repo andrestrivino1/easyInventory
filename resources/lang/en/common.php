@@ -5,7 +5,7 @@ return [
     'panel_inventario' => 'Inventory Panel',
     'usuario' => 'User',
     'cerrar_sesion' => 'Log out',
-    
+
     // Sidebar Menu
     'movimientos' => 'Movements',
     'productos' => 'Products',
@@ -20,7 +20,7 @@ return [
     'usuarios' => 'Users',
     'reportes' => 'Reports',
     'dashboard' => 'Dashboard',
-    
+
     // Common Actions
     'crear' => 'Create',
     'editar' => 'Edit',
@@ -36,14 +36,14 @@ return [
     'subir' => 'Upload',
     'agregar' => 'Add',
     'actualizar' => 'Update',
-    
+
     // Status
     'activo' => 'Active',
     'inactivo' => 'Inactive',
     'pendiente' => 'Pending',
     'completado' => 'Completed',
     'recibido' => 'Received',
-    
+
     // Import Module
     'comercial_invoice' => 'COMMERCIAL INVOICE',
     'numero_proforma_invoice' => 'Proforma Invoice Number',
@@ -54,7 +54,6 @@ return [
     'fecha_salida' => 'Departure Date',
     'fecha_llegada' => 'Estimated Arrival Date',
     'fecha_llegada_real' => 'Actual Arrival Date',
-    'contenedores' => 'Containers',
     'referencia' => 'Reference',
     'pdf_informacion_contenedor' => 'PDF with Container Information',
     'pdf_imagenes_contenedor' => 'PDF with Container Images',
@@ -100,35 +99,41 @@ return [
     'colombia' => 'Colombia',
     'seleccione' => 'Select...',
     'contenedor_num' => 'Container #',
-    'eliminar' => 'Delete',
     'agregar_contenedor' => 'Add Container',
     'seleccionar_archivo' => 'Select file',
     'ningun_archivo_seleccionado' => 'No file selected',
-    
+
     // Transfer Module
     'confirmar_recibido' => 'Confirm Received',
     'laminas_buenas' => 'Good Sheets',
     'laminas_malas' => 'Bad Sheets',
-    
+
     // Common Messages
     'guardado_exitoso' => 'Successfully saved',
     'actualizado_exitoso' => 'Successfully updated',
     'eliminado_exitoso' => 'Successfully deleted',
     'error_guardar' => 'Error saving',
     'confirmar_eliminar' => 'Are you sure you want to delete this record?',
-    
+
     // Login
     'iniciar_sesion' => 'Log In',
     'correo' => 'Email',
     'ingresa_tu_correo' => 'Enter your email',
     'contraseña' => 'Password',
     'ingresa_tu_contraseña' => 'Enter your password',
+    'confirmar_contraseña' => 'Confirm Password',
+    'por_favor_confirme_contraseña' => 'Please confirm your password before continuing.',
     'ingresar' => 'Login',
+    'olvidaste_contraseña' => 'Forgot your password?',
+    'restablecer_contraseña' => 'Reset Password',
+    'enviar_enlace' => 'Send Password Reset Link',
+    'volver_al_login' => 'Back to Login',
     'error' => 'Error',
+    'exito' => 'Success',
     'espanol' => 'Spanish',
     'ingles' => 'English',
     'chino' => 'Chinese',
-    
+
     // Credit Alerts
     'credito_vencido' => 'Credit Expired',
     'credito_por_vencer' => 'Credit Expiring Soon',

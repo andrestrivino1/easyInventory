@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jan 14, 2026 at 11:03 PM
+-- Generation Time: Jan 22, 2026 at 09:09 AM
 -- Server version: 10.11.15-MariaDB-cll-lve
 -- PHP Version: 8.4.16
 
@@ -54,7 +54,24 @@ INSERT INTO `containers` (`id`, `reference`, `warehouse_id`, `note`, `created_at
 (26, 'MRSU4281860', 19, 'INV VIEJO', NULL, NULL),
 (27, 'MSKU0448388', 19, 'INV VIEJO', NULL, NULL),
 (28, 'MSMU3715724', 17, 'INV VIEJO', NULL, NULL),
-(29, 'MSMU371572-4', 29, 'INV VIEJO', NULL, NULL);
+(29, 'MSMU371572-4', 29, 'INV VIEJO', NULL, NULL),
+(30, 'BEAU2963840', 17, 'INV VIEJO', NULL, NULL),
+(31, 'MRKU71384222', 17, 'INV VIEJO', NULL, NULL),
+(32, 'FCIU530927/1', 28, 'INV VIEJO', NULL, NULL),
+(33, 'STOCK GIRARDOT', 17, 'INGRESO STOCK MASTER BUN', NULL, NULL),
+(34, 'STOCK GIRARDOTT', 17, 'INGRESO STOCK GIRARDO', NULL, NULL),
+(35, 'STOCK GIRARDOTTT', 17, 'INV VIDRIOS', NULL, NULL),
+(36, 'HASU4977415', 31, 'ENDOSO ZULUVIDRIOS', NULL, NULL),
+(37, 'CAIU3549383', 31, 'VENTA PABLO ROJAS A ZULUVIDRIOS 220.000 LAMINA', NULL, NULL),
+(38, 'CAIU3490557', 33, 'DO: VJP26-021  MATERIAL RLW GLASS TEMPLADOS LA TORRE', NULL, NULL),
+(39, 'CMAU026715/7', 28, 'VENTA DE DO: 26-001 BL: TJN0773287', NULL, NULL),
+(40, 'CMAU0267157', 17, 'DO VJP26-001 INGRESO', NULL, NULL),
+(41, 'TCLU735981-3', 28, 'DO VJP26-001 VENTA A ELIECER', NULL, NULL),
+(42, 'TCLU7359813', 17, 'DO: VJP26-001', NULL, NULL),
+(43, 'SUDU1368362', 21, 'DO: VJP26-011', NULL, NULL),
+(44, 'MSKU5652671', 17, 'DO: VJP26-012', NULL, NULL),
+(45, 'MSMU2003772', 17, 'DO: VJP26-009', NULL, NULL),
+(46, 'PR VIEJO', 29, 'VENTA OLGA HORTENCIA TUPAZ', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -77,20 +94,62 @@ CREATE TABLE `container_product` (
 --
 
 INSERT INTO `container_product` (`id`, `container_id`, `product_id`, `boxes`, `sheets_per_box`, `created_at`, `updated_at`) VALUES
-(16, 16, 33, 2, 15, '2026-01-10 19:55:35', '2026-01-10 19:55:35'),
-(17, 17, 33, 2, 15, '2026-01-10 19:56:15', '2026-01-10 19:56:15'),
+(16, 16, 33, 0, 15, '2026-01-10 19:55:35', '2026-01-10 19:55:35'),
+(17, 17, 33, 0, 15, '2026-01-10 19:56:15', '2026-01-10 19:56:15'),
 (18, 18, 34, 7, 25, '2026-01-10 19:57:26', '2026-01-10 19:57:26'),
 (19, 19, 35, 0, 40, '2026-01-10 20:00:17', '2026-01-10 20:00:17'),
-(20, 20, 36, 3, 19, '2026-01-10 20:10:44', '2026-01-10 20:10:44'),
-(21, 21, 37, 2, 31, '2026-01-11 00:37:15', '2026-01-11 00:37:15'),
-(22, 22, 37, 2, 31, '2026-01-11 00:37:51', '2026-01-11 00:37:51'),
+(20, 20, 36, 0, 19, '2026-01-10 20:10:44', '2026-01-10 20:10:44'),
+(21, 21, 37, 1, 31, '2026-01-11 00:37:15', '2026-01-16 19:33:52'),
+(22, 22, 37, 1, 31, '2026-01-11 00:37:51', '2026-01-16 19:33:40'),
 (23, 23, 38, 10, 31, '2026-01-11 00:58:44', '2026-01-11 00:58:44'),
 (24, 24, 39, 5, 25, '2026-01-11 01:00:56', '2026-01-11 01:00:56'),
 (25, 25, 41, 4, 25, '2026-01-11 01:05:05', '2026-01-11 01:05:05'),
 (26, 26, 43, 10, 18, '2026-01-11 01:07:44', '2026-01-11 01:07:44'),
 (27, 27, 42, 4, 24, '2026-01-11 01:08:53', '2026-01-11 01:08:53'),
 (28, 28, 44, 4, 60, '2026-01-11 01:13:49', '2026-01-11 01:13:49'),
-(29, 29, 44, 2, 60, '2026-01-11 01:15:21', '2026-01-11 01:15:21');
+(29, 29, 44, 2, 60, '2026-01-11 01:15:21', '2026-01-11 01:15:21'),
+(30, 30, 48, 10, 30, '2026-01-16 19:27:07', '2026-01-16 19:27:07'),
+(31, 31, 50, 2, 38, '2026-01-16 19:27:43', '2026-01-16 19:27:43'),
+(32, 32, 37, 2, 31, '2026-01-16 19:34:54', '2026-01-16 19:34:54'),
+(33, 33, 52, 0, 38, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(34, 33, 46, 0, 57, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(35, 33, 47, 0, 46, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(36, 33, 48, 0, 30, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(37, 33, 49, 0, 26, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(38, 33, 50, 0, 38, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(39, 33, 51, 0, 30, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(40, 33, 42, 0, 23, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(41, 33, 43, 0, 16, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(42, 33, 57, 0, 33, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(43, 33, 36, 0, 19, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(44, 33, 39, 0, 25, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(45, 33, 34, 0, 25, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(46, 33, 53, 0, 35, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(47, 33, 55, 0, 31, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(48, 33, 54, 0, 28, '2026-01-16 19:57:18', '2026-01-16 19:57:18'),
+(49, 34, 61, 0, 38, '2026-01-16 20:02:56', '2026-01-16 20:02:56'),
+(50, 34, 56, 0, 17, '2026-01-16 20:02:56', '2026-01-16 20:02:56'),
+(51, 34, 60, 0, 25, '2026-01-16 20:02:56', '2026-01-16 20:02:56'),
+(52, 34, 59, 0, 19, '2026-01-16 20:02:56', '2026-01-16 20:02:56'),
+(53, 35, 63, 0, 38, '2026-01-16 20:19:28', '2026-01-16 20:19:28'),
+(54, 35, 58, 0, 22, '2026-01-16 20:19:28', '2026-01-16 20:19:28'),
+(55, 36, 64, 4, 29, '2026-01-19 23:12:00', '2026-01-19 23:12:00'),
+(56, 36, 45, 6, 36, '2026-01-19 23:12:00', '2026-01-19 23:12:00'),
+(57, 37, 60, 2, 25, '2026-01-19 23:13:45', '2026-01-19 23:13:45'),
+(58, 38, 67, 10, 14, '2026-01-21 20:09:03', '2026-01-21 20:09:03'),
+(59, 39, 65, 5, 26, '2026-01-21 22:24:39', '2026-01-21 22:26:49'),
+(60, 40, 65, 5, 25, '2026-01-21 22:25:25', '2026-01-21 22:26:34'),
+(61, 41, 66, 5, 26, '2026-01-21 22:27:48', '2026-01-21 22:27:48'),
+(62, 42, 66, 5, 25, '2026-01-21 22:28:27', '2026-01-21 22:28:27'),
+(63, 43, 50, 10, 38, '2026-01-21 23:02:35', '2026-01-21 23:02:35'),
+(64, 44, 50, 10, 38, '2026-01-21 23:03:37', '2026-01-21 23:03:37'),
+(65, 45, 34, 10, 25, '2026-01-21 23:05:39', '2026-01-21 23:05:39'),
+(66, 46, 60, 1, 25, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
+(67, 46, 48, 2, 30, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
+(68, 46, 34, 2, 25, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
+(69, 46, 61, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
+(70, 46, 63, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
+(71, 46, 50, 2, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52');
 
 -- --------------------------------------------------------
 
@@ -103,7 +162,12 @@ CREATE TABLE `drivers` (
   `name` varchar(255) NOT NULL,
   `identity` varchar(20) NOT NULL,
   `phone` varchar(20) DEFAULT NULL,
+  `photo_path` varchar(255) DEFAULT NULL,
   `vehicle_plate` varchar(20) NOT NULL,
+  `vehicle_photo_path` varchar(255) DEFAULT NULL,
+  `social_security_date` date DEFAULT NULL COMMENT 'Fecha de seguridad social',
+  `social_security_pdf` varchar(255) DEFAULT NULL COMMENT 'PDF de seguridad social',
+  `vehicle_owner` varchar(255) DEFAULT NULL COMMENT 'Propietario del vehículo',
   `active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -113,10 +177,11 @@ CREATE TABLE `drivers` (
 -- Dumping data for table `drivers`
 --
 
-INSERT INTO `drivers` (`id`, `name`, `identity`, `phone`, `vehicle_plate`, `active`, `created_at`, `updated_at`) VALUES
-(7, 'FABIAN VIVAS PARADA', '1115911364', '3206615093', 'NYO322', 1, NULL, NULL),
-(8, 'CESAR VANEGASS SERRANO', '79916566', '311459996', 'WOM166', 1, NULL, NULL),
-(9, 'NICOLAS CANO', '1007530763', '3145656161', 'FST609', 1, NULL, NULL);
+INSERT INTO `drivers` (`id`, `name`, `identity`, `phone`, `photo_path`, `vehicle_plate`, `vehicle_photo_path`, `social_security_date`, `social_security_pdf`, `vehicle_owner`, `active`, `created_at`, `updated_at`) VALUES
+(7, 'FABIAN VIVAS PARADA', '1115911364', '3206615093', 'drivers/lV2DKsTjA5YkVeV7leBwUDQMr9DqKOVxg7ZjTinZ.jpg', 'NYO322', 'drivers/vJDt5trPbQA4XclsOdcqtDIIknj5sokThGu1SWy6.jpg', '2026-02-13', 'drivers/1Nu3c7huzSjzqvGyM0QWRmWOEP21vubER4uVKZCr.pdf', 'PABLO ANDRES ROJAS CC1111806533', 1, NULL, NULL),
+(8, 'CESAR VANEGASS SERRANO', '79916566', '311459996', NULL, 'WOM166', NULL, '2026-02-09', 'drivers/pyTzD3zEduDcNlmLzAuxppjEZcPMGtQqq81ZItBH.pdf', 'PABLO ANTONIO RIOS SUAREZ CC 13905229', 1, NULL, NULL),
+(9, 'NICOLAS CANO', '1007530763', '3145656161', 'drivers/YJqQpOPDxZ3H7XCngC8H2mGWtFwFQ0FIJSmtlTBV.jpg', 'FST609', 'drivers/8KGfq2x6zCE2w5v5Yn5nkSIS2kJcaq0nxlAE83jo.jpg', '2026-02-09', 'drivers/ifG33NBQwGagyACOFoefAqKFHPPbkKcl2AEQhNMy.pdf', 'LA ÉLITE COMPRAVENTA Y TRANSPORTE', 1, NULL, NULL),
+(10, 'WILLIAM TORRES', '79328216', '3017858368', NULL, 'CTU437', NULL, NULL, NULL, 'TEMPLADOS LA TORRE', 1, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -138,6 +203,7 @@ CREATE TABLE `imports` (
   `actual_arrival_date` date DEFAULT NULL COMMENT 'Fecha real de llegada',
   `received_at` timestamp NULL DEFAULT NULL COMMENT 'Fecha y hora cuando se marcó como recibido',
   `status` varchar(255) DEFAULT 'pending',
+  `nationalized` tinyint(1) NOT NULL DEFAULT 0,
   `files` text DEFAULT NULL,
   `credits` decimal(10,2) DEFAULT NULL,
   `proforma_pdf` varchar(255) DEFAULT NULL,
@@ -151,6 +217,7 @@ CREATE TABLE `imports` (
   `shipping_company` varchar(255) DEFAULT NULL,
   `free_days_at_dest` int(11) DEFAULT NULL,
   `credit_time` enum('15','30','45') DEFAULT NULL,
+  `credit_paid` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Indica si el crédito ha sido pagado',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -159,26 +226,32 @@ CREATE TABLE `imports` (
 -- Dumping data for table `imports`
 --
 
-INSERT INTO `imports` (`id`, `do_code`, `commercial_invoice_number`, `proforma_invoice_number`, `bl_number`, `user_id`, `origin`, `destination`, `departure_date`, `arrival_date`, `actual_arrival_date`, `received_at`, `status`, `files`, `credits`, `proforma_pdf`, `proforma_invoice_low_pdf`, `invoice_pdf`, `commercial_invoice_low_pdf`, `bl_pdf`, `packing_list_pdf`, `apostillamiento_pdf`, `other_documents_pdf`, `shipping_company`, `free_days_at_dest`, `credit_time`, `created_at`, `updated_at`) VALUES
-(2, 'VJP26-002', 'COL001251006-4', 'COL001251006', 'DLN0262195', 14, 'QINGDAO', 'Colombia', '2025-12-09', '2026-01-13', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/wfSBKhx6PBiSI9Xa1AnIrvT0cvLIox0wrlVDzsWx.pdf', 'imports/FTJonN5pWh3HzZHwOJ0pIOPCoym6r24cCD6qB0VF.pdf', 'imports/nmzKv1tmBix9rBNCiDzrBL8jZppP2mFV53ctTqq2.pdf', 'imports/m7eOOe9mb1k8Y0zf57nfRxCiLduAOcx7zaBMwgZI.pdf', 'imports/XhD2sUq1DfK3CjmHvVIqKNfZQ3699GHe2muVx3ML.pdf', 'CMA-CGM', 21, '45', '2026-01-10 22:22:15', '2026-01-14 15:03:41'),
-(3, 'VJP26-003', 'JPSA007-251020', NULL, 'TJN0803976', 17, 'QINGDAO', 'Colombia', '2025-11-23', '2026-01-06', NULL, NULL, 'completed', NULL, NULL, NULL, NULL, NULL, 'imports/fNirbYniCz37Jx2hVhq0eUorWhjH9oL18EggUNfH.pdf', 'imports/OzmtfYxTC8Xj6T09Tu6Fw3Guid8EmFiTH7SwgVPc.pdf', 'imports/MeQ00cv1F8clARDXBDlHHF4qikdnKgYILQhL5y4R.pdf', 'imports/9wvv17VbpZ5k4AlgBiMMttySnMcTZs58umg3g0rQ.pdf', 'imports/OnwOvTx85ATNtVaYakEUn3B0I8HLn4VXnt9axSxv.pdf', 'CMA-CGM', 21, NULL, '2026-01-11 03:09:59', '2026-01-11 03:09:59'),
-(4, 'VJP26-004', 'COL001251006-5', 'COL001251006', 'MEDUHW415929', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/IPySkWTf6EEwv3WW8FCAmm2YIU2xZW2Ix3Vns0pP.pdf', 'imports/4gucvYvCM6j0Bj0p9efk6kv9GZpBJWqvCMmlFSEK.pdf', 'imports/w3lvfpGp89nZRhQnLGi4gqCniISBUUeg3T88LVWz.pdf', 'imports/EUlsYucdtjBPqCqceMEpMTL9wpqEGv1yLMBQ22pC.pdf', 'imports/OBMhS3gmGN4H9q9QzhACRSrYXQQUvoYex5ptgpJv.pdf', 'MSC', 21, '45', '2026-01-11 03:18:29', '2026-01-11 03:19:06'),
-(5, 'VJP26-005', 'COL001251006-6', 'COL001251006', 'MEDUHW415911', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/lMbcTnkutwpVhPYfUEk2CHhTHkzcNxvbUx56TgHx.pdf', 'imports/f8HpMxXoNT68El9XGro0IazaimyBjQuFQTWnjMbQ.pdf', 'imports/n0j6NNlpqN8oA36D8HfDUxcVBx3b3bOySD3fUoVq.pdf', 'imports/BhkfRcmvzBsUT9YlQQevUGGEiYjk7EDToPAr542s.pdf', 'imports/Zcoo8L2If3ncm1fabINcZK4WnC91gGLfNo4fY96r.pdf', 'MSC', 21, '45', '2026-01-11 03:28:04', '2026-01-11 03:28:05'),
-(6, 'VJP26-006', 'COL001251006-7', 'COL001251006', 'MEDUHW415903', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/ocjVzfpSb6HBfIJAi77hwSp3ZyyQn9r0uL7NxMmd.pdf', 'imports/xUQNyObhMFb7Cvy7BflSJwMSqWDHzqCJNc3ei20A.pdf', 'imports/XbefuezCUeisgXnS2lmHmb5TDp99Lt9HdrYsLx2w.pdf', 'imports/8wemnPIel7U9bOdR58R34xP7cHRULXFXm37G1fNr.pdf', 'imports/sVIElB7VUJlGQpGaMqOgrSzkBuWohV8j3jaC9PaI.pdf', 'MSC', 21, '45', '2026-01-11 03:31:55', '2026-01-11 03:31:55'),
-(7, 'VJP26-007', 'COL001251006-8', 'COL001251006', 'MEDUHW415887', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/93kI2cuMVKS0tyNVNuTS3lVUPTaNg976ylTQqc24.pdf', 'imports/77sdKGN76g8tMYOumnNuDAOnpnyNL02uQSyUoDUN.pdf', 'imports/ILwu8swOJT3gNEXm1rCjpLAvOa2CGRTN8mrFbQPB.pdf', 'imports/rSfluEGUVCormOcATKOQbbrZroxTSLHfBf1b7ECp.pdf', 'imports/q1cffin0S4PUjoxSp7lpqFBSbTZ6d3611XQHiWgG.pdf', 'MSC', 21, '45', '2026-01-11 03:34:46', '2026-01-11 03:34:46'),
-(8, 'VJP26-008', 'COL001251006-9', 'COL001251006', 'MEDUHW458788', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-14', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/ZCZWIJ8FYsdF4DTddLkd5IjHZEvK5c4URZ2SJUcO.pdf', 'imports/Jz41gEvgUt4H0nvzRZNCEJmlG0JBscWEh3nua62m.pdf', 'imports/IUzPPjDkkoVvYNPdCc6ZuKbElaBytpDVi5UvtxG6.pdf', 'imports/y8MXiJqr2fO8pnJrsvc7Kwjkq7OYEtv19vwih5YZ.pdf', 'imports/YZhE7Bek5iGwZgxS2tfOqP8fKcXyoFUxAC8IbCOA.pdf', 'MSC', 21, '45', '2026-01-11 03:38:45', '2026-01-15 02:19:50'),
-(9, 'VJP26-009', 'COL001251006-10', 'COL001251006', 'MEDUHW458770', 14, 'DALIAN', 'Colombia', '2025-12-01', '2026-01-14', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/LL05GB5r0kcR5yOYV6wj73pdAM419C7jjJ4aIHlS.pdf', 'imports/yehO2LPqHBSCB6p4OiPwUrG9uRVmbDeKt98SKJSV.pdf', 'imports/kvpmHi7mRFy40wq8UggA7nHd1ina77GQ08SHaO58.pdf', 'imports/S5GFCQIspxhNswizwwRAEoYlmqG171X0FtBH5hI8.pdf', 'imports/ukORkw5FSPdZYVfOvzJvcAZCrzE2SSjbOXBtALgl.pdf', 'MSC', 21, '45', '2026-01-11 03:43:37', '2026-01-14 15:03:41'),
-(10, 'VJP26-010', 'COL001250904-1', 'COL001250904', 'QGD2281845', 14, 'QINGDAO', 'Colombia', '2025-11-29', '2026-01-07', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/ECA7Z8pU2uYh8YeK1ibQBbK8NEglSpM7RlScDWCs.pdf', 'imports/t2DfN6qpIvKW7rxhEm2Ff4IRl1wf40HzlFGB9CZc.pdf', 'imports/ZamQZJ5aia6Kx3nBOTnZPmaKFMxQ39qC8e6WFvqd.pdf', 'imports/NRGPN9wAUJo0h574wAzjXYalmOOqVxPp4V4CHPxH.pdf', 'imports/E2JQPV8Qh5oZt28dg4gCOwi7KCIbciCID2qBZqZb.pdf', 'CMA-CGM', 21, '45', '2026-01-11 03:47:43', '2026-01-11 03:47:43'),
-(11, 'VJP26-011', 'COL001251004-1', 'COL001251004', '261482941', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/tb1Y0GxXLmQwouHOhPrX6DH5tyyin0n36pMUzA6i.pdf', 'imports/1ZP09eQLkTTbwocqec3J6pAaTH9PIliZ5gLHCN8n.pdf', 'imports/dtoqs36iJpVyFNKsw7DpvW2ymJa2Y9Cqzt7KuZzl.pdf', 'imports/h1qjTsQeIEwPPBIe3eaKIJv8JYxmHYhcunT3IabA.pdf', 'imports/MCVz1aigSTC4cn9u6DYNxrQUAviC97CzTOCix1cM.pdf', 'LOGISTICS SOLUTIONS', 21, '45', '2026-01-11 21:45:20', '2026-01-11 21:45:21'),
-(12, 'VJP26-012', 'COL001251004-2', 'COL001251004', '261483451', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/GsmP9zCUPJIcRVA0qzu92IXY7haumhJLCjr6h3Gy.pdf', 'imports/Jq5EvicLm9XCBfXmI6KRItH57USopaGhcHj1Zha2.pdf', 'imports/YpEW3aHTdjHQ2V5Kku22ScghUpaaKmhS58hIaEjN.pdf', 'imports/QOQlSBejxj8mZ6eT1cJK8dBjcfJDmM01HPFiyPAj.pdf', 'imports/yT38L4FLFBDJaAxs3ubndwLo1RdeDTtOuCjT4y4V.pdf', 'LOGISTICS SOLUTIONS', 21, '45', '2026-01-11 21:49:53', '2026-01-11 21:49:53'),
-(13, 'VJP26-013', 'COL001251004-3', 'COL001251004', '261483687', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'completed', NULL, 45.00, NULL, NULL, NULL, 'imports/u8mYL0oFGlQjiJuRmOXdNFFGOPJ6cDBRYivjg79E.pdf', 'imports/Zg0br3Upnt2Ewdx4IwN6B4dNYq12n52Sc3T4iP4L.pdf', 'imports/NrzERePGKQbQ8uABPr5tVuDvmkVIglflQ4KwkJ14.pdf', 'imports/MKnABtXBEhFhtFRUNGjgo5sVxDyfEQjrQ1ARKUjE.pdf', 'imports/UTIqTHDAjVz4RAsz6pL1YzIsBf5vt62oRAwqE659.pdf', 'LOGISTICS SOLUTIONS', 21, '45', '2026-01-11 21:52:55', '2026-01-11 21:52:55'),
-(14, 'VJP26-014', 'RE2510101-1', 'CO9620508', 'AYN1289232', 18, 'QINGDAO', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pending', NULL, 30.00, NULL, NULL, NULL, 'imports/GaWBJOyYNrWpW6FexwN5EHoa0E5ZPf8dk1GWPVXJ.pdf', 'imports/FZ8lMxUvUnAsDNTi9H8iMhaDEvC3yrpyCnmcBMyZ.pdf', 'imports/QvjYVWrsG5Do8ldyQIQP5OK5KPOdIenpl6nbc3bJ.pdf', 'imports/bCDEMJOVLPB68GhxB9VE53jCK9opfphpBNivzn5t.pdf', NULL, 'CMA-CGM', 21, '30', '2026-01-11 22:00:27', '2026-01-11 22:00:27'),
-(15, 'VJP26-015', 'RE2509196-1', 'CO9620506', 'TJN0826454', 18, 'TIANJIN', 'Colombia', '2026-01-01', '2026-02-16', NULL, NULL, 'pending', NULL, 30.00, NULL, NULL, NULL, 'imports/ag6PSMCcbFUXJG7sZ74qtYk9JNEMFRqMLW91I4JC.pdf', 'imports/p4gNcLRwXuUop4lcIaVb2UceJLqIXXNhhqGqF3dQ.pdf', 'imports/1suBc0DWmQUCmrOBak8xG1o4eEfls29eH1Iix0he.pdf', NULL, NULL, 'CMA-CGM', 21, '30', '2026-01-11 22:05:43', '2026-01-11 22:05:43'),
-(16, 'VJP26-016', 'RG-18890/25', 'RGP06852/25', 'TJN0822029', 19, 'TIANJIN', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pending', NULL, NULL, NULL, NULL, 'imports/WTWFrByFCgx6uM6OiflRWIV4emr8f9jLC1ymRbMq.pdf', NULL, 'imports/G1mlLEZEIWCfnqDo4d2wGeSCfIOdZFBfblQOaQqq.pdf', 'imports/gfsdOBKtKFwI5r0Hb1cY9crwNuA2EahRmvlVUV2s.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, '2026-01-11 22:12:56', '2026-01-11 22:12:56'),
-(17, 'VJP26-017', 'RG-17981/25', 'RGP-06852/25', 'TJN0821851', 19, 'TIANJIN', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pending', NULL, NULL, NULL, NULL, 'imports/mD6EuvWqaTu9vUjhyfiN7mrtNuQTBxcDqhLGyOwI.pdf', NULL, 'imports/bCVeJUVwq4tpwm4lN6m9ZF2NvUuYIq04CimCY9cZ.pdf', 'imports/s8eX7STyVt33aQdIDiEsjXod0k6qb7bPvLSRqy4v.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, '2026-01-11 22:18:51', '2026-01-11 22:18:51'),
-(18, 'VJP26-018', 'TZKY250927', NULL, 'CNSAC2511100', 20, 'QINGDAO', 'Colombia', '2025-12-07', '2026-01-05', NULL, NULL, 'completed', NULL, 30.00, NULL, NULL, NULL, 'imports/WdkFVcuG4NVL1ovmQZoI05CKIo87F3PXyWK6TTuV.pdf', 'imports/CUVjfA92mNeWiYYqDYjQlEdSTOhHzo2qRR4AzZB0.pdf', 'imports/b5fsEvLSgFc1lUbGLWIK39JnO3jbLgyVwV25im2b.pdf', 'imports/eC7chuI43AEUrUBVqcjYNlVbQLIeSbzmkclCyQaE.pdf', NULL, 'LOGISTICS SOLUTIONS', 18, '30', '2026-01-11 22:27:35', '2026-01-11 22:27:36'),
-(19, 'VJP26-019', 'FGQXE20251015JU-JPS04', 'FGQXE20251015JU-JPS03', 'NTJEC251210420', 21, 'XINGANG', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pending', NULL, NULL, NULL, NULL, 'imports/9mQ6wa992nlVCJRjyMJHAYuSFGF32d1DVGTaQnAP.pdf', 'imports/D4KbzZogH2c4xjfKGfy8AenbY9Kyl0b6VbCjmVbs.pdf', 'imports/9oyB0B9Cx4z4a0m6NB05T84Tlr3vLLFsmD86J7xd.pdf', 'imports/YJTI8QoLeRNEsbYiHv87yBsxLPaJs3GRIFsXCE98.pdf', NULL, NULL, 'LOGISTICS SOLUTIONS', 18, NULL, '2026-01-12 03:38:56', '2026-01-14 15:45:32'),
-(20, 'VJP26-020', 'FGQXE20250919JU-RLW01-2', 'FGQXE20250919JU-RLW01', '260975609', 21, 'TIANJIN', 'Colombia', '2025-11-25', '2026-01-01', NULL, NULL, 'completed', NULL, NULL, NULL, NULL, 'imports/KGMYJJdPjmEIs2LNHZVtKeiZc6e2JPPlUfiK7sqE.pdf', NULL, 'imports/jvyOmCooMHYKtr3tG70gDJAPgL9ldiN7TthHEJ0i.pdf', 'imports/KhPxpIHEPbPIPAYsunhmkAiDr37WkFyKMLccO6Cb.pdf', NULL, NULL, 'MSK', 21, NULL, '2026-01-15 02:48:03', '2026-01-15 02:48:04');
+INSERT INTO `imports` (`id`, `do_code`, `commercial_invoice_number`, `proforma_invoice_number`, `bl_number`, `user_id`, `origin`, `destination`, `departure_date`, `arrival_date`, `actual_arrival_date`, `received_at`, `status`, `nationalized`, `files`, `credits`, `proforma_pdf`, `proforma_invoice_low_pdf`, `invoice_pdf`, `commercial_invoice_low_pdf`, `bl_pdf`, `packing_list_pdf`, `apostillamiento_pdf`, `other_documents_pdf`, `shipping_company`, `free_days_at_dest`, `credit_time`, `credit_paid`, `created_at`, `updated_at`) VALUES
+(2, 'VJP26-002', 'COL001251006-4', 'COL001251006', 'DLN0262195', 14, 'QINGDAO', 'Colombia', '2025-12-09', '2026-01-13', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/ZS6aH7E32WwKRvDEt0oBNAWJiWnsCJwtwoswssGy.pdf', 'imports/W7Mlz7VzxsF8Pb1ODEfrzUWQWkDfIlGe9NyQsgRe.pdf', 'imports/n5aeLztNaxnRuSTXyHSZWbr3Rv3Syx0zIZ2tsUQk.pdf', 'imports/AyIZPDJ5dkNsSrgIgAfN6QqRWUDCTqUamQiyFHP9.pdf', 'imports/IEqoJuiZtXuMY8ON0ylY4RvMSyGfhglLoFueN4ol.pdf', 'CMA-CGM', 21, '45', 0, '2026-01-10 22:22:15', '2026-01-21 01:00:43'),
+(3, 'VJP26-003', 'JPSA007-251020', NULL, 'TJN0803976', 17, 'QINGDAO', 'Colombia', '2025-11-23', '2026-01-06', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, NULL, 'imports/wrKYZK3HJ69y1EdSLuq8JJX5TpUUGOVCcW2sjINJ.pdf', 'imports/KFdNvF75Tv1UGsSHk0yDwYRsGfJJqTi1XMDZpjLQ.pdf', 'imports/cnnFu8tT59n1QXWMHWPRHLI6LLBFBT3M8oH0epZ5.pdf', 'imports/7D6UA6II2l6J9f8OjEv3SV9HLo7p3j8caRAQhePb.pdf', 'imports/YkuvxVEEdkeoxCrKkbyu3H8d1wmvqCp81AvkvEdS.pdf', 'CMA-CGM', 21, NULL, 0, '2026-01-11 03:09:59', '2026-01-21 04:47:47'),
+(4, 'VJP26-004', 'COL001251006-5', 'COL001251006', 'MEDUHW415929', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', '2026-01-15', '2026-01-21 04:34:26', 'recibido', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/yFBwzU1Oa27PxAeGlekxGdOoPANe0GXFjIC1lKQV.pdf', 'imports/ZuVZYW7BZuKueCWp3VwbsGSJdkvncB4pvPlr6Fqx.pdf', 'imports/juuSgDn8M5l6x5F4AehYNTjgTj5Uwxr0cyEKNh0b.pdf', 'imports/rDtT3wELzGTTd6p95DqqjXHXsvphUEpzLbaQzj6C.pdf', 'imports/uo0G8Rz5bOs0yhQA9Ez0q5S8oK2GYYGlWCEVMt7A.pdf', 'MSC', 21, '45', 0, '2026-01-11 03:18:29', '2026-01-21 04:34:26'),
+(5, 'VJP26-005', 'COL001251006-6', 'COL001251006', 'MEDUHW415911', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/9kozUV4I35li07VFkW14TneitS31VlKl3ys78WY8.pdf', 'imports/3y08dbtQKsWZRpOxtRVQ0AEFueipZ5u3BAulsjkN.pdf', 'imports/pl7TS9N4PjCzUQEJdurrl4OrQ01vAdEJkX2N3mXC.pdf', 'imports/faGJouWvwL07pveMlrcBXar5qXUPAHPJhUieELrl.pdf', 'imports/67pynXXE5m46b6qtjbB6ceCxHbttChB3QWjDWjNL.pdf', 'MSC', 21, '45', 0, '2026-01-11 03:28:04', '2026-01-21 01:03:40'),
+(6, 'VJP26-006', 'COL001251006-7', 'COL001251006', 'MEDUHW415903', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/FqvWqEiYjIuxYai8d4hLGewjkXf1XUmy68BnwN6X.pdf', 'imports/9oT3XRKpqrVAvxcsqg84XDezN1IhC044h1xZSP4o.pdf', 'imports/BQHWvRPM4pxAlfPFkHBmDWlA00wDKgTW3a643snO.pdf', 'imports/0jnWdGTXqofP9eEqoQBgF9R3r35aMglFMKiXX31e.pdf', 'imports/AdNvdkql0tACXXdVswqEnUj6jHlpDm2NAgVNnBSa.pdf', 'MSC', 21, '45', 0, '2026-01-11 03:31:55', '2026-01-21 01:05:10'),
+(7, 'VJP26-007', 'COL001251006-8', 'COL001251006', 'MEDUHW415887', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-06', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/2C2igxzpjIrTmXcyh4OxlFddzccMSUV1Zn76sUUL.pdf', 'imports/5urlwGCYpTEHgeoHAbP5pQ464YNmwJVa9z4oQaiP.pdf', 'imports/aaqBBqMYiSAXmjSHfcWrl0JtcaqUGMFM8ypUUj5p.pdf', 'imports/7VOq8nTfoWTEiyjLK7xWLqIelcHtrqspI7A3jlWv.pdf', 'imports/aFDsUP1vdKe6frAPhkkuXkT1j8ctk2llusxOsCie.pdf', 'MSC', 21, '45', 1, '2026-01-11 03:34:46', '2026-01-21 04:51:24'),
+(8, 'VJP26-008', 'COL001251006-9', 'COL001251006', 'MEDUHW458788', 14, 'DALIAN', 'Colombia', '2025-11-22', '2026-01-14', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/pZo2EM3lB6g0EbtfDOiAJMCKHANr8X15H5iWmiut.pdf', 'imports/Q2qDVSXH6ZsscF3rNMiobXceZZ0DoEzSaQaBbwXt.pdf', 'imports/lg2l13zlw6vQ5w7MBXpmYTUXOWl8CjIva2JPmAUk.pdf', 'imports/FIMirhY7Hwe3I5liGqVgJaw1osERx8cOX3keUqbl.pdf', 'imports/Cd102QaFNc94lsaT9Vbgxf8YI69scRaCY9P4xrwZ.pdf', 'MSC', 21, '45', 0, '2026-01-11 03:38:45', '2026-01-21 04:52:47'),
+(9, 'VJP26-009', 'COL001251006-10', 'COL001251006', 'MEDUHW458770', 14, 'DALIAN', 'Colombia', '2025-12-01', '2026-01-14', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/LL05GB5r0kcR5yOYV6wj73pdAM419C7jjJ4aIHlS.pdf', 'imports/yehO2LPqHBSCB6p4OiPwUrG9uRVmbDeKt98SKJSV.pdf', 'imports/kvpmHi7mRFy40wq8UggA7nHd1ina77GQ08SHaO58.pdf', 'imports/S5GFCQIspxhNswizwwRAEoYlmqG171X0FtBH5hI8.pdf', 'imports/ukORkw5FSPdZYVfOvzJvcAZCrzE2SSjbOXBtALgl.pdf', 'MSC', 21, '45', 0, '2026-01-11 03:43:37', '2026-01-15 04:20:39'),
+(10, 'VJP26-010', 'COL001250904-1', 'COL001250904', 'QGD2281845', 14, 'QINGDAO', 'Colombia', '2025-11-29', '2026-01-07', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/UwMYf8z2vu5JoknqIQ7s0r5hNwVWoqhrQRnJ76Mx.pdf', 'imports/AskBHJdFan6Tz0HiTbUyCfq3T8pHKGrcFlIFMsJY.pdf', 'imports/kngEvXdwt2CXhtPzAac0Ccd3QYG00S8181S3UZHr.pdf', 'imports/bk40zlMhoHWHbUcTcRj4WzHjaaTXClESJnw7Spnl.pdf', 'imports/BBEEsigLUiiap8gscGLjSYQ62g3LgsghJaPsfNEy.pdf', 'CMA-CGM', 21, '45', 0, '2026-01-11 03:47:43', '2026-01-21 04:55:28'),
+(11, 'VJP26-011', 'COL001251004-1', 'COL001251004', '261482941', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/JBKQO18AGQazfuVEq805hnua1cT7ndcvLuCCrCKy.pdf', 'imports/pe7Is4ZMcAVOy4NOEzORhRmo51biAKUAg5zHyv8t.pdf', 'imports/8hi6HzfRXfkzE8kOb4xjoCqEapVP13ltqFBYelMv.pdf', 'imports/xZDBMYyRxq0vG4zbtSGgRbHZcLWxojNfq97406BT.pdf', 'imports/WY7FmF1txWdXMftJOJ32w7sOVDW8yaVE5F8Iy1KV.pdf', 'LOGISTICS SOLUTIONS', 21, '45', 0, '2026-01-11 21:45:20', '2026-01-21 04:56:51'),
+(12, 'VJP26-012', 'COL001251004-2', 'COL001251004', '261483451', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/swekMYs2ZXk1WHi4dNRgCyFd0bDQZVh0uw0ohRYG.pdf', 'imports/bj35CpHn08dqfQCgu75FK0FOG82YPCSva6oFB5Pk.pdf', 'imports/6rnqivI0SHrTch17lEwOVHC1mT79U2cAF8WBHZMO.pdf', 'imports/G60Eq8qU11SkyHsQBqTgKLTa6R7jsDONJ2dim9ny.pdf', 'imports/fHKdsT91k3xFxejXXO0wHFJpGMxOckfq9aaBVG6O.pdf', 'LOGISTICS SOLUTIONS', 21, '45', 0, '2026-01-11 21:49:53', '2026-01-21 04:58:18'),
+(13, 'VJP26-013', 'COL001251004-3', 'COL001251004', '261483687', 14, 'APAPA NIGERIA', 'Colombia', '2025-11-12', '2026-01-11', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, 'imports/uN8or3bUe0iBoXiS0bl6cpKHx0jIbVqwgIRsFPSc.pdf', 'imports/9VsCWkFzLr9jxyiPe9TrjMovzzf5bhvPgCGwsKcv.pdf', 'imports/oH4Sgp5BBIsKtzd6LlpOKLAwufkV6NKuhKPEmsR6.pdf', 'imports/FODU1TrMDJ4xxpWzsb0zi02IriACPZpJG2gJyJYM.pdf', 'imports/L7dxi8pMa923DTpL9LZRfMHPQzTgbUx5chdRca8a.pdf', 'LOGISTICS SOLUTIONS', 21, '45', 0, '2026-01-11 21:52:55', '2026-01-21 04:59:37'),
+(14, 'VJP26-014', 'RE2510101-1', 'CO9620508', 'AYN1289232', 18, 'QINGDAO', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 30.00, NULL, NULL, NULL, 'imports/JCR9jjZOGu4Z5Wjc4iwkhAlmDOq2AHR4xsQjxVgC.pdf', 'imports/HSaKt4i8TRuF7wxlXbymxQtEWJgLs4yceezIstAQ.pdf', 'imports/vwVI5jI161iLXrIbsv3VLdclqB6MnxUSV5jtbbc7.pdf', 'imports/EHkUJgs87T2d3jacbkEff0BYY3HT5INMzIvrUPfX.pdf', NULL, 'CMA-CGM', 21, '30', 0, '2026-01-11 22:00:27', '2026-01-21 05:02:23'),
+(15, 'VJP26-015', 'RE2509196-1', 'CO9620506', 'TJN0826454', 18, 'TIANJIN', 'Colombia', '2026-01-01', '2026-02-16', NULL, NULL, 'pending', 0, NULL, 30.00, NULL, NULL, NULL, 'imports/3sdJYcyJ5kwt3FnGjYHH1Ew8P44T7EABmfzlaACa.pdf', 'imports/uA4NJUrbAfHF0bJANA9bYoill1QWpCPEYfwP4F2r.pdf', 'imports/r00gfxevK0G6rprcBkd2YcABVVSQupOUvL60iiXc.pdf', NULL, NULL, 'CMA-CGM', 21, '30', 0, '2026-01-11 22:05:43', '2026-01-21 05:03:32'),
+(16, 'VJP26-016', 'RG-18890/25', 'RGP06852/25', 'TJN0822029', 19, 'TIANJIN', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, 'imports/JgUuaaEyN4PmClfm76u5QNGBTBxOXOs2txXdUnDj.pdf', NULL, 'imports/py62WW2oTVdcEzAoP73uWG5vcvbOQYxXhWMZW7F3.pdf', 'imports/SMkqL9Q0RA8Fa2EbngBVVpoF6eSJRqttLPQmg6qC.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, 0, '2026-01-11 22:12:56', '2026-01-21 05:07:21'),
+(17, 'VJP26-017', 'RG-17981/25', 'RGP-06852/25', 'TJN0821851', 19, 'TIANJIN', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, 'imports/bCPChe8xCPp5Xf78tWQPUvinxwltNdD8xKpRDPZD.pdf', NULL, 'imports/I6fhMiOHFCqCbSpvvcR8QAJ5gA57JvHSdsk3pwrZ.pdf', 'imports/QYz9wEe8eGNor4kOeYFzDf6cxdy7edZdVe8i2fud.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, 0, '2026-01-11 22:18:51', '2026-01-21 05:09:04'),
+(18, 'VJP26-018', 'TZKY250927', NULL, 'CNSAC2511100', 20, 'QINGDAO', 'Colombia', '2025-12-07', '2026-01-05', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 30.00, NULL, NULL, NULL, 'imports/BTQ7nai3lYQz5ZQPu9auP7ymyYCbl2zSeoiZYzce.pdf', 'imports/Hi9oHiT5963MFKdkUMq0BkXKLNjRn56kW41fJWWS.pdf', 'imports/gLOzGGtPZ8irKT4ukku4HSdCKJQUdRMmrdinCKMI.pdf', 'imports/eC7chuI43AEUrUBVqcjYNlVbQLIeSbzmkclCyQaE.pdf', NULL, 'LOGISTICS SOLUTIONS', 18, '30', 0, '2026-01-11 22:27:35', '2026-01-21 05:15:25'),
+(19, 'VJP26-019', 'FGQXE20251015JU-JPS04', 'FGQXE20251015JU-JPS03', 'NTJEC251210420', 21, 'XINGANG', 'Colombia', '2025-12-17', '2026-01-20', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, 'imports/HF803IAlDQATVlXs5JzYpvbU9VwtUxrjb6Qkjlj0.pdf', 'imports/42yDtXcUnhaFiGOqUvW55K4Oo5hINP0pac9deFgJ.pdf', 'imports/MMHdthgtKoz5psNuSg6a9M8GVTaHlJNrpqISC9hi.pdf', 'imports/6r1f17AXtGEeG5wnz9wC9Xr5fNWWRzkrErLmfeyd.pdf', NULL, NULL, 'LOGISTICS SOLUTIONS', 18, NULL, 0, '2026-01-12 03:38:56', '2026-01-21 05:31:18'),
+(20, 'VJP26-020', 'FGQXE20250919JU-RLW01-2', 'FGQXE20250919JU-RLW01', '260975609', 21, 'TIANJIN', 'Colombia', '2025-11-25', '2026-01-01', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, 'imports/KGMYJJdPjmEIs2LNHZVtKeiZc6e2JPPlUfiK7sqE.pdf', NULL, 'imports/jvyOmCooMHYKtr3tG70gDJAPgL9ldiN7TthHEJ0i.pdf', 'imports/KhPxpIHEPbPIPAYsunhmkAiDr37WkFyKMLccO6Cb.pdf', NULL, NULL, 'MSK', 21, NULL, 0, '2026-01-15 02:48:03', '2026-01-15 04:20:39'),
+(21, 'VJP26-021', 'FGQXE20250919JU-RLW01-1', 'FGQXE20250919JU-RLW01', 'TJN0782397', 21, 'TIANJIN', 'Colombia', '2026-01-01', '2026-01-14', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, NULL, NULL, NULL, 'imports/AsuF8Q40UeqGgG74PtEKAqmoB393QOzfQAHOzRFk.pdf', NULL, 'imports/r9Pc79sQevjmhAT7d8lVecvSjZMdrLfpHzLjUmWL.pdf', 'imports/xDq4sY6PrqlHG08bPYMS6OkFfSAb1WG3C34FWoFT.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, 0, '2026-01-21 04:24:54', '2026-01-21 04:24:54'),
+(22, 'VJP26-022', 'COL001251005-1', 'COL001251005', '261279366', 14, 'DALIAN', 'Colombia', '2026-01-01', '2026-01-01', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, 'imports/7AA4meQshzt3V2Qc195H8heSGpkpTFcvRc7waFST.pdf', NULL, 'imports/Vu1nnvf6Qe2tMEYVSN6zfZ7C2ECOBUPbOOpBUz9L.pdf', 'imports/ZSI7yoSBBZa4EZ4xKv6jcjZu75cyH5tu4rZQWqPG.pdf', NULL, NULL, 'MSK', 21, '45', 0, '2026-01-21 04:28:27', '2026-01-21 04:28:28'),
+(23, 'VJP26-023', 'COL001250902', 'COL001250902', '258682843', 14, 'TIANJIN', 'Colombia', '2026-01-01', '2026-01-01', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, 'imports/IDuC1RUTdcw33ViqwjjuzlwmTPicRQEfs5JJ7lBh.pdf', NULL, NULL, NULL, 'imports/rWHAurelGmS7O1DpDrTbTKRuBYFcLP1sQj98ntWi.pdf', 'imports/CiFyyFjjDWmE2Q2hYgnfUcbRPCXyu9dHstY8yP48.pdf', NULL, NULL, 'MSK', 21, '45', 0, '2026-01-21 04:31:43', '2026-01-21 04:31:44'),
+(24, 'VJP26-024', 'H50708251121&H50709251127CI', 'H50708251121&H50709251127', 'TJN0835264', 22, 'China', 'Colombia', '2025-12-25', '2026-02-01', NULL, NULL, 'pending', 0, NULL, NULL, 'imports/rhIHTWnOAAplN5kQvnWHMHBXvqRW1UgrGGtbYS6i.pdf', 'imports/3bOtU3LgQVuty0p9xZvwqhfrmOWJKeh7TIjrewk5.pdf', 'imports/HLHFEusybE0MLc0IBBKSiH0av4cDx4W89NUUmekR.pdf', 'imports/91FLix3iDbKitSHoKkR0P1PRbnkS6WmJLNpDV2va.pdf', 'imports/Vgt3tEUACfKH8JpoZ6ecjwBRoyRyAopiVUStl3Ph.pdf', 'imports/gG1h6mMshCc6E0EobZCa10yEZozpbnOFCboCobUr.pdf', NULL, 'imports/FuWK50BaV2CPHpzLGYBvYBoEWWHge29om7QOOP7u.pdf', 'CMA', 25, NULL, 0, '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
+(25, 'VJP26-025', 'RG-87406/25', 'RGP-02839/25', 'TJN0853109', 19, 'XINGANG', 'Colombia', '2026-01-20', '2026-03-02', NULL, NULL, 'pending', 0, NULL, NULL, 'imports/Uk304Ol8va2PJP2CLCthMUKeNsQTmZGJGD5rn30Q.pdf', NULL, 'imports/hX0BTXET0qOmfBwjthXEPRV5PsUsqobhQnWIRdew.pdf', NULL, 'imports/f4Sl6LzffrRMiqP2Z6Y09V83OfkRyYSql26L4c5O.pdf', 'imports/Si7QduUOWwKbLHZMaeKX73HlE8kRwyfF8dDJsvo9.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, 0, '2026-01-21 19:50:55', '2026-01-21 19:50:55'),
+(26, 'VJP25-001', 'COL001250802-1', 'COL001250802-1', '285734172', 14, 'china', 'Colombia', '2025-09-15', '2025-10-25', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '45', 0, '2026-01-22 07:21:05', '2026-01-22 07:21:06');
 
 -- --------------------------------------------------------
 
@@ -230,7 +303,13 @@ INSERT INTO `import_containers` (`id`, `import_id`, `reference`, `pdf_path`, `im
 (28, 19, 'TEMU5925760', NULL, NULL, '2026-01-12 03:38:56', '2026-01-12 03:38:56'),
 (29, 20, 'MRKU7442760', NULL, NULL, '2026-01-15 02:48:03', '2026-01-15 02:48:03'),
 (30, 20, 'MRKU8147497', NULL, NULL, '2026-01-15 02:48:03', '2026-01-15 02:48:03'),
-(31, 20, 'TTNU1296929', NULL, NULL, '2026-01-15 02:48:03', '2026-01-15 02:48:03');
+(31, 20, 'TTNU1296929', NULL, NULL, '2026-01-15 02:48:03', '2026-01-15 02:48:03'),
+(32, 22, 'HASU4977415', NULL, NULL, '2026-01-21 04:28:27', '2026-01-21 04:28:27'),
+(33, 23, 'MRSU3161896', NULL, NULL, '2026-01-21 04:31:43', '2026-01-21 04:31:43'),
+(34, 24, '6mm Clear Tempered Glass', 'imports/9LqsUZMCjqrQn9RbtqN0ukaaiYpdzi1jORekFF8E.pdf', 'imports/foo5NWaofVIC3wX9nJClwPrLLs3DSJV5iGV15jj3.pdf', '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
+(35, 24, '4mm/ Blue Flora Pattern Glass；Bronze Flora Pattern Glass；Blue Karatachi Pattern Glass；Bronze Karatachi Pattern Glass', 'imports/mg1ygN6I2Dygyfv44TU79fXrJm5scOdcfFhKpfOu.pdf', 'imports/QnUwUIP9mPc9bv8r7Ed88khL9H4J7LbPWq0uLbXC.pdf', '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
+(36, 25, 'TGBU2167203', NULL, NULL, '2026-01-21 19:50:55', '2026-01-21 19:50:55'),
+(37, 25, 'TIIU3647119', NULL, NULL, '2026-01-21 19:50:55', '2026-01-21 19:50:55');
 
 -- --------------------------------------------------------
 
@@ -293,7 +372,11 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (42, '2026_01_09_111157_update_imports_table_structure', 11),
 (43, '2026_01_09_111219_remove_images_from_import_containers', 12),
 (44, '2026_01_09_112345_add_image_pdf_to_import_containers_table', 13),
-(45, '2026_01_10_122742_add_receive_by_to_transfer_order_products_table', 14);
+(45, '2026_01_10_122742_add_receive_by_to_transfer_order_products_table', 14),
+(46, '2026_01_12_093856_add_nationalized_to_imports_table', 15),
+(47, '2026_01_13_143953_add_photos_to_drivers_table', 15),
+(48, '2026_01_14_222033_add_social_security_and_vehicle_owner_to_drivers_table', 15),
+(49, '2026_01_14_225525_add_credit_paid_to_imports_table', 15);
 
 -- --------------------------------------------------------
 
@@ -324,17 +407,39 @@ CREATE TABLE `products` (
 INSERT INTO `products` (`id`, `nombre`, `codigo`, `descripcion`, `precio`, `stock`, `estado`, `tipo_medida`, `unidades_por_caja`, `medidas`, `almacen_id`, `created_at`, `updated_at`) VALUES
 (33, 'VIDRIO CLARO 10 MM 330*214', 'PRD-000001', NULL, 0.00, 0, 1, 'caja', 15, '330*214', NULL, '2026-01-10 19:54:54', '2026-01-10 19:55:35'),
 (34, 'VIDRIO INCOLORO 6 MM 330*214', 'PRD-000002', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-10 19:56:38', '2026-01-10 19:57:26'),
-(35, 'ESPEJO COPPER 4 MM 330*214', 'PRD-000003', NULL, 0.00, 0, 1, 'caja', 40, '330*214', NULL, '2026-01-10 19:58:51', '2026-01-10 20:00:17'),
+(35, 'ESPEJO COPPER FREE 4 MM 330*214', 'PRD-000003', NULL, 0.00, 0, 1, NULL, 40, '330*214', NULL, '2026-01-10 19:58:51', '2026-01-16 17:07:10'),
 (36, 'VIDRIO CLARO 8 MM 330*214', 'PRD-000004', NULL, 0.00, 0, 1, 'caja', 19, '330*214', NULL, '2026-01-10 20:09:48', '2026-01-10 20:10:44'),
 (37, 'BRONCE REFLECTIVO 5 MM 330*214', 'PRD-000005', NULL, 0.00, 0, 1, 'caja', 31, '330*214', NULL, '2026-01-11 00:36:19', '2026-01-11 00:37:15'),
 (38, 'BRONCE 5 MM 330*214', 'PRD-000006', NULL, 0.00, 0, 1, 'caja', 31, '330*214', NULL, '2026-01-11 00:58:01', '2026-01-11 00:58:44'),
 (39, 'LAMINADO GRIS 3+3 MM 330*214', 'PRD-000007', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-11 01:00:07', '2026-01-11 01:00:56'),
 (40, 'LAMINADO CERAMIC WHITE 3+3 330*214', 'PRD-000008', NULL, 0.00, 0, 1, NULL, NULL, '330*214', NULL, '2026-01-11 01:02:43', '2026-01-11 01:02:43'),
 (41, 'LAMINADO MILKY WHITE 3+3 330*214', 'PRD-000009', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-11 01:03:43', '2026-01-11 01:05:05'),
-(42, 'LAMINADO CLARO 3+3 330*225', 'PRD-000010', NULL, 0.00, 0, 1, 'caja', 24, '330*225', NULL, '2026-01-11 01:06:20', '2026-01-11 01:08:53'),
-(43, 'LAMINADO CLARO 4+4 330*225', 'PRD-000011', NULL, 0.00, 0, 1, 'caja', 18, '330*225', NULL, '2026-01-11 01:06:40', '2026-01-11 01:07:44'),
+(42, 'LAMINADO CLARO 3+3 330*225', 'PRD-000010', NULL, 0.00, 0, 1, 'caja', 23, '330*225', NULL, '2026-01-11 01:06:20', '2026-01-16 19:57:18'),
+(43, 'LAMINADO CLARO 4+4 330*225', 'PRD-000011', NULL, 0.00, 0, 1, 'caja', 16, '330*225', NULL, '2026-01-11 01:06:40', '2026-01-16 19:57:18'),
 (44, 'GRABADO MINIBOREAL 4 MM 183*244', 'PRD-000012', NULL, 0.00, 0, 1, 'caja', 60, '183*244', NULL, '2026-01-11 01:12:21', '2026-01-11 01:13:49'),
-(45, 'VIDRIO INCOLORO 4 MM 330*225', 'PRD-000013', NULL, 0.00, 0, 1, NULL, NULL, '330*225', NULL, '2026-01-11 01:24:18', '2026-01-11 01:24:18');
+(45, 'VIDRIO INCOLORO 4 MM 330*225', 'PRD-000013', NULL, 0.00, 0, 1, 'caja', 36, '330*225', NULL, '2026-01-11 01:24:18', '2026-01-19 23:12:00'),
+(46, 'VIDRIO CLARO 4 MM 183*260', 'PRD-000014', NULL, 0.00, 0, 1, 'caja', 57, '183*260', NULL, '2026-01-16 16:50:18', '2026-01-16 19:57:18'),
+(47, 'VIDRIO CLARO 5 MM 183*260', 'PRD-000015', NULL, 0.00, 0, 1, 'caja', 46, '183*260', NULL, '2026-01-16 16:50:50', '2026-01-16 19:57:18'),
+(48, 'VIDRIO CLARO 5 MM 330*214', 'PRD-000016', NULL, 0.00, 0, 1, 'caja', 30, '330*214', NULL, '2026-01-16 16:51:32', '2026-01-16 19:27:07'),
+(49, 'VIDRIO CLARO 5 MM 330*244', 'PRD-000017', NULL, 0.00, 0, 1, 'caja', 26, '330*244', NULL, '2026-01-16 16:52:02', '2026-01-16 19:57:18'),
+(50, 'AZUL DARK REFLECTIVO 4 MM 330*214', 'PRD-000018', NULL, 0.00, 0, 1, 'caja', 38, '330*214', NULL, '2026-01-16 17:04:38', '2026-01-16 19:27:43'),
+(51, 'AZUL DARK REFLECTIVO 5 MM 330*214', 'PRD-000019', NULL, 0.00, 0, 1, 'caja', 30, '330*214', NULL, '2026-01-16 17:05:01', '2026-01-16 19:57:18'),
+(52, 'AZUL DARK FLOTADO 4 MM 330*214', 'PRD-000020', NULL, 0.00, 0, 1, 'caja', 38, '330*214', NULL, '2026-01-16 17:05:35', '2026-01-16 19:57:18'),
+(53, 'ESPEJO COPPER FREE 4 MM 330*244', 'PRD-000021', NULL, 0.00, 0, 1, 'caja', 35, '330*244', NULL, '2026-01-16 17:06:36', '2026-01-16 19:57:18'),
+(54, 'ESPEJO COPPER FREE 5 MM 330*244', 'PRD-000022', NULL, 0.00, 0, 1, 'caja', 28, '330*244', NULL, '2026-01-16 17:06:58', '2026-01-16 19:57:18'),
+(55, 'ESPEJO COPPER FREE 4 MM 366*244', 'PRD-000023', NULL, 0.00, 0, 1, 'caja', 31, '366*244', NULL, '2026-01-16 17:07:33', '2026-01-16 19:57:18'),
+(56, 'LAMINADO BRONCE 4+4 MM 330*244', 'PRD-000024', NULL, 0.00, 0, 1, 'caja', 17, '330*244', NULL, '2026-01-16 17:08:30', '2026-01-16 20:02:56'),
+(57, 'BRONCE FLOTADO 4 MM 330*244', 'PRD-000025', NULL, 0.00, 0, 1, 'caja', 33, '330*244', NULL, '2026-01-16 19:48:45', '2026-01-16 19:57:18'),
+(58, 'VIDRIO CLARO 6 MM 330*244', 'PRD-000026', NULL, 0.00, 0, 1, 'caja', 22, '330*244', NULL, '2026-01-16 19:52:01', '2026-01-16 20:19:28'),
+(59, 'LAMINADO 4+4MM 330*214', 'PRD-000027', NULL, 0.00, 0, 1, 'caja', 19, '330*214', NULL, '2026-01-16 19:58:25', '2026-01-16 20:02:56'),
+(60, 'LAMINADO 3+3 MM 330*214', 'PRD-000028', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-16 19:58:37', '2026-01-16 20:02:56'),
+(61, 'BRONCE FLOTADO 4 MM 330*214', 'PRD-000029', NULL, 0.00, 0, 1, 'caja', 38, '330*214', NULL, '2026-01-16 19:58:59', '2026-01-16 20:02:56'),
+(62, 'LAMINADO BRONCE 3+3MM 330*214', 'PRD-000030', NULL, 0.00, 0, 1, NULL, NULL, '330*214', NULL, '2026-01-16 19:59:26', '2026-01-16 19:59:26'),
+(63, 'BRONCE REFLECTIVO 4 MM 330*214', 'PRD-000031', NULL, 0.00, 0, 1, 'caja', 38, '330*214', NULL, '2026-01-16 20:17:46', '2026-01-16 20:19:28'),
+(64, 'VIDRIO INCOLORO 5 MM 330*225', 'PRD-000032', NULL, 0.00, 0, 1, 'caja', 29, '330*225', NULL, '2026-01-19 23:10:45', '2026-01-19 23:12:00'),
+(65, 'AZUL DARK REFLECTIVO 3+3MM 330*214', 'PRD-000033', NULL, 0.00, 0, 1, 'caja', 26, '330*214', NULL, '2026-01-21 20:00:17', '2026-01-21 22:26:49'),
+(66, 'BRONCE REFLECTIVO 3+3MM 330*214', 'PRD-000034', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-21 20:00:47', '2026-01-21 22:28:27'),
+(67, 'VIDRIO CLARO 10 MM 3.66*2.14', 'PRD-000035', NULL, 0.00, 0, 1, 'caja', 14, '3.66*2.14', NULL, '2026-01-21 20:02:26', '2026-01-21 20:09:03');
 
 -- --------------------------------------------------------
 
@@ -370,6 +475,13 @@ CREATE TABLE `salidas` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `salidas`
+--
+
+INSERT INTO `salidas` (`id`, `salida_number`, `warehouse_id`, `user_id`, `driver_id`, `fecha`, `a_nombre_de`, `nit_cedula`, `note`, `aprobo`, `ciudad_destino`, `created_at`, `updated_at`) VALUES
+(7, 'SAL-000001', 18, 12, 10, '2026-01-19', 'CRISTALES TEMPLADOS LA TORRE', '900.593.026', 'SE AUTORIZA CAMBIO CON DEVOLUCIÓN EN BUENAVENTURA, POR REFERENCIA INCOLORO 6MM 3660*2140', 'JAIRO VILLAMIL', 'BOGOTA', '2026-01-21 03:52:38', '2026-01-21 03:52:38');
+
 -- --------------------------------------------------------
 
 --
@@ -385,6 +497,13 @@ CREATE TABLE `salida_products` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `salida_products`
+--
+
+INSERT INTO `salida_products` (`id`, `salida_id`, `product_id`, `container_id`, `quantity`, `created_at`, `updated_at`) VALUES
+(9, 7, 34, 33, 50, '2026-01-21 03:52:38', '2026-01-21 03:52:38');
 
 -- --------------------------------------------------------
 
@@ -414,7 +533,9 @@ CREATE TABLE `transfer_orders` (
 --
 
 INSERT INTO `transfer_orders` (`id`, `warehouse_from_id`, `warehouse_to_id`, `salida`, `destino`, `order_number`, `status`, `date`, `note`, `aprobo`, `ciudad_destino`, `driver_id`, `created_at`, `updated_at`) VALUES
-(11, 14, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000001', 'en_transito', '2026-01-15 02:30:08', NULL, NULL, NULL, 9, '2026-01-15 02:30:08', '2026-01-15 02:30:08');
+(11, 14, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000001', 'recibido', '2026-01-15 02:30:08', NULL, NULL, NULL, 9, '2026-01-15 02:30:08', '2026-01-17 13:31:13'),
+(12, 14, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000002', 'en_transito', '2026-01-15 22:15:32', NULL, NULL, NULL, 9, '2026-01-15 22:15:32', '2026-01-15 22:15:32'),
+(14, 17, 18, 'BUENAVENTURA', 'GIRARDOT', 'TO-000003', 'recibido', '2026-01-16 20:53:57', 'ARREGLO INV VIEJO', NULL, NULL, 9, '2026-01-16 20:53:57', '2026-01-20 18:23:33');
 
 -- --------------------------------------------------------
 
@@ -440,7 +561,32 @@ CREATE TABLE `transfer_order_products` (
 --
 
 INSERT INTO `transfer_order_products` (`id`, `transfer_order_id`, `product_id`, `quantity`, `good_sheets`, `bad_sheets`, `receive_by`, `container_id`, `created_at`, `updated_at`) VALUES
-(15, 11, 35, 4, NULL, NULL, NULL, 19, '2026-01-15 02:30:08', '2026-01-15 02:30:08');
+(15, 11, 35, 4, 4, 0, 'laminas', 19, '2026-01-15 02:30:08', '2026-01-15 02:30:08'),
+(16, 12, 36, 3, NULL, NULL, NULL, 20, '2026-01-15 22:15:32', '2026-01-15 22:15:32'),
+(17, 12, 33, 2, NULL, NULL, NULL, 16, '2026-01-15 22:15:32', '2026-01-15 22:15:32'),
+(18, 12, 33, 2, NULL, NULL, NULL, 17, '2026-01-15 22:15:32', '2026-01-15 22:15:32'),
+(41, 14, 52, 3, 114, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(42, 14, 50, 1, 38, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(43, 14, 51, 2, 60, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(44, 14, 61, 2, 76, 0, 'laminas', 34, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(45, 14, 57, 8, 264, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(46, 14, 63, 2, 76, 0, 'laminas', 35, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(47, 14, 53, 10, 350, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(48, 14, 55, 1, 31, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(49, 14, 54, 1, 28, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(50, 14, 60, 2, 50, 0, 'laminas', 34, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(51, 14, 59, 7, 133, 0, 'laminas', 34, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(52, 14, 56, 3, 51, 0, 'laminas', 34, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(53, 14, 42, 1, 23, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(54, 14, 43, 11, 176, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(55, 14, 39, 1, 25, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(56, 14, 46, 12, 684, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(57, 14, 47, 6, 276, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(58, 14, 48, 3, 90, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(59, 14, 49, 3, 78, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(60, 14, 58, 6, 132, 0, 'laminas', 35, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(61, 14, 36, 1, 19, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(62, 14, 34, 2, 50, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57');
 
 -- --------------------------------------------------------
 
@@ -469,7 +615,7 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `name`, `email`, `email_verified_at`, `password`, `nombre_completo`, `telefono`, `almacen_id`, `rol`, `remember_token`, `created_at`, `updated_at`) VALUES
 (1, 'gerencia@vidriosjyp.com', 'gerencia@vidriosjyp.com', NULL, '$2y$10$MCKVAasC9eX.aM3Q1gc4e.3KYnL8rpM/SZRWmTxr651mKNj.2Hs1G', 'PABLO ANDRES ROJAS', '3173049853', NULL, 'admin', NULL, '2025-12-30 16:54:12', '2026-01-03 01:52:06'),
-(9, 'vidriomaster.sas@hotmail.com', 'vidriomaster.sas@hotmail.com', NULL, '$2y$10$CtVtjdG8e7EFxsA4m74Dn.FO3fmj2SboK420AQQ0Nkh0MAQDTanOm', 'VIDRIO MASTER COLOMBIA', '3138353922', NULL, 'clientes', NULL, '2026-01-02 03:33:42', '2026-01-03 02:25:47'),
+(9, 'vidriomaster.sas@hotmail.com', 'vidriomaster.sas@hotmail.com', NULL, '$2y$10$QRV41fhGN7JkPmeJJvoM/.krytMro9T4i2IXslHzU7QscVThUl9rm', 'VIDRIO MASTER COLOMBIA', '3138353922', NULL, 'clientes', NULL, '2026-01-02 03:33:42', '2026-01-17 13:28:20'),
 (11, 'vidriosjyp@gmail.com', 'vidriosjyp@gmail.com', NULL, '$2y$10$JdzGYRkHcsIU9ZmwhfPfUuvWxUQytsiIijl0YuZblPBbSEuBd18XO', 'GHEIDY YOHANA ISAZA', '3135250178', NULL, 'funcionario', NULL, '2026-01-02 15:12:31', '2026-01-03 15:39:01'),
 (12, 'gerencia@serviglassgirardot.com', 'gerencia@serviglassgirardot.com', NULL, '$2y$10$g5uFgXhjdN1PpV9n7nAKDeEAKZnqsFCBm4qLXTSKvJVSdyodZ9jLy', 'MARIO FERNANDO DOMINGUEZ PRIETO', '3138349415', NULL, 'clientes', NULL, '2026-01-02 16:28:08', '2026-01-03 02:11:37'),
 (13, 'funcionario@local.com', 'funcionario@local.com', NULL, '$2y$10$RZDJcVQd8CjM8k/4U4qaSeb0vGVfiEZry6ahVlYv4KBY25ACSgCyi', 'test funcionario', '56635464563', NULL, 'funcionario', NULL, '2026-01-03 14:27:21', '2026-01-03 14:27:21'),
@@ -477,10 +623,11 @@ INSERT INTO `users` (`id`, `name`, `email`, `email_verified_at`, `password`, `no
 (15, 'PRUEBA123@gmail.com', 'PRUEBA123@gmail.com', NULL, '$2y$10$920c.r8/fhAc9qEEw4boremzpUFIh0elL.ZV3ekSoj0QpPMZ08st.', 'PRUEBNA', '318277382929', NULL, 'funcionario', NULL, '2026-01-10 22:29:25', '2026-01-10 22:29:25'),
 (16, 'JENNIFER@GMAIL.COM', 'JENNIFER@GMAIL.COM', NULL, '$2y$10$tKVUb/x97mZoZzlJLwp69uU2tsMdz4eJfCSIRv4J6525PAFUaizOO', 'JENNIFER', '3192988281', NULL, 'import_viewer', NULL, '2026-01-11 00:54:31', '2026-01-11 00:54:31'),
 (17, 'auspic@gmail.com', 'auspic@gmail.com', NULL, '$2y$10$bJSTs2TVvpU5a2FWizEgq.oDQ3NUHyMDWRUK5SIxoAz1mm3.GEPfG', 'AUSPIC GLASS CO', '3173049853', NULL, 'importer', NULL, '2026-01-11 03:03:17', '2026-01-11 03:03:17'),
-(18, 'REXIGLASS@GMAIL.COM', 'REXIGLASS@GMAIL.COM', NULL, '$2y$10$QOYbPHNV/Ua8mfeInCbHdOVEScevXrQ9d8NYu9JOFv7oZN6v6oGNu', 'REXIGLASS', '31827726627', NULL, 'importer', NULL, '2026-01-11 21:56:52', '2026-01-11 21:56:52'),
-(19, 'RIDERGLASS@GMAIL.COM', 'RIDERGLASS@GMAIL.COM', NULL, '$2y$10$UFS.nlZBiHQccutMxTRKJ.RL7MzUxCtUoEDfqP9P7ASxkvHOdYNCW', 'RIDER GLASS COMPANY', '3173049853', NULL, 'importer', NULL, '2026-01-11 22:09:44', '2026-01-11 22:09:44'),
-(20, 'melon@gmail.com', 'melon@gmail.com', NULL, '$2y$10$PpRQqp2jjfvxq7Dt7MczbekVhcb/M.Ro60AvuRQy0zUttUZcvVm66', 'TENGZHOU KUNYUE GLASS', '3182372782', NULL, 'importer', NULL, '2026-01-11 22:21:53', '2026-01-11 22:21:53'),
-(21, 'julio@gmail.com', 'julio@gmail.com', NULL, '$2y$10$OS7v/1AxioCiTZVVJ/xrJ.45S0xGtkhEa0PU1XdrWSTO8.7d8OOP2', 'CHEONGFULI (XIAMEN) CO', '13573220238', NULL, 'importer', NULL, '2026-01-12 03:32:48', '2026-01-12 03:32:48');
+(18, 'evia.zhong@rexiglass.com', 'evia.zhong@rexiglass.com', NULL, '$2y$10$nPYHqMSteo9jGicZFrz3l./LHUb7o150SKNaTqYEMWjkXfRXspLsC', 'REXIGLASS', '31827726627', NULL, 'importer', NULL, '2026-01-11 21:56:52', '2026-01-21 05:04:26'),
+(19, 'jasmine@riderglass.com', 'jasmine@riderglass.com', NULL, '$2y$10$jb3ca7wh7gj2N3qvRCR0T..Foog86XDsqkH95jP1v.Dh4PoKLwo56', 'RIDER GLASS COMPANY', '3173049853', NULL, 'importer', NULL, '2026-01-11 22:09:44', '2026-01-21 05:13:19'),
+(20, 'tzkyglass@gmail.com', 'tzkyglass@gmail.com', NULL, '$2y$10$UYIDWflDVTocDlXjrf1QteJYWVJtbmahG/sUPBm5U2SgIBohIqMDu', 'TENGZHOU KUNYUE GLASS', '3182372782', NULL, 'importer', NULL, '2026-01-11 22:21:53', '2026-01-21 05:35:25'),
+(21, 'julio@gmail.com', 'julio@gmail.com', NULL, '$2y$10$OS7v/1AxioCiTZVVJ/xrJ.45S0xGtkhEa0PU1XdrWSTO8.7d8OOP2', 'CHEONGFULI (XIAMEN) CO', '13573220238', NULL, 'importer', NULL, '2026-01-12 03:32:48', '2026-01-12 03:32:48'),
+(22, 'hand@hexadglass.com', 'hand@hexadglass.com', NULL, '$2y$10$YpHS9f53dW5O0u4tq8.0bewdpKMaQNoZLRdvgRM9MGryRlOgFzxuC', 'HEXAD GLASS', '17806285113', NULL, 'importer', NULL, '2026-01-21 05:39:58', '2026-01-21 05:39:58');
 
 -- --------------------------------------------------------
 
@@ -562,7 +709,10 @@ INSERT INTO `warehouses` (`id`, `nombre`, `direccion`, `ciudad`, `created_at`, `
 (27, 'PRESTAMO VIDRIOS LA FANIA OPERACIONES JC', 'BUN', 'BUENAVENTURA', '2026-01-03 22:15:24', '2026-01-03 22:15:24'),
 (28, 'VENTA VIDRIOS DEL ORIENTE OPERACIONES JC', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-03 22:15:44', '2026-01-03 22:15:44'),
 (29, 'PABLO ROJAS OPERACIONES JC', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-11 01:14:24', '2026-01-11 01:14:24'),
-(30, 'VENTAS DIVIDRIOS SAS OPERACIONES JC', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-11 20:39:45', '2026-01-11 20:39:45');
+(30, 'VENTAS DIVIDRIOS SAS OPERACIONES JC', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-11 20:39:45', '2026-01-11 20:39:45'),
+(31, 'ZULUVIDRIOS JC BUN', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-16 19:45:54', '2026-01-16 19:45:54'),
+(32, 'ZULUVIDRIOS', 'MEDELLIN', 'MEDELLIN', '2026-01-19 23:07:15', '2026-01-19 23:07:15'),
+(33, 'RLW GLASS', 'BUENAVENTURA', 'BUENAVENTURA', '2026-01-21 20:01:41', '2026-01-21 20:01:41');
 
 --
 -- Indexes for dumped tables
@@ -693,43 +843,43 @@ ALTER TABLE `warehouses`
 -- AUTO_INCREMENT for table `containers`
 --
 ALTER TABLE `containers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT for table `container_product`
 --
 ALTER TABLE `container_product`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
 --
 -- AUTO_INCREMENT for table `drivers`
 --
 ALTER TABLE `drivers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `imports`
 --
 ALTER TABLE `imports`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `import_containers`
 --
 ALTER TABLE `import_containers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `product_warehouse_stock`
@@ -741,31 +891,31 @@ ALTER TABLE `product_warehouse_stock`
 -- AUTO_INCREMENT for table `salidas`
 --
 ALTER TABLE `salidas`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `salida_products`
 --
 ALTER TABLE `salida_products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `transfer_orders`
 --
 ALTER TABLE `transfer_orders`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `transfer_order_products`
 --
 ALTER TABLE `transfer_order_products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT for table `user_warehouse`
@@ -777,7 +927,7 @@ ALTER TABLE `user_warehouse`
 -- AUTO_INCREMENT for table `warehouses`
 --
 ALTER TABLE `warehouses`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- Constraints for dumped tables
