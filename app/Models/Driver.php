@@ -20,6 +20,7 @@ class Driver extends Model
         'social_security_pdf',
         'vehicle_owner',
         'active',
+        'capacity',
     ];
 
     /**
@@ -30,10 +31,10 @@ class Driver extends Model
         if (!$this->social_security_date) {
             return false; // Si no hay fecha, no se considera vencida
         }
-        
+
         $expirationDate = Carbon::parse($this->social_security_date);
         $today = Carbon::today();
-        
+
         // Se considera vencida si pasó más de 1 día desde la fecha de vencimiento
         return $today->greaterThan($expirationDate);
     }
@@ -43,9 +44,9 @@ class Driver extends Model
      */
     public function scopeWithValidSocialSecurity($query)
     {
-        return $query->where(function($q) {
+        return $query->where(function ($q) {
             $q->whereNull('social_security_date')
-              ->orWhere('social_security_date', '>=', Carbon::today()->toDateString());
+                ->orWhere('social_security_date', '>=', Carbon::today()->toDateString());
         });
     }
 
@@ -55,9 +56,9 @@ class Driver extends Model
     public function scopeActiveWithValidSocialSecurity($query)
     {
         return $query->where('active', true)
-                     ->where(function($q) {
-                         $q->whereNull('social_security_date')
-                           ->orWhere('social_security_date', '>=', Carbon::today()->toDateString());
-                     });
+            ->where(function ($q) {
+                $q->whereNull('social_security_date')
+                    ->orWhere('social_security_date', '>=', Carbon::today()->toDateString());
+            });
     }
 }

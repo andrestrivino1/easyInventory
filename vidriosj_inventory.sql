@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jan 22, 2026 at 09:09 AM
+-- Generation Time: Jan 25, 2026 at 12:39 PM
 -- Server version: 10.11.15-MariaDB-cll-lve
 -- PHP Version: 8.4.16
 
@@ -71,7 +71,8 @@ INSERT INTO `containers` (`id`, `reference`, `warehouse_id`, `note`, `created_at
 (43, 'SUDU1368362', 21, 'DO: VJP26-011', NULL, NULL),
 (44, 'MSKU5652671', 17, 'DO: VJP26-012', NULL, NULL),
 (45, 'MSMU2003772', 17, 'DO: VJP26-009', NULL, NULL),
-(46, 'PR VIEJO', 29, 'VENTA OLGA HORTENCIA TUPAZ', NULL, NULL);
+(46, 'PR VIEJO', 29, 'VENTA OLGA HORTENCIA TUPAZ', NULL, NULL),
+(47, 'INV VIEJO PR', 29, 'INV VIEJO VENTA Y PRESTAMO A EL MAYORISTA', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -85,6 +86,7 @@ CREATE TABLE `container_product` (
   `product_id` bigint(20) UNSIGNED NOT NULL,
   `boxes` int(11) NOT NULL,
   `sheets_per_box` int(11) NOT NULL,
+  `weight_per_box` decimal(10,2) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -137,19 +139,21 @@ INSERT INTO `container_product` (`id`, `container_id`, `product_id`, `boxes`, `s
 (56, 36, 45, 6, 36, '2026-01-19 23:12:00', '2026-01-19 23:12:00'),
 (57, 37, 60, 2, 25, '2026-01-19 23:13:45', '2026-01-19 23:13:45'),
 (58, 38, 67, 10, 14, '2026-01-21 20:09:03', '2026-01-21 20:09:03'),
-(59, 39, 65, 5, 26, '2026-01-21 22:24:39', '2026-01-21 22:26:49'),
-(60, 40, 65, 5, 25, '2026-01-21 22:25:25', '2026-01-21 22:26:34'),
+(59, 39, 65, 3, 26, '2026-01-21 22:24:39', '2026-01-25 17:35:48'),
+(60, 40, 65, 4, 25, '2026-01-21 22:25:25', '2026-01-21 22:26:34'),
 (61, 41, 66, 5, 26, '2026-01-21 22:27:48', '2026-01-21 22:27:48'),
-(62, 42, 66, 5, 25, '2026-01-21 22:28:27', '2026-01-21 22:28:27'),
+(62, 42, 66, 2, 26, '2026-01-21 22:28:27', '2026-01-25 17:26:26'),
 (63, 43, 50, 10, 38, '2026-01-21 23:02:35', '2026-01-21 23:02:35'),
 (64, 44, 50, 10, 38, '2026-01-21 23:03:37', '2026-01-21 23:03:37'),
 (65, 45, 34, 10, 25, '2026-01-21 23:05:39', '2026-01-21 23:05:39'),
-(66, 46, 60, 1, 25, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
-(67, 46, 48, 2, 30, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
-(68, 46, 34, 2, 25, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
-(69, 46, 61, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
-(70, 46, 63, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52'),
-(71, 46, 50, 2, 38, '2026-01-22 14:09:52', '2026-01-22 14:09:52');
+(66, 46, 60, 0, 25, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(67, 46, 48, 2, 30, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(68, 46, 34, 2, 25, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(69, 46, 61, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(70, 46, 63, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(71, 46, 50, 1, 38, '2026-01-22 14:09:52', '2026-01-22 14:10:41'),
+(72, 47, 68, 1, 23, '2026-01-22 15:59:48', '2026-01-22 15:59:48'),
+(73, 47, 67, 1, 13, '2026-01-22 15:59:48', '2026-01-22 15:59:48');
 
 -- --------------------------------------------------------
 
@@ -168,6 +172,7 @@ CREATE TABLE `drivers` (
   `social_security_date` date DEFAULT NULL COMMENT 'Fecha de seguridad social',
   `social_security_pdf` varchar(255) DEFAULT NULL COMMENT 'PDF de seguridad social',
   `vehicle_owner` varchar(255) DEFAULT NULL COMMENT 'Propietario del vehículo',
+  `capacity` decimal(10,2) DEFAULT NULL COMMENT 'Capacidad de carga en kg',
   `active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -181,7 +186,15 @@ INSERT INTO `drivers` (`id`, `name`, `identity`, `phone`, `photo_path`, `vehicle
 (7, 'FABIAN VIVAS PARADA', '1115911364', '3206615093', 'drivers/lV2DKsTjA5YkVeV7leBwUDQMr9DqKOVxg7ZjTinZ.jpg', 'NYO322', 'drivers/vJDt5trPbQA4XclsOdcqtDIIknj5sokThGu1SWy6.jpg', '2026-02-13', 'drivers/1Nu3c7huzSjzqvGyM0QWRmWOEP21vubER4uVKZCr.pdf', 'PABLO ANDRES ROJAS CC1111806533', 1, NULL, NULL),
 (8, 'CESAR VANEGASS SERRANO', '79916566', '311459996', NULL, 'WOM166', NULL, '2026-02-09', 'drivers/pyTzD3zEduDcNlmLzAuxppjEZcPMGtQqq81ZItBH.pdf', 'PABLO ANTONIO RIOS SUAREZ CC 13905229', 1, NULL, NULL),
 (9, 'NICOLAS CANO', '1007530763', '3145656161', 'drivers/YJqQpOPDxZ3H7XCngC8H2mGWtFwFQ0FIJSmtlTBV.jpg', 'FST609', 'drivers/8KGfq2x6zCE2w5v5Yn5nkSIS2kJcaq0nxlAE83jo.jpg', '2026-02-09', 'drivers/ifG33NBQwGagyACOFoefAqKFHPPbkKcl2AEQhNMy.pdf', 'LA ÉLITE COMPRAVENTA Y TRANSPORTE', 1, NULL, NULL),
-(10, 'WILLIAM TORRES', '79328216', '3017858368', NULL, 'CTU437', NULL, NULL, NULL, 'TEMPLADOS LA TORRE', 1, NULL, NULL);
+(10, 'WILLIAM TORRES', '79328216', '3017858368', NULL, 'CTU437', NULL, NULL, NULL, 'TEMPLADOS LA TORRE', 1, NULL, NULL),
+(11, 'OSWALDO RENE PATINO  CONTRERAS', '87716645', '3164527942', NULL, 'GUB993', 'drivers/zXqXEspgTAEtclldHsab0nbXYmhUkmGDX4fl1oRO.jpg', '2026-02-10', NULL, 'OLGA HORTENCIA TUPAZ CC27249825', 1, NULL, NULL),
+(12, 'Álvaro Contreras Alvarino', '1067290321', '3102595515', 'drivers/heRlSjjs75xRSc3uzHuHnfphvMh0G95JbGrWVw6R.jpg', 'SOO040', 'drivers/PY6XdmRzeufMt6KBdi7A4ZgOXvD0xHh95MiemlhC.jpg', NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(13, 'OSCAR YESID BARRERA TOVAR', '1032421541', '3147474739', NULL, 'TRK141', NULL, NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(14, 'NELSON BELTRAN RAMIREZ', '3154000', '3208531098', NULL, 'SPQ171', NULL, NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(15, 'IVAN CASTIBLANCO PIRAQUIVE', '1076646493', '3227420098', NULL, 'THW303', NULL, NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(16, 'VICTOR MANUEL LIMAS CORDOBA', '80865528', '3219958615', NULL, 'SZQ350', NULL, NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(17, 'JESUS MANUEL MOLINA DUARTE', '5733396', '3203801626', NULL, 'WGY977', NULL, NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL),
+(18, 'OSCAR ADRIAN PINZON CASTILLO', '1007586197', '3238061594', 'drivers/pB86q499rM3PcjXgDdNTLbtw0sIiOHd5jCCrMJpq.jpg', 'WLY515', 'drivers/ErkYrB6XQNUnfeVod0LyPszXl6qLGbpPSQcRyB1q.jpg', NULL, NULL, 'VIDRIO MASTER COLOMBIA', 1, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -251,7 +264,8 @@ INSERT INTO `imports` (`id`, `do_code`, `commercial_invoice_number`, `proforma_i
 (23, 'VJP26-023', 'COL001250902', 'COL001250902', '258682843', 14, 'TIANJIN', 'Colombia', '2026-01-01', '2026-01-01', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, 'imports/IDuC1RUTdcw33ViqwjjuzlwmTPicRQEfs5JJ7lBh.pdf', NULL, NULL, NULL, 'imports/rWHAurelGmS7O1DpDrTbTKRuBYFcLP1sQj98ntWi.pdf', 'imports/CiFyyFjjDWmE2Q2hYgnfUcbRPCXyu9dHstY8yP48.pdf', NULL, NULL, 'MSK', 21, '45', 0, '2026-01-21 04:31:43', '2026-01-21 04:31:44'),
 (24, 'VJP26-024', 'H50708251121&H50709251127CI', 'H50708251121&H50709251127', 'TJN0835264', 22, 'China', 'Colombia', '2025-12-25', '2026-02-01', NULL, NULL, 'pending', 0, NULL, NULL, 'imports/rhIHTWnOAAplN5kQvnWHMHBXvqRW1UgrGGtbYS6i.pdf', 'imports/3bOtU3LgQVuty0p9xZvwqhfrmOWJKeh7TIjrewk5.pdf', 'imports/HLHFEusybE0MLc0IBBKSiH0av4cDx4W89NUUmekR.pdf', 'imports/91FLix3iDbKitSHoKkR0P1PRbnkS6WmJLNpDV2va.pdf', 'imports/Vgt3tEUACfKH8JpoZ6ecjwBRoyRyAopiVUStl3Ph.pdf', 'imports/gG1h6mMshCc6E0EobZCa10yEZozpbnOFCboCobUr.pdf', NULL, 'imports/FuWK50BaV2CPHpzLGYBvYBoEWWHge29om7QOOP7u.pdf', 'CMA', 25, NULL, 0, '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
 (25, 'VJP26-025', 'RG-87406/25', 'RGP-02839/25', 'TJN0853109', 19, 'XINGANG', 'Colombia', '2026-01-20', '2026-03-02', NULL, NULL, 'pending', 0, NULL, NULL, 'imports/Uk304Ol8va2PJP2CLCthMUKeNsQTmZGJGD5rn30Q.pdf', NULL, 'imports/hX0BTXET0qOmfBwjthXEPRV5PsUsqobhQnWIRdew.pdf', NULL, 'imports/f4Sl6LzffrRMiqP2Z6Y09V83OfkRyYSql26L4c5O.pdf', 'imports/Si7QduUOWwKbLHZMaeKX73HlE8kRwyfF8dDJsvo9.pdf', NULL, NULL, 'CMA-CGM', 21, NULL, 0, '2026-01-21 19:50:55', '2026-01-21 19:50:55'),
-(26, 'VJP25-001', 'COL001250802-1', 'COL001250802-1', '285734172', 14, 'china', 'Colombia', '2025-09-15', '2025-10-25', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '45', 0, '2026-01-22 07:21:05', '2026-01-22 07:21:06');
+(26, 'VJP25-001', 'COL001250802-1', 'COL001250802-1', '285734172', 14, 'china', 'Colombia', '2025-09-15', '2025-10-25', NULL, NULL, 'pendiente_por_confirmar', 0, NULL, 45.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '45', 0, '2026-01-22 07:21:05', '2026-01-22 07:21:06'),
+(27, 'VJP26-026', 'RE2601113-1', 'CO9620602', 'TJN0851583', 18, 'CHINA', 'Colombia', '2026-01-14', '2026-02-16', NULL, NULL, 'pending', 0, NULL, 30.00, 'imports/J5BunTDh90CLkKfGgNjQLAqbePekNbVzwmAFnpaQ.pdf', NULL, 'imports/Ysa8zqU3NyvwvQbUqxZHPZ22j7lcxa9Go4ntZ23O.pdf', 'imports/2PktlysqSxq6tD9pN66M50kdcQAdE0yZd98AQV0z.pdf', 'imports/VaVDdHN73bQ7gsjHvRQUNo87xhv1o3OJS5UWjhRf.pdf', 'imports/ciZdSsvfaozdZvX8Psb9dxs6Nv6uRci3dPYlxpWr.pdf', NULL, NULL, 'CMA', NULL, '30', 0, '2026-01-23 06:14:44', '2026-01-23 06:17:45');
 
 -- --------------------------------------------------------
 
@@ -309,7 +323,8 @@ INSERT INTO `import_containers` (`id`, `import_id`, `reference`, `pdf_path`, `im
 (34, 24, '6mm Clear Tempered Glass', 'imports/9LqsUZMCjqrQn9RbtqN0ukaaiYpdzi1jORekFF8E.pdf', 'imports/foo5NWaofVIC3wX9nJClwPrLLs3DSJV5iGV15jj3.pdf', '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
 (35, 24, '4mm/ Blue Flora Pattern Glass；Bronze Flora Pattern Glass；Blue Karatachi Pattern Glass；Bronze Karatachi Pattern Glass', 'imports/mg1ygN6I2Dygyfv44TU79fXrJm5scOdcfFhKpfOu.pdf', 'imports/QnUwUIP9mPc9bv8r7Ed88khL9H4J7LbPWq0uLbXC.pdf', '2026-01-21 07:12:59', '2026-01-21 07:12:59'),
 (36, 25, 'TGBU2167203', NULL, NULL, '2026-01-21 19:50:55', '2026-01-21 19:50:55'),
-(37, 25, 'TIIU3647119', NULL, NULL, '2026-01-21 19:50:55', '2026-01-21 19:50:55');
+(37, 25, 'TIIU3647119', NULL, NULL, '2026-01-21 19:50:55', '2026-01-21 19:50:55'),
+(38, 27, 'XHCU2898960', NULL, NULL, '2026-01-23 06:14:44', '2026-01-23 06:17:45');
 
 -- --------------------------------------------------------
 
@@ -374,9 +389,13 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (44, '2026_01_09_112345_add_image_pdf_to_import_containers_table', 13),
 (45, '2026_01_10_122742_add_receive_by_to_transfer_order_products_table', 14),
 (46, '2026_01_12_093856_add_nationalized_to_imports_table', 15),
-(47, '2026_01_13_143953_add_photos_to_drivers_table', 15),
-(48, '2026_01_14_222033_add_social_security_and_vehicle_owner_to_drivers_table', 15),
-(49, '2026_01_14_225525_add_credit_paid_to_imports_table', 15);
+(48, '2026_01_13_143953_add_photos_to_drivers_table', 15),
+(49, '2026_01_14_222033_add_social_security_and_vehicle_owner_to_drivers_table', 15),
+(50, '2026_01_14_225525_add_credit_paid_to_imports_table', 15),
+(51, '2026_01_25_000000_update_container_and_transfer_structure', 16),
+(52, '2026_01_25_110000_add_capacity_to_drivers', 16),
+(53, '2026_01_25_110001_add_weight_to_container_product', 16),
+(54, '2026_01_25_134144_add_weight_to_transfer_order_products', 16);
 
 -- --------------------------------------------------------
 
@@ -437,9 +456,10 @@ INSERT INTO `products` (`id`, `nombre`, `codigo`, `descripcion`, `precio`, `stoc
 (62, 'LAMINADO BRONCE 3+3MM 330*214', 'PRD-000030', NULL, 0.00, 0, 1, NULL, NULL, '330*214', NULL, '2026-01-16 19:59:26', '2026-01-16 19:59:26'),
 (63, 'BRONCE REFLECTIVO 4 MM 330*214', 'PRD-000031', NULL, 0.00, 0, 1, 'caja', 38, '330*214', NULL, '2026-01-16 20:17:46', '2026-01-16 20:19:28'),
 (64, 'VIDRIO INCOLORO 5 MM 330*225', 'PRD-000032', NULL, 0.00, 0, 1, 'caja', 29, '330*225', NULL, '2026-01-19 23:10:45', '2026-01-19 23:12:00'),
-(65, 'AZUL DARK REFLECTIVO 3+3MM 330*214', 'PRD-000033', NULL, 0.00, 0, 1, 'caja', 26, '330*214', NULL, '2026-01-21 20:00:17', '2026-01-21 22:26:49'),
-(66, 'BRONCE REFLECTIVO 3+3MM 330*214', 'PRD-000034', NULL, 0.00, 0, 1, 'caja', 25, '330*214', NULL, '2026-01-21 20:00:47', '2026-01-21 22:28:27'),
-(67, 'VIDRIO CLARO 10 MM 3.66*2.14', 'PRD-000035', NULL, 0.00, 0, 1, 'caja', 14, '3.66*2.14', NULL, '2026-01-21 20:02:26', '2026-01-21 20:09:03');
+(65, 'AZUL DARK REFLECTIVO 3+3MM 330*214', 'PRD-000033', NULL, 0.00, 0, 1, 'caja', 26, '330*214', NULL, '2026-01-21 20:00:17', '2026-01-25 17:35:48'),
+(66, 'BRONCE REFLECTIVO 3+3MM 330*214', 'PRD-000034', NULL, 0.00, 0, 1, 'caja', 26, '330*214', NULL, '2026-01-21 20:00:47', '2026-01-25 17:25:37'),
+(67, 'VIDRIO CLARO 10 MM 3.66*2.14', 'PRD-000035', NULL, 0.00, 0, 1, 'caja', 13, '3.66*2.14', NULL, '2026-01-21 20:02:26', '2026-01-22 15:59:48'),
+(68, 'LAMINADO CLARO 3+3MM 330*244', 'PRD-000036', NULL, 0.00, 0, 1, 'caja', 23, '330*244', NULL, '2026-01-22 15:58:40', '2026-01-22 15:59:48');
 
 -- --------------------------------------------------------
 
@@ -480,7 +500,11 @@ CREATE TABLE `salidas` (
 --
 
 INSERT INTO `salidas` (`id`, `salida_number`, `warehouse_id`, `user_id`, `driver_id`, `fecha`, `a_nombre_de`, `nit_cedula`, `note`, `aprobo`, `ciudad_destino`, `created_at`, `updated_at`) VALUES
-(7, 'SAL-000001', 18, 12, 10, '2026-01-19', 'CRISTALES TEMPLADOS LA TORRE', '900.593.026', 'SE AUTORIZA CAMBIO CON DEVOLUCIÓN EN BUENAVENTURA, POR REFERENCIA INCOLORO 6MM 3660*2140', 'JAIRO VILLAMIL', 'BOGOTA', '2026-01-21 03:52:38', '2026-01-21 03:52:38');
+(7, 'SAL-000001', 18, 12, 10, '2026-01-19', 'CRISTALES TEMPLADOS LA TORRE', '900.593.026', 'SE AUTORIZA CAMBIO CON DEVOLUCIÓN EN BUENAVENTURA, POR REFERENCIA INCOLORO 6MM 3660*2140', 'JAIRO VILLAMIL', 'BOGOTA', '2026-01-21 03:52:38', '2026-01-21 03:52:38'),
+(8, 'SAL-000002', 29, 1, 11, '2026-01-22', 'OLGA HORTENCIA TUPAZ', '27249825', NULL, 'PABLO ROJAS', 'IPIALES', '2026-01-22 14:15:53', '2026-01-22 14:15:53'),
+(9, 'SAL-000003', 29, 1, 8, '2026-01-22', 'PABLO ANTONIO RIOS', '13905229', 'VENTA DEL 10 MM Y PRESTAMO DEL 3+3 AL MAYORISTA', 'PABLO ROJAS', 'BUCARAMANGA', '2026-01-22 16:01:53', '2026-01-22 16:01:53'),
+(10, 'SAL-000004', 18, 12, 12, '2026-01-22', 'VIDRIO MASTER SAS', '901.293.025-9', NULL, 'JAIRO VILLAMIL', 'BOGOTA', '2026-01-23 00:46:54', '2026-01-23 00:46:54'),
+(11, 'SAL-000005', 18, 12, 13, '2026-01-19', 'VIDRIO MASTER SAS', '901.293.025-9', NULL, 'JAIRO VILLAMIL', 'BOGOTA', '2026-01-24 13:53:07', '2026-01-24 13:53:07');
 
 -- --------------------------------------------------------
 
@@ -503,7 +527,17 @@ CREATE TABLE `salida_products` (
 --
 
 INSERT INTO `salida_products` (`id`, `salida_id`, `product_id`, `container_id`, `quantity`, `created_at`, `updated_at`) VALUES
-(9, 7, 34, 33, 50, '2026-01-21 03:52:38', '2026-01-21 03:52:38');
+(9, 7, 34, 33, 50, '2026-01-21 03:52:38', '2026-01-21 03:52:38'),
+(10, 8, 61, 46, 38, '2026-01-22 14:15:53', '2026-01-22 14:15:53'),
+(11, 8, 48, 46, 60, '2026-01-22 14:15:53', '2026-01-22 14:15:53'),
+(12, 8, 34, 46, 25, '2026-01-22 14:15:53', '2026-01-22 14:15:53'),
+(13, 9, 68, 47, 23, '2026-01-22 16:01:53', '2026-01-22 16:01:53'),
+(14, 9, 67, 47, 13, '2026-01-22 16:01:53', '2026-01-22 16:01:53'),
+(15, 10, 59, 34, 38, '2026-01-23 00:46:54', '2026-01-23 00:46:54'),
+(16, 11, 55, 33, 31, '2026-01-24 13:53:07', '2026-01-24 13:53:07'),
+(17, 11, 53, 33, 35, '2026-01-24 13:53:07', '2026-01-24 13:53:07'),
+(18, 11, 60, 34, 25, '2026-01-24 13:53:07', '2026-01-24 13:53:07'),
+(19, 11, 39, 33, 25, '2026-01-24 13:53:07', '2026-01-24 13:53:07');
 
 -- --------------------------------------------------------
 
@@ -535,7 +569,8 @@ CREATE TABLE `transfer_orders` (
 INSERT INTO `transfer_orders` (`id`, `warehouse_from_id`, `warehouse_to_id`, `salida`, `destino`, `order_number`, `status`, `date`, `note`, `aprobo`, `ciudad_destino`, `driver_id`, `created_at`, `updated_at`) VALUES
 (11, 14, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000001', 'recibido', '2026-01-15 02:30:08', NULL, NULL, NULL, 9, '2026-01-15 02:30:08', '2026-01-17 13:31:13'),
 (12, 14, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000002', 'en_transito', '2026-01-15 22:15:32', NULL, NULL, NULL, 9, '2026-01-15 22:15:32', '2026-01-15 22:15:32'),
-(14, 17, 18, 'BUENAVENTURA', 'GIRARDOT', 'TO-000003', 'recibido', '2026-01-16 20:53:57', 'ARREGLO INV VIEJO', NULL, NULL, 9, '2026-01-16 20:53:57', '2026-01-20 18:23:33');
+(14, 17, 18, 'BUENAVENTURA', 'GIRARDOT', 'TO-000003', 'recibido', '2026-01-16 20:53:57', 'ARREGLO INV VIEJO', NULL, NULL, 9, '2026-01-16 20:53:57', '2026-01-20 18:23:33'),
+(16, 17, 15, 'BUENAVENTURA', 'BOGOTA', 'TO-000004', 'en_transito', '2026-01-25 17:27:49', 'SALEN 2 CAJAS DE BRONCE REFLECTIVO POR 25 Y 1 POR 26 LAMINAS', NULL, NULL, 18, '2026-01-25 17:27:49', '2026-01-25 17:27:49');
 
 -- --------------------------------------------------------
 
@@ -548,6 +583,8 @@ CREATE TABLE `transfer_order_products` (
   `transfer_order_id` bigint(20) UNSIGNED NOT NULL,
   `product_id` bigint(20) UNSIGNED NOT NULL,
   `quantity` int(11) NOT NULL,
+  `sheets_per_box` int(11) DEFAULT NULL,
+  `weight_per_box` decimal(10,2) DEFAULT NULL,
   `good_sheets` int(11) DEFAULT NULL COMMENT 'Láminas en buen estado recibidas',
   `bad_sheets` int(11) DEFAULT NULL COMMENT 'Láminas en mal estado recibidas',
   `receive_by` enum('cajas','laminas') DEFAULT NULL COMMENT 'Forma en que se recibe la transferencia: por cajas o por láminas',
@@ -586,7 +623,9 @@ INSERT INTO `transfer_order_products` (`id`, `transfer_order_id`, `product_id`, 
 (59, 14, 49, 3, 78, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
 (60, 14, 58, 6, 132, 0, 'laminas', 35, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
 (61, 14, 36, 1, 19, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
-(62, 14, 34, 2, 50, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57');
+(62, 14, 34, 2, 50, 0, 'laminas', 33, '2026-01-16 20:53:57', '2026-01-16 20:53:57'),
+(64, 16, 65, 1, NULL, NULL, NULL, 40, '2026-01-25 17:27:49', '2026-01-25 17:27:49'),
+(65, 16, 66, 3, NULL, NULL, NULL, 42, '2026-01-25 17:27:49', '2026-01-25 17:27:49');
 
 -- --------------------------------------------------------
 
@@ -731,7 +770,7 @@ ALTER TABLE `containers`
 --
 ALTER TABLE `container_product`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_container_product` (`container_id`,`product_id`),
+  ADD KEY `container_id` (`container_id`),
   ADD KEY `product_id` (`product_id`);
 
 --
@@ -843,31 +882,31 @@ ALTER TABLE `warehouses`
 -- AUTO_INCREMENT for table `containers`
 --
 ALTER TABLE `containers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT for table `container_product`
 --
 ALTER TABLE `container_product`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
 
 --
 -- AUTO_INCREMENT for table `drivers`
 --
 ALTER TABLE `drivers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `imports`
 --
 ALTER TABLE `imports`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 
 --
 -- AUTO_INCREMENT for table `import_containers`
 --
 ALTER TABLE `import_containers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
 
 --
 -- AUTO_INCREMENT for table `migrations`
@@ -879,7 +918,7 @@ ALTER TABLE `migrations`
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 
 --
 -- AUTO_INCREMENT for table `product_warehouse_stock`
@@ -891,25 +930,25 @@ ALTER TABLE `product_warehouse_stock`
 -- AUTO_INCREMENT for table `salidas`
 --
 ALTER TABLE `salidas`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `salida_products`
 --
 ALTER TABLE `salida_products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `transfer_orders`
 --
 ALTER TABLE `transfer_orders`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `transfer_order_products`
 --
 ALTER TABLE `transfer_order_products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
 
 --
 -- AUTO_INCREMENT for table `users`

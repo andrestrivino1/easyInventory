@@ -54,6 +54,7 @@ class ContainerController extends Controller
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.boxes' => 'required|integer|min:0',
             'products.*.sheets_per_box' => 'required|integer|min:1',
+            'products.*.weight_per_box' => 'required|numeric|min:0',
         ]);
 
         // Validar que la bodega seleccionada recibe contenedores
@@ -69,15 +70,14 @@ class ContainerController extends Controller
         ]);
 
         // Asociar productos con sus cajas y láminas por caja
-        $syncData = [];
+        // Usamos attach en lugar de sync para permitir múltiples entradas del mismo producto con diferentes láminas
         foreach ($data['products'] as $productData) {
-            $syncData[$productData['product_id']] = [
+            $container->products()->attach($productData['product_id'], [
                 'boxes' => $productData['boxes'],
                 'sheets_per_box' => $productData['sheets_per_box'],
-            ];
+                'weight_per_box' => $productData['weight_per_box'],
+            ]);
         }
-
-        $container->products()->sync($syncData);
 
         // Actualizar tipo_medida y unidades_por_caja de productos
         // Los productos en contenedores siempre son tipo "caja"
@@ -131,6 +131,7 @@ class ContainerController extends Controller
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.boxes' => 'required|integer|min:0',
             'products.*.sheets_per_box' => 'required|integer|min:1',
+            'products.*.weight_per_box' => 'required|numeric|min:0',
         ]);
 
         // Actualizar contenedor
@@ -140,14 +141,17 @@ class ContainerController extends Controller
         ]);
 
         // Asociar nuevos productos
-        $syncData = [];
+        // Primero eliminamos las relaciones existentes
+        $container->products()->detach();
+
+        // Luego agregamos las nuevas, permitiendo duplicados
         foreach ($data['products'] as $productData) {
-            $syncData[$productData['product_id']] = [
+            $container->products()->attach($productData['product_id'], [
                 'boxes' => $productData['boxes'],
                 'sheets_per_box' => $productData['sheets_per_box'],
-            ];
+                'weight_per_box' => $productData['weight_per_box'],
+            ]);
         }
-        $container->products()->sync($syncData);
 
         // Actualizar unidades_por_caja de productos (el stock se calcula dinámicamente desde contenedores)
         foreach ($data['products'] as $productData) {

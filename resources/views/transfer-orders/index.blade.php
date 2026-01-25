@@ -235,6 +235,9 @@
                                         @if($prod->medidas)
                                             <br><span style="color: #666; font-size: 12px;">{{ $prod->medidas }}</span>
                                         @endif
+                                        @if($prod->pivot->sheets_per_box)
+                                            <br><span style="color: #0d6efd; font-size: 11px; font-weight:bold;">({{ $prod->pivot->sheets_per_box }} láminas/caja)</span>
+                                        @endif
                                         <br><span style="color: #666; font-size: 12px;">
                                             @if($transfer->status === 'recibido' && isset($prod->pivot->good_sheets) && isset($prod->pivot->receive_by))
                                                 ({{ $prod->pivot->good_sheets }}

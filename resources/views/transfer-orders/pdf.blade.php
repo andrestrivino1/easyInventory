@@ -421,9 +421,10 @@
         <thead>
             <tr>
                 <th style="width: 11%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: left;">PRODUCTO</th>
-                <th style="width: 1%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CONTENEDOR</th>
-                <th style="width: 1%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CAJAS</th>
-                <th style="width: 1%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">UNIDADES</th>
+                <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CONTENEDOR</th>
+                <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CAJAS</th>
+                <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">UNIDADES</th>
+                <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">PESO (KG)</th>
             </tr>
         </thead>
         <tbody>
@@ -431,6 +432,9 @@
             @php
                 $cantidadIngresada = $prod->pivot->quantity;
                 $containerId = $prod->pivot->container_id ?? null;
+                $weightPerBox = $prod->pivot->weight_per_box ?? 0;
+                $rowWeight = $cantidadIngresada * $weightPerBox;
+                $totalTransferWeight = ($totalTransferWeight ?? 0) + $rowWeight;
                 $container = null;
                 
                 if ($containerId) {
@@ -456,8 +460,13 @@
                     @endif
                 </td>
                 <td style="width: 8%; border: 1px solid #ccc; padding: 3px; font-size: 9px; text-align: center; font-weight: bold;">{{ number_format($unidades, 0) }}</td>
+                <td style="width: 8%; border: 1px solid #ccc; padding: 3px; font-size: 9px; text-align: center;">{{ number_format($rowWeight, 2) }}</td>
             </tr>
         @endforeach
+            <tr class="total-row">
+                <td colspan="4" style="text-align: right; border: 1px solid #ccc; padding: 4px;">TOTAL PESO ESTIMADO (KG):</td>
+                <td style="text-align: center; border: 1px solid #ccc; padding: 4px;">{{ number_format($totalTransferWeight ?? 0, 2) }}</td>
+            </tr>
         </tbody>
     </table>
 

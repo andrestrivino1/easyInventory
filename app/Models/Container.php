@@ -22,7 +22,7 @@ class Container extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'container_product')
-            ->withPivot('boxes', 'sheets_per_box')
+            ->withPivot('boxes', 'sheets_per_box', 'weight_per_box')
             ->withTimestamps();
     }
 }

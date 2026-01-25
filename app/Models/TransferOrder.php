@@ -37,7 +37,7 @@ class TransferOrder extends Model
         static::creating(function ($model) {
             // Número correlativo tipo TO-000001
             $last = self::orderByDesc('id')->first();
-            $next = $last ? ((int)substr($last->order_number, 3)) + 1 : 1;
+            $next = $last ? ((int) substr($last->order_number, 3)) + 1 : 1;
             $model->order_number = 'TO-' . str_pad($next, 6, '0', STR_PAD_LEFT);
         });
     }
@@ -54,7 +54,7 @@ class TransferOrder extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'transfer_order_products')
-           ->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by')->withTimestamps();
+            ->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by', 'sheets_per_box')->withTimestamps();
     }
 
     public function driver()

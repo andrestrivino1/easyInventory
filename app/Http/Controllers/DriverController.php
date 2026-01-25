@@ -42,6 +42,7 @@ class DriverController extends Controller
             'social_security_date' => 'nullable|date',
             'social_security_pdf' => 'nullable|file|mimes:pdf|max:5120',
             'vehicle_owner' => 'nullable|string|max:255',
+            'capacity' => 'nullable|numeric|min:0',
         ]);
 
         if ($request->hasFile('photo')) {
@@ -90,6 +91,7 @@ class DriverController extends Controller
             'social_security_date' => 'nullable|date',
             'social_security_pdf' => 'nullable|file|mimes:pdf|max:5120',
             'vehicle_owner' => 'nullable|string|max:255',
+            'capacity' => 'nullable|numeric|min:0',
         ]);
 
         if ($request->hasFile('photo')) {

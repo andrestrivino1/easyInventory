@@ -12,11 +12,16 @@ class PreventBackHistory
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
-     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
      */
     public function handle(Request $request, Closure $next)
     {
         $response = $next($request);
+
+        // Skip for binary file downloads (e.g. PDF generation) to avoid "Call to undefined method header()" error
+        if ($response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+            return $response;
+        }
 
         return $response->header('Cache-Control', 'nocache, no-store, max-age=0, must-revalidate')
             ->header('Pragma', 'no-cache')
