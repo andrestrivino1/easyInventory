@@ -412,6 +412,10 @@
             
             <!-- Botones para descargar (solo admin) -->
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{{ route('imports.create') }}" class="btn btn-primary" style="background: #4a8af4; border-color: #4a8af4; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s;" onmouseover="this.style.background='#2f6fe0'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#4a8af4'; this.style.transform='translateY(0)';">
+                    <i class="bi bi-plus-lg" style="font-size: 18px;"></i>
+                    <span>Crear Importación</span>
+                </a>
                 <a href="{{ route('imports.export-excel', request()->query()) }}" class="btn btn-primary" style="background: #0d6efd; border-color: #0d6efd; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s;" onmouseover="this.style.background='#0b5ed7'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#0d6efd'; this.style.transform='translateY(0)';">
                     <i class="bi bi-file-earmark-excel" style="font-size: 18px;"></i>
                     <span>Descargar Excel</span>
