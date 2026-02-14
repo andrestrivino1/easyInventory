@@ -41,7 +41,7 @@ class TransferOrderController extends Controller
                 ->orderByDesc('date')
                 ->paginate(10);
         } elseif ($user->rol === 'clientes') {
-            // Clientes ven transferencias hacia sus bodegas asignadas
+            // Clientes ven transferencias desde o hacia sus bodegas asignadas
             $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
             if (empty($bodegasAsignadasIds)) {
                 $bodegasAsignadasIds = [];
@@ -56,7 +56,10 @@ class TransferOrderController extends Controller
                     },
                     'driver'
                 ])
-                    ->whereIn('warehouse_to_id', $bodegasAsignadasIds)
+                    ->where(function ($query) use ($bodegasAsignadasIds) {
+                        $query->whereIn('warehouse_from_id', $bodegasAsignadasIds)
+                            ->orWhereIn('warehouse_to_id', $bodegasAsignadasIds);
+                    })
                     ->orderByDesc('date')
                     ->paginate(10);
             } else {
@@ -97,23 +100,29 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
 
-        // Admin, funcionario o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        // Admin, funcionario, clientes o usuarios de bodegas que reciben contenedores pueden crear transferencias
         if (
-            !in_array($user->rol, ['admin', 'funcionario']) &&
+            !in_array($user->rol, ['admin', 'funcionario', 'clientes']) &&
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))
         ) {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias.');
         }
 
-        // Bodegas de origen: Si es funcionario, solo mostrar bodegas de Buenaventura
+        // Filtrar bodegas según el rol del usuario
         if ($user->rol === 'funcionario') {
+            // Funcionarios: solo bodegas de Buenaventura
             $warehousesFrom = Warehouse::getBodegasBuenaventura();
+            $warehousesTo = Warehouse::orderBy('nombre')->get();
+        } elseif ($user->rol === 'clientes') {
+            // Clientes: solo sus bodegas asignadas
+            $user->load('almacenes');
+            $warehousesFrom = $user->almacenes->sortBy('nombre');
+            $warehousesTo = $user->almacenes->sortBy('nombre');
         } else {
+            // Admin y otros: todas las bodegas
             $warehousesFrom = Warehouse::orderBy('nombre')->get();
+            $warehousesTo = Warehouse::orderBy('nombre')->get();
         }
-
-        // Bodegas de destino: Todas las bodegas para todos los usuarios
-        $warehousesTo = Warehouse::orderBy('nombre')->get();
 
         $products = Product::with('containers')->orderBy('nombre')->get();
         $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
@@ -130,12 +139,12 @@ class TransferOrderController extends Controller
     {
         $user = Auth::user();
 
-        // Admin, funcionario o usuarios de bodegas que reciben contenedores pueden crear transferencias
+        // Admin, funcionario, clientes o usuarios de bodegas que reciben contenedores pueden crear transferencias
         if (
-            !in_array($user->rol, ['admin', 'funcionario']) &&
+            !in_array($user->rol, ['admin', 'funcionario', 'clientes']) &&
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))
         ) {
-            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias. Solo las bodegas que reciben contenedores pueden crear transferencias.');
+            return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias.');
         }
 
         $data = $request->validate([
@@ -151,6 +160,21 @@ class TransferOrderController extends Controller
             'aprobo' => 'nullable|string|max:255',
             'ciudad_destino' => 'nullable|string|max:255',
         ]);
+
+        // Validar que clientes solo puedan crear transferencias entre sus bodegas asignadas
+        if ($user->rol === 'clientes') {
+            $user->load('almacenes');
+            $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
+
+            if (
+                !in_array($data['warehouse_from_id'], $bodegasPermitidas) ||
+                !in_array($data['warehouse_to_id'], $bodegasPermitidas)
+            ) {
+                return redirect()->back()
+                    ->with('error', 'Solo puedes crear transferencias entre tus bodegas asignadas.')
+                    ->withInput();
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -302,6 +326,33 @@ class TransferOrderController extends Controller
                         }
                     }
 
+                    // Descontar transferencias salientes (en tránsito o recibidas)
+                    $inTransitTransfers = TransferOrder::whereIn('status', ['en_transito', 'Pending', 'pending', 'recibido'])
+                        ->where('warehouse_from_id', $data['warehouse_from_id'])
+                        ->whereHas('products', function ($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with([
+                            'products' => function ($query) use ($product) {
+                                $query->where('products.id', $product->id)->withPivot('quantity', 'sheets_per_box');
+                            }
+                        ])
+                        ->get();
+
+                    foreach ($inTransitTransfers as $transfer) {
+                        $productInTransfer = $transfer->products->first();
+                        if ($productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si el producto se mide en cajas, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                // Usar sheets_per_box del pivot si existe, sino usar unidades_por_caja del producto
+                                $sheetsPerBoxTransfer = $productInTransfer->pivot->sheets_per_box ?? $product->unidades_por_caja;
+                                $quantity = $quantity * $sheetsPerBoxTransfer;
+                            }
+                            $stock -= $quantity;
+                        }
+                    }
+
                     // Validar stock disponible
                     if ($stock < $unidadesADescontar) {
                         DB::rollBack();
@@ -434,7 +485,17 @@ class TransferOrderController extends Controller
     public function edit(TransferOrder $transferOrder)
     {
         $user = Auth::user();
-        if ($user->rol !== 'admin' && $transferOrder->warehouse_from_id !== $user->almacen_id) {
+
+        // Validar permisos según el rol
+        if ($user->rol === 'clientes') {
+            $user->load('almacenes');
+            $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
+
+            if (!in_array($transferOrder->warehouse_from_id, $bodegasPermitidas)) {
+                return redirect()->route('transfer-orders.index')
+                    ->with('error', 'No tienes permiso para editar esta transferencia.');
+            }
+        } elseif ($user->rol !== 'admin' && $transferOrder->warehouse_from_id !== $user->almacen_id) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para editar esta transferencia.');
         }
         if ($transferOrder->status !== 'en_transito') {
@@ -645,6 +706,34 @@ class TransferOrderController extends Controller
                         }
                     }
 
+                    // Descontar transferencias salientes (en tránsito o recibidas) excpepto la actual
+                    $inTransitTransfers = TransferOrder::whereIn('status', ['en_transito', 'Pending', 'pending', 'recibido'])
+                        ->where('warehouse_from_id', $data['warehouse_from_id'])
+                        ->where('id', '!=', $transferOrder->id) // Excluir la transferencia actual
+                        ->whereHas('products', function ($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with([
+                            'products' => function ($query) use ($product) {
+                                $query->where('products.id', $product->id)->withPivot('quantity', 'sheets_per_box');
+                            }
+                        ])
+                        ->get();
+
+                    foreach ($inTransitTransfers as $transfer) {
+                        $productInTransfer = $transfer->products->first();
+                        if ($productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si el producto se mide en cajas, convertir a unidades
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                // Usar sheets_per_box del pivot si existe, sino usar unidades_por_caja del producto
+                                $sheetsPerBoxTransfer = $productInTransfer->pivot->sheets_per_box ?? $product->unidades_por_caja;
+                                $quantity = $quantity * $sheetsPerBoxTransfer;
+                            }
+                            $stock -= $quantity;
+                        }
+                    }
+
                     // Validar stock disponible
                     if ($stock < $unidadesADescontar) {
                         DB::rollBack();
@@ -745,8 +834,17 @@ class TransferOrderController extends Controller
     public function destroy(TransferOrder $transferOrder)
     {
         $user = Auth::user();
-        // Admin puede eliminar cualquier transferencia, otros solo las de su bodega
-        if ($user->rol !== 'admin' && $transferOrder->warehouse_from_id !== $user->almacen_id) {
+
+        // Validar permisos según el rol
+        if ($user->rol === 'clientes') {
+            $user->load('almacenes');
+            $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
+
+            if (!in_array($transferOrder->warehouse_from_id, $bodegasPermitidas)) {
+                return redirect()->route('transfer-orders.index')
+                    ->with('error', 'No tienes permiso para eliminar esta transferencia.');
+            }
+        } elseif ($user->rol !== 'admin' && $transferOrder->warehouse_from_id !== $user->almacen_id) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para eliminar esta transferencia.');
         }
         if ($transferOrder->status !== 'en_transito') {
@@ -1239,6 +1337,33 @@ class TransferOrderController extends Controller
                         $stock -= $quantity;
                     }
                 }
+
+                // Descontar transferencias en tránsito desde esta bodega
+                $inTransitTransfers = TransferOrder::whereIn('status', ['en_transito', 'Pending', 'pending'])
+                    ->where('warehouse_from_id', $warehouseId)
+                    ->whereHas('products', function ($query) use ($product) {
+                        $query->where('products.id', $product->id);
+                    })
+                    ->with([
+                        'products' => function ($query) use ($product) {
+                            $query->where('products.id', $product->id)->withPivot('quantity', 'sheets_per_box');
+                        }
+                    ])
+                    ->get();
+
+                foreach ($inTransitTransfers as $transfer) {
+                    $productInTransfer = $transfer->products->first();
+                    if ($productInTransfer) {
+                        $quantity = $productInTransfer->pivot->quantity;
+                        // Si el producto se mide en cajas, convertir a unidades
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            // Usar sheets_per_box del pivot si existe, sino usar unidades_por_caja del producto
+                            $sheetsPerBoxTransfer = $productInTransfer->pivot->sheets_per_box ?? $product->unidades_por_caja;
+                            $quantity = $quantity * $sheetsPerBoxTransfer;
+                        }
+                        $stock -= $quantity;
+                    }
+                }
             }
 
             // Para bodegas que reciben contenedores, crear una entrada por cada combinación producto-contenedor
@@ -1327,9 +1452,22 @@ class TransferOrderController extends Controller
                             ->get();
 
                         foreach ($containersData as $container) {
+                            // Obtener weight_per_box del container_product original
+                            $containerProduct = DB::table('container_product')
+                                ->where('container_id', $container->id)
+                                ->where('product_id', $product->id)
+                                ->first();
+
+                            $weightPerBox = $containerProduct ? $containerProduct->weight_per_box : null;
+
                             $containers[] = [
                                 'id' => $container->id,
-                                'reference' => $container->reference
+                                'reference' => $container->reference,
+                                'stock' => $stock, // Agregar stock total del producto
+                                'boxes' => $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0
+                                    ? floor($stock / $product->unidades_por_caja)
+                                    : 0,
+                                'weight_per_box' => $weightPerBox
                             ];
                         }
                     }

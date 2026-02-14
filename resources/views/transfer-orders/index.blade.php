@@ -146,9 +146,11 @@
                     }
                 }
                 $ID_PABLO_ROJAS = 1;
-                // Admin, funcionario o usuarios de Pablo Rojas pueden crear transferencias
+                // Admin, funcionario, usuarios de Pablo Rojas o clientes con bodegas asignadas pueden crear transferencias
                 $canCreateTransfer = $user &&
-                    (in_array($user->rol, ['admin', 'funcionario']) || $user->almacen_id == $ID_PABLO_ROJAS);
+                    (in_array($user->rol, ['admin', 'funcionario']) || 
+                     $user->almacen_id == $ID_PABLO_ROJAS ||
+                     ($user->rol === 'clientes' && $user->almacenes->count() > 0));
               @endphp
             @if($canCreateTransfer)
                 <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
@@ -266,7 +268,18 @@
                                             style="white-space:nowrap; vertical-align: middle;">
                                             <div
                                                 style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;">
-                                                @if($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito', 'Pending', 'pending']) && ($user && ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id)))
+                                                @php
+                                                    $canEditTransfer = false;
+                                                    if ($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito', 'Pending', 'pending'])) {
+                                                        if ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id) {
+                                                            $canEditTransfer = true;
+                                                        } elseif ($user->rol === 'clientes') {
+                                                            $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
+                                                            $canEditTransfer = in_array($transfer->warehouse_from_id, $bodegasAsignadasIds);
+                                                        }
+                                                    }
+                                                @endphp
+                                                @if($canEditTransfer)
                                                     <a href="{{ route('transfer-orders.edit', $transfer) }}" class="btn-edit">Editar</a>
                                                     <form action="{{ route('transfer-orders.destroy', $transfer) }}" method="POST"
                                                         style="display:inline; margin:0;">

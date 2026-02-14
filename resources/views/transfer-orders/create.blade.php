@@ -293,11 +293,34 @@
             productItems.forEach((item, idx) => {
                 const productSelect = document.getElementById(`product-select-${idx}`);
                 const quantityInput = document.getElementById(`quantity-${idx}`);
+                const containerSelect = document.getElementById(`container-select-${idx}`);
+                const manualWeightInput = document.getElementById(`weight-per-box-${idx}`);
 
                 if (productSelect && productSelect.value !== "" && quantityInput) {
                     const product = availableProducts[productSelect.value];
                     const quantity = parseInt(quantityInput.value) || 0;
-                    const weightPerBox = parseFloat(product.weight_per_box) || 0;
+                    
+                    let weightPerBox = 0;
+                    
+                    // Prioridad 1: Peso manual ingresado por el usuario
+                    if (manualWeightInput && manualWeightInput.value) {
+                        weightPerBox = parseFloat(manualWeightInput.value) || 0;
+                    }
+                    // Prioridad 2: Peso del contenedor seleccionado
+                    else if (containerSelect && containerSelect.value) {
+                        const selectedOption = containerSelect.selectedOptions[0];
+                        if (selectedOption) {
+                            const containerWeight = selectedOption.getAttribute('data-weight');
+                            if (containerWeight && containerWeight !== '') {
+                                weightPerBox = parseFloat(containerWeight) || 0;
+                            }
+                        }
+                    }
+                    // Prioridad 3: Peso del producto (fallback)
+                    else {
+                        weightPerBox = parseFloat(product.weight_per_box) || 0;
+                    }
+                    
                     totalWeight += (quantity * weightPerBox);
                 }
             });
@@ -456,35 +479,40 @@
             productItem.id = `product-${productIndex}`;
 
             productItem.innerHTML = `
-                            <div class="product-item-header">
-                                <span class="product-item-title">Producto #${productIndex + 1}</span>
-                                <button type="button" class="btn-remove-product" onclick="removeProduct(${productIndex})">Eliminar</button>
-                            </div>
-                            <div class="product-fields">
-                                <div>
-                                    <label>Producto*</label>
-                                    <!-- Campos ocultos para enviar al servidor -->
-                                    <input type="hidden" name="products[${productIndex}][product_id]" id="product-id-${productIndex}">
-                                    <input type="hidden" name="products[${productIndex}][sheets_per_box]" id="sheets-per-box-${productIndex}">
+                                <div class="product-item-header">
+                                    <span class="product-item-title">Producto #${productIndex + 1}</span>
+                                    <button type="button" class="btn-remove-product" onclick="removeProduct(${productIndex})">Eliminar</button>
+                                </div>
+                                <div class="product-fields">
+                                    <div>
+                                        <label>Producto*</label>
+                                        <!-- Campos ocultos para enviar al servidor -->
+                                        <input type="hidden" name="products[${productIndex}][product_id]" id="product-id-${productIndex}">
+                                        <input type="hidden" name="products[${productIndex}][sheets_per_box]" id="sheets-per-box-${productIndex}">
 
-                                    <!-- Select solo para UI, usa índice del array -->
-                                    <select id="product-select-${productIndex}" required onchange="loadContainersForProduct(${productIndex})">
-                                        <option value="">Seleccione un producto</option>
-                                    </select>
-                                    <div class="stock-info" id="stock-info-${productIndex}"></div>
+                                        <!-- Select solo para UI, usa índice del array -->
+                                        <select id="product-select-${productIndex}" required onchange="loadContainersForProduct(${productIndex})">
+                                            <option value="">Seleccione un producto</option>
+                                        </select>
+                                        <div class="stock-info" id="stock-info-${productIndex}"></div>
+                                    </div>
+                                    <div>
+                                        <label for="products[${productIndex}][container_id]">Contenedor*</label>
+                                        <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" required>
+                                            <option value="">Primero seleccione un producto</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="products[${productIndex}][quantity]">Cantidad*</label>
+                                        <input type="number" name="products[${productIndex}][quantity]" id="quantity-${productIndex}" min="1" value="1" required oninput="updateProductInfo(${productIndex})">
+                                    </div>
+                                    <div id="weight-input-container-${productIndex}" style="display: none;">
+                                        <label for="products[${productIndex}][weight_per_box]">Peso por caja (kg)</label>
+                                        <input type="number" name="products[${productIndex}][weight_per_box]" id="weight-per-box-${productIndex}" min="0" step="0.01" placeholder="Ej: 25.5" oninput="updateProductInfo(${productIndex})">
+                                        <small style="color: #666; font-size: 11px; display: block; margin-top: 4px;">Este producto no tiene peso registrado. Ingrese el peso por caja.</small>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label for="products[${productIndex}][container_id]">Contenedor*</label>
-                                    <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" required>
-                                        <option value="">Primero seleccione un producto</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="products[${productIndex}][quantity]">Cantidad*</label>
-                                    <input type="number" name="products[${productIndex}][quantity]" id="quantity-${productIndex}" min="1" value="1" required oninput="updateProductInfo(${productIndex})">
-                                </div>
-                            </div>
-                        `;
+                            `;
 
             container.appendChild(productItem);
             productIndex++; // Incrementa global
@@ -533,14 +561,31 @@
 
                 containerSelect.innerHTML = '<option value="">Seleccione un contenedor</option>';
                 if (containers.length > 0) {
+                    let hasWeight = false;
                     containers.forEach(container => {
                         const option = document.createElement('option');
                         option.value = container.id;
                         option.textContent = container.reference;
                         option.setAttribute('data-stock', container.stock || 0);
                         option.setAttribute('data-boxes', container.boxes || 0);
+                        option.setAttribute('data-weight', container.weight_per_box || '');
                         containerSelect.appendChild(option);
+                        
+                        // Verificar si al menos un contenedor tiene peso
+                        if (container.weight_per_box && container.weight_per_box > 0) {
+                            hasWeight = true;
+                        }
                     });
+
+                    // Mostrar/ocultar campo de peso manual
+                    const weightInputContainer = document.getElementById(`weight-input-container-${index}`);
+                    if (weightInputContainer) {
+                        if (!hasWeight) {
+                            weightInputContainer.style.display = 'block';
+                        } else {
+                            weightInputContainer.style.display = 'none';
+                        }
+                    }
 
                     containerSelect.onchange = function () {
                         updateStockForContainer(index);
