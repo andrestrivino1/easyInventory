@@ -342,7 +342,7 @@
                 <td>
                     <div class="info-box">
                         <div class="info-label">PROPIETARIO DE LA CARGA</div>
-                        <div class="info-value" style="min-height: 15px; border-bottom: 1px solid #ccc;">{{ $transferOrder->driver->vehicle_owner ?? ($transferOrder->aprobo ?? '') }}</div>
+                        <div class="info-value" style="min-height: 15px; border-bottom: 1px solid #ccc;">{{ $transferOrder->driver ? ($transferOrder->driver->vehicle_owner ?? '') : ($transferOrder->aprobo ?? '') }}</div>
                     </div>
                 </td>
             </tr>
@@ -477,13 +477,13 @@
                 <td>
                     <div class="info-box">
                         <div class="info-label">CONDUCTOR</div>
-                        <div class="info-value">{{ $transferOrder->driver->name ?? '-' }}</div>
+                        <div class="info-value">{{ $transferOrder->driver_name ?? '-' }}</div>
                     </div>
                 </td>
                 <td>
                     <div class="info-box">
                         <div class="info-label">CÉDULA</div>
-                        <div class="info-value">{{ $transferOrder->driver->identity ?? '-' }}</div>
+                        <div class="info-value">{{ $transferOrder->driver_identity ?? '-' }}</div>
                     </div>
                 </td>
             </tr>
@@ -496,13 +496,13 @@
                 <td>
                     <div class="info-box">
                         <div class="info-label">PLACA VEHÍCULO</div>
-                        <div class="info-value">{{ $transferOrder->driver->vehicle_plate ?? '-' }}</div>
+                        <div class="info-value">{{ $transferOrder->driver_plate ?? '-' }}</div>
                     </div>
                 </td>
                 <td>
                     <div class="info-box">
                         <div class="info-label">TELÉFONO</div>
-                        <div class="info-value">{{ $transferOrder->driver->phone ?? '-' }}</div>
+                        <div class="info-value">{{ $transferOrder->driver_phone ?? '-' }}</div>
                     </div>
                 </td>
             </tr>

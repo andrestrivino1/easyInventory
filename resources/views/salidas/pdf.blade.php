@@ -445,20 +445,20 @@
     @endif
 
     <!-- Información del conductor -->
-    @if($salida->driver)
+    @if($salida->driver_name || $salida->driver)
     <div class="info-grid">
         <table>
             <tr>
                 <td>
                     <div class="info-box">
                         <div class="info-label">CONDUCTOR</div>
-                        <div class="info-value">{{ $salida->driver->name ?? '-' }}</div>
+                        <div class="info-value">{{ $salida->driver_name ?? '-' }}</div>
                     </div>
                 </td>
                 <td>
                     <div class="info-box">
                         <div class="info-label">CÉDULA</div>
-                        <div class="info-value">{{ $salida->driver->identity ?? '-' }}</div>
+                        <div class="info-value">{{ $salida->driver_identity ?? '-' }}</div>
                     </div>
                 </td>
             </tr>
@@ -471,13 +471,13 @@
                 <td>
                     <div class="info-box">
                         <div class="info-label">PLACA VEHÍCULO</div>
-                        <div class="info-value">{{ $salida->driver->vehicle_plate ?? '-' }}</div>
+                        <div class="info-value">{{ $salida->driver_plate ?? '-' }}</div>
                     </div>
                 </td>
                 <td>
                     <div class="info-box">
                         <div class="info-label">TELÉFONO</div>
-                        <div class="info-value">{{ $salida->driver->phone ?? '-' }}</div>
+                        <div class="info-value">{{ $salida->driver_phone ?? '-' }}</div>
                     </div>
                 </td>
             </tr>

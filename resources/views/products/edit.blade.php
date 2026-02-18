@@ -114,6 +114,34 @@
       <input type="text" name="medidas" id="medidas" class="@error('medidas') is-invalid @enderror" placeholder="Ej: 100cm x 50cm x 2cm" value="{{ old('medidas', $product->medidas) }}">
       @error('medidas') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
+      <label for="calibre">Calibre</label>
+      <input type="number" name="calibre" id="calibre" step="0.01" min="0" class="@error('calibre') is-invalid @enderror" value="{{ old('calibre', $product->calibre) }}">
+      @error('calibre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
+      <label for="alto">Alto</label>
+      <input type="number" name="alto" id="alto" step="0.01" min="0" class="@error('alto') is-invalid @enderror" value="{{ old('alto', $product->alto) }}">
+      @error('alto') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
+      <label for="ancho">Ancho</label>
+      <input type="number" name="ancho" id="ancho" step="0.01" min="0" class="@error('ancho') is-invalid @enderror" value="{{ old('ancho', $product->ancho) }}">
+      @error('ancho') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
+      <label for="peso_empaque">Peso empaque</label>
+      <input type="number" name="peso_empaque" id="peso_empaque" step="0.01" min="0" class="@error('peso_empaque') is-invalid @enderror" value="{{ old('peso_empaque', $product->peso_empaque ?? 2.5) }}">
+      @error('peso_empaque') <div class="invalid-feedback">{{ $message }}</div> @enderror
+
+      <label for="tipo_medida">Tipo de medida</label>
+      <select name="tipo_medida" id="tipo_medida">
+          <option value="">-- Sin definir --</option>
+          <option value="unidad" {{ old('tipo_medida', $product->tipo_medida) == 'unidad' ? 'selected' : '' }}>Unidad</option>
+          <option value="caja" {{ old('tipo_medida', $product->tipo_medida) == 'caja' ? 'selected' : '' }}>Caja</option>
+      </select>
+
+      <label for="unidades_por_caja">Unidades por caja (láminas)</label>
+      <input type="number" name="unidades_por_caja" id="unidades_por_caja" min="0" step="1" class="@error('unidades_por_caja') is-invalid @enderror" value="{{ old('unidades_por_caja', $product->unidades_por_caja) }}">
+      @error('unidades_por_caja') <div class="invalid-feedback">{{ $message }}</div> @enderror
+      <small class="text-muted" style="display:block; margin-top: -8px; margin-bottom: 12px;">Al agregar este producto a un contenedor, el peso por caja se rellenará automáticamente con: Calibre × Alto × Ancho × Peso empaque × Láminas × 1 caja.</small>
+
       <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:15px; font-size:13px; color:#1565c0;">
         <strong>Nota:</strong> Los productos son globales y se muestran en todas las bodegas. El tipo de medida y stock se definen automáticamente cuando se agregan a contenedores o se reciben por transferencias.
         @if($product->containers->count() > 0)

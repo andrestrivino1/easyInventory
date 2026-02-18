@@ -88,6 +88,31 @@ class BlockImporterAccess
                 if (!in_array($routeName, $allowedRoutes) && !$isAllowedPath && $routeName !== null) {
                     return redirect()->route('imports.viewer-index')->with('error', 'Acceso no autorizado. Solo puedes ver las importaciones (modo lectura).');
                 }
+            } elseif ($userRole === 'proveedor_itr') {
+                $allowedRoutes = [
+                    'itrs.index',
+                    'itrs.update-date',
+                    'itrs.upload-evidence',
+                    'itrs.download-evidence',
+                    'itrs.date-history',
+                    'language.switch',
+                    'home',
+                    'logout'
+                ];
+                $route = $request->route();
+                $routeName = $route ? $route->getName() : null;
+                $path = $request->path();
+                $allowedPaths = ['itrs', 'home', 'logout', 'language'];
+                $isAllowedPath = false;
+                foreach ($allowedPaths as $allowedPath) {
+                    if (strpos($path, $allowedPath) === 0 || $path === '' || $path === '/') {
+                        $isAllowedPath = true;
+                        break;
+                    }
+                }
+                if (!in_array($routeName, $allowedRoutes) && !$isAllowedPath && $routeName !== null) {
+                    return redirect()->route('itrs.index')->with('error', 'Acceso no autorizado. Solo puedes acceder al módulo ITR.');
+                }
             }
         }
         

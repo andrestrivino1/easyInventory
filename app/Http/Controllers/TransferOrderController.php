@@ -156,7 +156,12 @@ class TransferOrderController extends Controller
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.sheets_per_box' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:255',
-            'driver_id' => 'required|exists:drivers,id',
+            'use_external_driver' => 'nullable|boolean',
+            'driver_id' => 'nullable|required_without:use_external_driver|exists:drivers,id',
+            'external_driver_name' => 'nullable|required_if:use_external_driver,1|string|max:255',
+            'external_driver_identity' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_plate' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_phone' => 'nullable|string|max:20',
             'aprobo' => 'nullable|string|max:255',
             'ciudad_destino' => 'nullable|string|max:255',
         ]);
@@ -373,11 +378,18 @@ class TransferOrderController extends Controller
                 ];
             }
 
-            // Validar conductor
-            $driver = \App\Models\Driver::find($data['driver_id']);
-            if (!$driver) {
+            $useExternalDriver = !empty($data['use_external_driver']);
+            $driverId = $useExternalDriver ? null : ($data['driver_id'] ?? null);
+            if (!$useExternalDriver && !$driverId) {
                 DB::rollBack();
-                return back()->with('error', "El conductor seleccionado no existe.")->withInput();
+                return back()->with('error', "Debe seleccionar un conductor o marcar conductor externo.")->withInput();
+            }
+            if (!$useExternalDriver) {
+                $driver = \App\Models\Driver::find($driverId);
+                if (!$driver) {
+                    DB::rollBack();
+                    return back()->with('error', "El conductor seleccionado no existe.")->withInput();
+                }
             }
 
             // Obtener las ciudades de las bodegas
@@ -393,7 +405,11 @@ class TransferOrderController extends Controller
                 'status' => 'en_transito',
                 'date' => now(),
                 'note' => $data['note'] ?? null,
-                'driver_id' => $data['driver_id'],
+                'driver_id' => $driverId,
+                'external_driver_name' => $useExternalDriver ? ($data['external_driver_name'] ?? null) : null,
+                'external_driver_identity' => $useExternalDriver ? ($data['external_driver_identity'] ?? null) : null,
+                'external_driver_plate' => $useExternalDriver ? ($data['external_driver_plate'] ?? null) : null,
+                'external_driver_phone' => $useExternalDriver ? ($data['external_driver_phone'] ?? null) : null,
                 'aprobo' => $data['aprobo'] ?? null,
                 'ciudad_destino' => $data['ciudad_destino'] ?? null,
             ]);
@@ -501,6 +517,9 @@ class TransferOrderController extends Controller
         if ($transferOrder->status !== 'en_transito') {
             return redirect()->route('transfer-orders.index')->with('error', 'Solo se pueden editar transferencias en tránsito.');
         }
+        $transferOrder->load(['products' => function ($q) {
+            $q->withPivot('quantity', 'container_id', 'good_sheets', 'bad_sheets', 'receive_by', 'sheets_per_box', 'weight_per_box');
+        }]);
         $warehouses = Warehouse::orderBy('nombre')->get();
         $products = Product::with('containers')->orderBy('nombre')->get();
         $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
@@ -532,12 +551,30 @@ class TransferOrderController extends Controller
             'products.*.container_id' => 'required|exists:containers,id',
             'products.*.quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
-            'driver_id' => 'required|exists:drivers,id',
+            'use_external_driver' => 'nullable|boolean',
+            'driver_id' => 'nullable|required_without:use_external_driver|exists:drivers,id',
+            'external_driver_name' => 'nullable|required_if:use_external_driver,1|string|max:255',
+            'external_driver_identity' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_plate' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_phone' => 'nullable|string|max:20',
         ]);
 
         DB::beginTransaction();
         try {
             $almacenOrigenAnterior = $transferOrder->warehouse_from_id;
+            $useExternalDriver = !empty($data['use_external_driver']);
+            $driverId = $useExternalDriver ? null : ($data['driver_id'] ?? null);
+            if (!$useExternalDriver && !$driverId) {
+                DB::rollBack();
+                return back()->with('error', "Debe seleccionar un conductor o marcar conductor externo.")->withInput();
+            }
+            if (!$useExternalDriver) {
+                $driver = \App\Models\Driver::find($driverId);
+                if (!$driver) {
+                    DB::rollBack();
+                    return back()->with('error', "El conductor seleccionado no existe.")->withInput();
+                }
+            }
 
             // Los productos son globales - restaurar solo las cajas del contenedor si es necesario
             // Los productos son globales - restaurar solo las cajas del contenedor si es necesario
@@ -754,13 +791,6 @@ class TransferOrderController extends Controller
                 ];
             }
 
-            // Validar conductor
-            $driver = \App\Models\Driver::find($data['driver_id']);
-            if (!$driver) {
-                DB::rollBack();
-                return back()->with('error', "El conductor seleccionado no existe.")->withInput();
-            }
-
             // Obtener las ciudades de las bodegas
             $warehouseFrom = Warehouse::find($data['warehouse_from_id']);
             $warehouseTo = Warehouse::find($data['warehouse_to_id']);
@@ -772,7 +802,11 @@ class TransferOrderController extends Controller
                 'salida' => $warehouseFrom->ciudad ?? $warehouseFrom->nombre,
                 'destino' => $warehouseTo->ciudad ?? $warehouseTo->nombre,
                 'note' => $data['note'] ?? null,
-                'driver_id' => $data['driver_id'],
+                'driver_id' => $driverId,
+                'external_driver_name' => $useExternalDriver ? ($data['external_driver_name'] ?? null) : null,
+                'external_driver_identity' => $useExternalDriver ? ($data['external_driver_identity'] ?? null) : null,
+                'external_driver_plate' => $useExternalDriver ? ($data['external_driver_plate'] ?? null) : null,
+                'external_driver_phone' => $useExternalDriver ? ($data['external_driver_phone'] ?? null) : null,
             ]);
 
             // Descontar stock y asociar productos
@@ -1218,14 +1252,37 @@ class TransferOrderController extends Controller
      */
     public function getProductsForWarehouse(Request $request, $warehouseId)
     {
+        $warehouseId = (int) $warehouseId;
         $warehouse = Warehouse::findOrFail($warehouseId);
         $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+
+        // Si se está editando una transferencia, "recuperar" su stock: sumar las cajas de esa transferencia al disponible
+        $forEditTransferId = $request->get('for_edit_transfer_id');
+        $transferQuantitiesByProductContainer = []; // [ product_id => [ container_id => ['quantity' => q, 'sheets_per_box' => s] ] ]
+        if ($forEditTransferId && in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+            $editTransfer = TransferOrder::with(['products' => function ($q) {
+                $q->withPivot('container_id', 'quantity', 'sheets_per_box');
+            }])->find($forEditTransferId);
+            if ($editTransfer && $editTransfer->warehouse_from_id == $warehouseId) {
+                foreach ($editTransfer->products as $p) {
+                    $pid = $p->id;
+                    $cid = $p->pivot->container_id;
+                    if (!isset($transferQuantitiesByProductContainer[$pid])) {
+                        $transferQuantitiesByProductContainer[$pid] = [];
+                    }
+                    $transferQuantitiesByProductContainer[$pid][$cid] = [
+                        'quantity' => (int) ($p->pivot->quantity ?? 0),
+                        'sheets_per_box' => $p->pivot->sheets_per_box ?? 0,
+                    ];
+                }
+            }
+        }
 
         // Obtener todos los productos globales
         $allProducts = Product::whereNull('almacen_id')
             ->with([
                 'containers' => function ($query) use ($warehouseId) {
-                    $query->where('warehouse_id', $warehouseId);
+                    $query->where('containers.warehouse_id', $warehouseId);
                 }
             ])
             ->orderBy('nombre')
@@ -1368,34 +1425,59 @@ class TransferOrderController extends Controller
 
             // Para bodegas que reciben contenedores, crear una entrada por cada combinación producto-contenedor
             if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
-                $containerProducts = DB::table('container_product')
+                $containerIdsInTransfer = isset($transferQuantitiesByProductContainer[$product->id])
+                    ? array_keys($transferQuantitiesByProductContainer[$product->id])
+                    : [];
+                $containerProductsQuery = DB::table('container_product')
                     ->join('containers', 'container_product.container_id', '=', 'containers.id')
                     ->where('container_product.product_id', $product->id)
-                    ->where('containers.warehouse_id', $warehouseId)
-                    ->where('container_product.boxes', '>', 0)
+                    ->where('containers.warehouse_id', $warehouseId);
+                if (!empty($containerIdsInTransfer)) {
+                    $containerProductsQuery->where(function ($q) use ($containerIdsInTransfer) {
+                        $q->where('container_product.boxes', '>', 0)
+                            ->orWhereIn('container_product.container_id', $containerIdsInTransfer);
+                    });
+                } else {
+                    $containerProductsQuery->where('container_product.boxes', '>', 0);
+                }
+                $containerProducts = $containerProductsQuery
                     ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box', 'container_product.weight_per_box', 'containers.reference')
                     ->get();
 
-                // Crear una entrada por cada contenedor con stock
-                // Cada entrada debe mostrar el stock específico de su contenedor
-                // Calcular stock total sin descontar para distribución proporcional de salidas
+                // Al editar una transferencia: cajas efectivas = cajas en BD + cajas que tiene esa transferencia (recuperar stock)
+                $transferQtys = $transferQuantitiesByProductContainer[$product->id] ?? [];
+
                 $stockTotalSinDescontar = 0;
                 foreach ($containerProducts as $cp2) {
-                    $stockTotalSinDescontar += ($cp2->boxes ?? 0) * ($cp2->sheets_per_box ?? 0);
+                    $boxesEffective = ($cp2->boxes ?? 0);
+                    if (isset($transferQtys[$cp2->container_id])) {
+                        $boxesEffective += $transferQtys[$cp2->container_id]['quantity'];
+                    }
+                    $stockTotalSinDescontar += $boxesEffective * ($cp2->sheets_per_box ?? 0);
                 }
 
                 foreach ($containerProducts as $cp) {
-                    $stockContenedor = ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                    $boxesEnBd = (int) ($cp->boxes ?? 0);
+                    $qtyEnTransferencia = isset($transferQtys[$cp->container_id]) ? $transferQtys[$cp->container_id]['quantity'] : 0;
+                    $cajasEfectivas = $boxesEnBd + $qtyEnTransferencia;
+
+                    $stockContenedor = $cajasEfectivas * ($cp->sheets_per_box ?? 0);
                     if ($stockContenedor > 0) {
-                        // Calcular el stock del contenedor descontando salidas proporcionalmente
                         $stockContenedorFinal = $stockContenedor;
                         if ($stockTotalSinDescontar > 0 && $stock < $stockTotalSinDescontar) {
-                            // Hay salidas, calcular proporción
                             $salidasTotales = $stockTotalSinDescontar - $stock;
                             $proporcion = $stockContenedor / $stockTotalSinDescontar;
                             $salidasDelContenedor = $salidasTotales * $proporcion;
                             $stockContenedorFinal = max(0, $stockContenedor - $salidasDelContenedor);
                         }
+
+                        // Solo ofrecer producto si hay stock disponible (coherente con Stock y Salidas: 0 cajas/0 láminas = no usable)
+                        if ($stockContenedorFinal <= 0) {
+                            continue;
+                        }
+
+                        $sheetsPerBox = $cp->sheets_per_box ?? $product->unidades_por_caja ?? 1;
+                        $cajasDisponibles = $sheetsPerBox > 0 ? (int) floor($stockContenedorFinal / $sheetsPerBox) : 0;
 
                         $productsWithStock[] = [
                             'id' => $product->id,
@@ -1404,8 +1486,8 @@ class TransferOrderController extends Controller
                             'medidas' => $product->medidas,
                             'tipo_medida' => $product->tipo_medida,
                             'unidades_por_caja' => $product->unidades_por_caja,
-                            'stock' => $stockContenedorFinal, // Stock específico del contenedor (descontando salidas proporcionalmente)
-                            'cajas_en_contenedor' => $cp->boxes,
+                            'stock' => $stockContenedorFinal,
+                            'cajas_en_contenedor' => $cajasDisponibles,
                             'sheets_per_box' => $cp->sheets_per_box,
                             'weight_per_box' => $cp->weight_per_box,
                             'containers' => [
@@ -1413,7 +1495,7 @@ class TransferOrderController extends Controller
                                     'id' => $cp->container_id,
                                     'reference' => $cp->reference,
                                     'stock' => $stockContenedorFinal,
-                                    'boxes' => $cp->boxes,
+                                    'boxes' => $cajasDisponibles,
                                     'weight_per_box' => $cp->weight_per_box
                                 ]
                             ]

@@ -40,6 +40,15 @@ class Import extends Model
         'free_days_at_dest',
         'credit_time',
         'credit_paid',
+        'delivered_to_transport_at',
+        'delivered_to_transport_by_user_id',
+        'admin_confirmed_at',
+        'arrival_confirmed_by_user_id',
+    ];
+
+    protected $casts = [
+        'delivered_to_transport_at' => 'datetime',
+        'admin_confirmed_at' => 'datetime',
     ];
 
     public function user()
@@ -50,6 +59,33 @@ class Import extends Model
     public function containers()
     {
         return $this->hasMany(ImportContainer::class);
+    }
+
+    public function arrivalConfirmedByUser()
+    {
+        return $this->belongsTo(User::class, 'arrival_confirmed_by_user_id');
+    }
+
+    public function deliveredToTransportByUser()
+    {
+        return $this->belongsTo(User::class, 'delivered_to_transport_by_user_id');
+    }
+
+    public function itr()
+    {
+        return $this->hasOne(Itr::class);
+    }
+
+    /** Si el admin ya confirmó esta importación (va al final del listado y se deshabilita) */
+    public function isAdminConfirmed(): bool
+    {
+        return $this->admin_confirmed_at !== null;
+    }
+
+    /** Si ya fue marcada como entregada a transporte */
+    public function isDeliveredToTransport(): bool
+    {
+        return $this->delivered_to_transport_at !== null;
     }
 
     /**

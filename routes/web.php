@@ -60,7 +60,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('imports-funcionario', [ImportController::class, 'funcionarioIndex'])->name('imports.funcionario-index');
     Route::post('imports/{id}/update-arrival', [ImportController::class, 'updateArrival'])->name('imports.update-arrival');
     Route::post('imports/{id}/update-estimated-arrival', [ImportController::class, 'updateEstimatedArrival'])->name('imports.update-estimated-arrival');
+    Route::post('imports/{id}/deliver-to-transport', [ImportController::class, 'deliverToTransport'])->name('imports.deliver-to-transport');
+    Route::post('imports/{id}/admin-confirm', [ImportController::class, 'adminConfirm'])->name('imports.admin-confirm');
 });
+
+// ITR MODULE (admin, funcionario, proveedor_itr)
+use App\Http\Controllers\ItrController;
+Route::middleware(['auth'])->group(function () {
+    Route::get('itrs', [ItrController::class, 'index'])->name('itrs.index');
+    Route::post('itrs/{id}/update-date', [ItrController::class, 'updateDate'])->name('itrs.update-date');
+    Route::post('itrs/{itr}/upload-evidence', [ItrController::class, 'uploadEvidence'])->name('itrs.upload-evidence');
+    Route::get('itrs/{itr}/download-evidence/{type}', [ItrController::class, 'downloadEvidence'])->name('itrs.download-evidence');
+    Route::get('itrs/{id}/date-history/{field}', [ItrController::class, 'dateHistory'])->name('itrs.date-history');
+});
+
 Route::resource('salidas', App\Http\Controllers\SalidaController::class);
 Route::resource('users', \App\Http\Controllers\UserController::class);
 // Rutas específicas deben ir ANTES de la ruta resource para evitar conflictos

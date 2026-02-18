@@ -119,6 +119,13 @@
     .imports-table tr:hover {
         background: #f2f8ff;
     }
+    .imports-table tr.row-admin-confirmed {
+        background: #e9ecef;
+        opacity: 0.85;
+    }
+    .imports-table tr.row-admin-confirmed:hover {
+        background: #dee2e6;
+    }
     .actions {
         white-space: nowrap;
         display: flex;
@@ -527,8 +534,9 @@
                             }
                         }
                     }
+                $isAdminConfirmed = $import->admin_confirmed_at !== null;
                 @endphp
-                <tr class="{{ $import->nationalized ? 'row-nationalized' : '' }}">
+                <tr class="{{ $import->nationalized ? 'row-nationalized' : '' }} {{ $isAdminConfirmed ? 'row-admin-confirmed' : '' }}">
                     <td><strong>{{ $import->do_code }}</strong></td>
                     <td style="word-break: break-word;">
                         @php
@@ -575,7 +583,7 @@
                             @elseif($import->status === 'in_transit')
                                 <span class="status-badge status-in-transit">En tránsito</span>
                             @elseif($import->status === 'recibido')
-                                <span class="status-badge" style="background: #17a2b8; color: white;">Recibido</span>
+                                <span class="status-badge" style="background: #17a2b8; color: white;">Arribo Confirmado</span>
                             @elseif($import->status === 'pendiente_por_confirmar')
                                 <span class="status-badge" style="background: #ff9800; color: white;">Pendiente por confirmar</span>
                             @else
@@ -716,40 +724,56 @@
                         </div>
                     </td>
                     <td class="actions">
-                        @if(Auth::user()->rol === 'admin')
-                            @if($import->credit_time && !$import->credit_paid)
-                                <form action="{{ route('imports.mark-credit-paid', $import->id) }}" method="POST" style="display: inline-flex; margin: 0 4px 4px 0;">
+                        @if($isAdminConfirmed)
+                            <span style="color: #6c757d; font-size: 12px;"><i class="bi bi-check-circle-fill"></i> Confirmada por admin</span>
+                            <a href="{{ route('imports.report', $import->id) }}" class="btn-report" target="_blank">
+                                <i class="bi bi-file-pdf me-1"></i>Reporte
+                            </a>
+                        @else
+                            @if(Auth::user()->rol === 'admin')
+                                @if($import->credit_time && !$import->credit_paid)
+                                    <form action="{{ route('imports.mark-credit-paid', $import->id) }}" method="POST" style="display: inline-flex; margin: 0 4px 4px 0;">
+                                        @csrf
+                                        <button type="submit" class="btn-pay" onclick="return confirm('¿Deseas marcar el crédito como pagado?');" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="bi bi-currency-dollar"></i> Pagar
+                                        </button>
+                                    </form>
+                                @endif
+                                <form action="{{ route('imports.admin-confirm', $import->id) }}" method="POST" style="display: inline-flex; margin: 0 4px 4px 0;" class="admin-confirm-form" data-do-code="{{ $import->do_code }}">
                                     @csrf
-                                    <button type="submit" class="btn-pay" onclick="return confirm('¿Deseas marcar el crédito como pagado?');" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                                        <i class="bi bi-currency-dollar"></i> Pagar
+                                    <button type="submit" class="btn-admin-confirm" title="Confirmar importación (irá al final del listado y quedará deshabilitada)" style="background: #6f42c1; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="bi bi-check-circle"></i> Confirmar
                                     </button>
                                 </form>
+                                <a href="{{ route('imports.edit', $import->id) }}" class="btn-edit" style="background: #0d6efd; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
                             @endif
-                        @endif
-                        @if($import->status === 'completed' && $progress >= 100)
-                            @if($import->nationalized)
-                                <button class="btn-nationalized" disabled>
-                                    <i class="bi bi-check-circle"></i> Nacionalizada
+                            @if($import->status === 'completed' && $progress >= 100)
+                                @if($import->nationalized)
+                                    <button class="btn-nationalized" disabled>
+                                        <i class="bi bi-check-circle"></i> Nacionalizada
+                                    </button>
+                                @else
+                                    <form action="{{ route('imports.nationalize', $import->id) }}" method="POST" style="display: inline-flex; margin: 0;">
+                                        @csrf
+                                        <button type="submit" class="btn-nationalize" onclick="return confirm('¿Deseas marcar esta importación como nacionalizada?');">
+                                            <i class="bi bi-check-circle"></i> Nacionalizar
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
+                            <a href="{{ route('imports.report', $import->id) }}" class="btn-report" target="_blank">
+                                <i class="bi bi-file-pdf me-1"></i>Reporte
+                            </a>
+                            <form action="{{ route('imports.destroy', $import->id) }}" method="POST" class="delete-form" data-do-code="{{ $import->do_code }}">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn-delete">
+                                    <i class="bi bi-trash me-1"></i>Eliminar
                                 </button>
-                            @else
-                                <form action="{{ route('imports.nationalize', $import->id) }}" method="POST" style="display: inline-flex; margin: 0;">
-                                    @csrf
-                                    <button type="submit" class="btn-nationalize" onclick="return confirm('¿Deseas marcar esta importación como nacionalizada?');">
-                                        <i class="bi bi-check-circle"></i> Nacionalizar
-                                    </button>
-                                </form>
-                            @endif
+                            </form>
                         @endif
-                        <a href="{{ route('imports.report', $import->id) }}" class="btn-report" target="_blank">
-                            <i class="bi bi-file-pdf me-1"></i>Reporte
-                        </a>
-                        <form action="{{ route('imports.destroy', $import->id) }}" method="POST" class="delete-form" data-do-code="{{ $import->do_code }}">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn-delete">
-                                <i class="bi bi-trash me-1"></i>Eliminar
-                            </button>
-                        </form>
                     </td>
                 </tr>
             @empty
@@ -822,6 +846,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonColor: '#dc3545',
                 cancelButtonColor: '#6c757d',
                 confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+
+    // Confirmación para confirmar importación por admin
+    const adminConfirmForms = document.querySelectorAll('.admin-confirm-form');
+    adminConfirmForms.forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const doCode = form.getAttribute('data-do-code');
+            Swal.fire({
+                title: 'Confirmar importación',
+                text: `¿Confirmar la importación ${doCode}? Pasará al final del listado y quedará deshabilitada.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#6f42c1',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, confirmar',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {

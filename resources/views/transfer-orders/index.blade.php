@@ -259,11 +259,11 @@
                                     </td>
                                     @if($isFirstProduct)
                                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">
-                                            {{ $transfer->driver->name ?? '-' }}</td>
+                                            {{ $transfer->driver_name ?? '-' }}</td>
                                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">
-                                            {{ $transfer->driver->identity ?? '-' }}</td>
+                                            {{ $transfer->driver_identity ?? '-' }}</td>
                                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">
-                                            {{ $transfer->driver->vehicle_plate ?? '-' }}</td>
+                                            {{ $transfer->driver_plate ?? '-' }}</td>
                                         <td rowspan="{{ $productCount }}" class="actions"
                                             style="white-space:nowrap; vertical-align: middle;">
                                             <div

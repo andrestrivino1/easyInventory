@@ -129,7 +129,12 @@ class SalidaController extends Controller
             'note' => 'nullable|string|max:500',
             'aprobo' => 'nullable|string|max:255',
             'ciudad_destino' => 'nullable|string|max:255',
+            'use_external_driver' => 'nullable|boolean',
             'driver_id' => 'nullable|exists:drivers,id',
+            'external_driver_name' => 'nullable|required_if:use_external_driver,1|string|max:255',
+            'external_driver_identity' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_plate' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_phone' => 'nullable|string|max:20',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -323,11 +328,18 @@ class SalidaController extends Controller
                 ];
             }
 
+            $useExternalDriver = !empty($data['use_external_driver']);
+            $driverId = $useExternalDriver ? null : ($data['driver_id'] ?? null);
+
             // Crear la salida
             $salida = Salida::create([
                 'warehouse_id' => $data['warehouse_id'],
-                'user_id' => $user->id, // Guardar el usuario que crea la salida
-                'driver_id' => $data['driver_id'] ?? null,
+                'user_id' => $user->id,
+                'driver_id' => $driverId,
+                'external_driver_name' => $useExternalDriver ? ($data['external_driver_name'] ?? null) : null,
+                'external_driver_identity' => $useExternalDriver ? ($data['external_driver_identity'] ?? null) : null,
+                'external_driver_plate' => $useExternalDriver ? ($data['external_driver_plate'] ?? null) : null,
+                'external_driver_phone' => $useExternalDriver ? ($data['external_driver_phone'] ?? null) : null,
                 'fecha' => $data['fecha'],
                 'a_nombre_de' => $data['a_nombre_de'],
                 'nit_cedula' => $data['nit_cedula'],
@@ -676,16 +688,29 @@ class SalidaController extends Controller
             $stock = 0;
 
             if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
-                // Bodega que recibe contenedores: stock desde container_product
+                // Bodega que recibe contenedores: stock desde container_product (igual que en store())
                 $containerProducts = DB::table('container_product')
                     ->join('containers', 'container_product.container_id', '=', 'containers.id')
                     ->where('container_product.product_id', $product->id)
                     ->where('containers.warehouse_id', $warehouseId)
+                    ->where('container_product.boxes', '>', 0)
                     ->select('container_product.boxes', 'container_product.sheets_per_box')
                     ->get();
 
                 foreach ($containerProducts as $cp) {
                     $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                }
+
+                // Descontar salidas existentes (mismo criterio que en store() para coherencia)
+                $salidasQuantities = DB::table('salida_products')
+                    ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                    ->where('salidas.warehouse_id', $warehouseId)
+                    ->where('salida_products.product_id', $product->id)
+                    ->select('salida_products.quantity')
+                    ->get();
+
+                foreach ($salidasQuantities as $salida) {
+                    $stock -= $salida->quantity;
                 }
             } else {
                 // Otra bodega: stock desde transferencias recibidas menos salidas

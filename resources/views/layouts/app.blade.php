@@ -525,8 +525,11 @@
                 $isFuncionario = $user && $user->rol === 'funcionario';
                 $isImporter = $user && $user->rol === 'importer';
                 $isImportViewer = $user && $user->rol === 'import_viewer';
+                $isProveedorItr = $user && $user->rol === 'proveedor_itr';
             @endphp
-            @if(!$isImporter && !$isImportViewer)
+            @if($isProveedorItr)
+                <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
+            @elseif(!$isImporter && !$isImportViewer)
                 <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i
                             class="bi bi-bar-chart"></i> {{ __('common.movimientos') }}</a></li>
                 <li><a class="nav-link" href="{{ route('products.index') }}"><i class="bi bi-bag"></i>
@@ -556,6 +559,9 @@
                 <li><a class="nav-link {{ request()->routeIs('imports.*') || request()->routeIs('my-imports') || request()->routeIs('imports.funcionario-index') || request()->routeIs('imports.viewer-index') ? 'active' : '' }}"
                         href="{{ $user->rol === 'admin' ? route('imports.index') : ($user->rol === 'funcionario' ? route('imports.funcionario-index') : ($user->rol === 'import_viewer' ? route('imports.viewer-index') : route('imports.provider-index'))) }}"><i
                             class="bi bi-upload"></i> {{ __('common.importacion') }}</a></li>
+            @endif
+            @if($user && in_array($user->rol, ['admin', 'funcionario']))
+                <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
             @endif
             @if($user && $user->rol === 'admin' && !$isImporter && !$isImportViewer)
                 <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i>

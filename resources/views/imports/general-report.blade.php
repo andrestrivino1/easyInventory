@@ -183,7 +183,7 @@
                     @elseif($import->status === 'in_transit')
                         <span class="status-badge status-in-transit">Tránsito</span>
                     @elseif($import->status === 'recibido')
-                        <span class="status-badge status-recibido">Recibido</span>
+                        <span class="status-badge status-recibido">Arribo Confirmado</span>
                     @elseif($import->status === 'pendiente_por_confirmar')
                         <span class="status-badge" style="background: #ff9800; color: white;">Pend. conf.</span>
                     @else

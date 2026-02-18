@@ -225,7 +225,7 @@
                                     <label for="products[${productIndex}][product_id]">Producto*</label>
                                     <select name="products[${productIndex}][product_id]" required onchange="updateProductFields(${productIndex})">
                                         <option value="">Seleccione un producto</option>
-                                        ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida}" data-medidas="${p.medidas || ''}">${p.nombre} (${p.codigo})</option>`).join('')}
+                                        ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida || ''}" data-medidas="${(p.medidas || '')}" data-weight="${p.weight_per_box != null ? p.weight_per_box : ''}" data-sheets="${p.unidades_por_caja != null ? p.unidades_por_caja : ''}" data-calibre="${p.calibre != null ? p.calibre : ''}" data-alto="${p.alto != null ? p.alto : ''}" data-ancho="${p.ancho != null ? p.ancho : ''}" data-peso-empaque="${p.peso_empaque != null ? p.peso_empaque : ''}">${p.nombre} (${p.codigo})</option>`).join('')}
                                     </select>
                                 </div>
                                 <div>
@@ -238,11 +238,12 @@
                                 </div>
                                 <div>
                                     <label for="products[${productIndex}][sheets_per_box]">Láminas por caja*</label>
-                                    <input type="number" name="products[${productIndex}][sheets_per_box]" min="1" value="40" required oninput="calculateSheets(${productIndex})">
+                                    <input type="number" name="products[${productIndex}][sheets_per_box]" min="1" value="40" required oninput="calculateSheets(${productIndex}); updateWeightFromSheets(${productIndex}); calculateWeight(${productIndex});">
                                 </div>
                                 <div>
                                     <label for="products[${productIndex}][weight_per_box]">Peso por caja (kg)*</label>
-                                    <input type="number" step="0.01" name="products[${productIndex}][weight_per_box]" min="0" value="0" required oninput="calculateWeight(${productIndex})">
+                                    <input type="number" step="0.01" name="products[${productIndex}][weight_per_box]" id="weight-${productIndex}" min="0" value="0" required oninput="calculateWeight(${productIndex})">
+                                    <small class="text-muted" style="font-size:11px;">Se rellena automáticamente si el producto tiene calibre, alto, ancho y peso empaque.</small>
                                 </div>
                                 <div>
                                     <label>Total láminas</label>
@@ -282,24 +283,29 @@
         function updateProductFields(index) {
             const select = document.querySelector(`#product-${index} select[name*="[product_id]"]`);
             if (select && select.selectedOptions[0]) {
-                const tipo = select.selectedOptions[0].dataset.tipo;
-                const medidas = select.selectedOptions[0].dataset.medidas || '';
+                const opt = select.selectedOptions[0];
+                const tipo = opt.dataset.tipo || '';
+                const medidas = opt.dataset.medidas || '';
+                const weight = opt.dataset.weight || '';
+                const sheets = opt.dataset.sheets || '';
                 const medidasInput = document.querySelector(`#medidas-${index}`);
                 const sheetsInput = document.querySelector(`#product-${index} input[name*="[sheets_per_box]"]`);
+                const weightInput = document.querySelector(`#product-${index} input[name*="[weight_per_box]"]`);
 
-                // Actualizar medidas del producto
-                if (medidasInput) {
-                    medidasInput.value = medidas;
+                if (medidasInput) medidasInput.value = medidas;
+                if (weightInput && weight !== '') {
+                    weightInput.value = weight;
                 }
-
                 if (tipo === 'unidad' && sheetsInput) {
                     sheetsInput.value = 1;
                     sheetsInput.readOnly = true;
                 } else if (sheetsInput) {
                     sheetsInput.readOnly = false;
-                    if (sheetsInput.value == 1) sheetsInput.value = 40;
+                    if (sheets !== '') sheetsInput.value = sheets;
+                    else if (sheetsInput.value == 1) sheetsInput.value = 40;
                 }
                 calculateSheets(index);
+                calculateWeight(index);
             }
         }
 
@@ -315,6 +321,27 @@
                 const boxes = parseInt(boxesInput.value) || 0;
                 const sheets = parseInt(sheetsInput.value) || 0;
                 totalDiv.textContent = boxes * sheets;
+            }
+        }
+
+        function updateWeightFromSheets(index) {
+            const productItem = document.getElementById(`product-${index}`);
+            if (!productItem) return;
+            const select = productItem.querySelector('select[name*="[product_id]"]');
+            const sheetsInput = productItem.querySelector('input[name*="[sheets_per_box]"]');
+            const weightInput = productItem.querySelector('input[name*="[weight_per_box]"]');
+            if (!select || !select.selectedOptions[0] || !sheetsInput || !weightInput) return;
+            const opt = select.selectedOptions[0];
+            const calibre = parseFloat(opt.dataset.calibre) || 0;
+            const alto = parseFloat(opt.dataset.alto) || 0;
+            const ancho = parseFloat(opt.dataset.ancho) || 0;
+            const pesoEmpaque = parseFloat(opt.dataset.pesoEmpaque) || 0;
+            const sheets = parseInt(sheetsInput.value) || 0;
+            if (calibre > 0 && alto > 0 && ancho > 0 && pesoEmpaque > 0 && sheets > 0) {
+                const altoMetros = alto / 100;
+                const anchoMetros = ancho / 100;
+                const w = calibre * altoMetros * anchoMetros * pesoEmpaque * sheets;
+                weightInput.value = Math.round(w * 100) / 100;
             }
         }
 

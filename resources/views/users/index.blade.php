@@ -133,6 +133,8 @@
                             <td>
                                 @if($user->rol === 'import_viewer')
                                     Visualizador de Importaciones
+                                @elseif($user->rol === 'proveedor_itr')
+                                    PROVEEDOR ITR (Desembalaje)
                                 @else
                                     {{ ucfirst($user->rol) }}
                                 @endif

@@ -32,6 +32,11 @@ class HomeController extends Controller
         if (auth()->check() && auth()->user()->rol === 'import_viewer') {
             return redirect()->route('imports.viewer-index');
         }
+
+        // Si el usuario es proveedor_itr, redirigir al módulo ITR
+        if (auth()->check() && auth()->user()->rol === 'proveedor_itr') {
+            return redirect()->route('itrs.index');
+        }
         
         // Invoca directamente la lógica de WelcomeController
         return app(\App\Http\Controllers\WelcomeController::class)->index();

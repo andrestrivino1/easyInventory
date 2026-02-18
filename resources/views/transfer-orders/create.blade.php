@@ -226,19 +226,42 @@
 
                 @error('products') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
-                <label for="driver_id">Placa del Vehículo*</label>
-                <select name="driver_id" id="driver_id" required onchange="setConductorFromPlate(this)">
-                    <option value="">Seleccione</option>
-                    @foreach($drivers as $driver)
-                        <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}">
-                            {{ $driver->vehicle_plate }} - {{ $driver->name }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                <div style="margin-bottom: 14px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="use_external_driver" id="use_external_driver" value="1" {{ old('use_external_driver') ? 'checked' : '' }} style="width: auto; margin: 0;">
+                        <span>Conductor externo (no registrado)</span>
+                    </label>
+                </div>
 
-                <label for="conductor_show">Conductor</label>
-                <input type="text" id="conductor_show" value="" readonly style="background:#e9ecef; pointer-events:none;">
+                <div id="driver-registered-block">
+                    <label for="driver_id">Placa del Vehículo*</label>
+                    <select name="driver_id" id="driver_id" onchange="setConductorFromPlate(this)">
+                        <option value="">Seleccione</option>
+                        @foreach($drivers as $driver)
+                            <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}" {{ old('driver_id') == $driver->id ? 'selected' : '' }}>
+                                {{ $driver->vehicle_plate }} - {{ $driver->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="conductor_show">Conductor</label>
+                    <input type="text" id="conductor_show" value="{{ old('conductor_show') }}" readonly style="background:#e9ecef; pointer-events:none;">
+                </div>
+
+                <div id="driver-external-block" style="display: none;">
+                    <label for="external_driver_name">Nombre del conductor*</label>
+                    <input type="text" name="external_driver_name" id="external_driver_name" value="{{ old('external_driver_name') }}" maxlength="255" placeholder="Nombre completo">
+                    @error('external_driver_name') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_identity">Cédula / NIT*</label>
+                    <input type="text" name="external_driver_identity" id="external_driver_identity" value="{{ old('external_driver_identity') }}" maxlength="50" placeholder="Documento de identidad">
+                    @error('external_driver_identity') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_plate">Placa del vehículo*</label>
+                    <input type="text" name="external_driver_plate" id="external_driver_plate" value="{{ old('external_driver_plate') }}" maxlength="50" placeholder="Placa">
+                    @error('external_driver_plate') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_phone">Teléfono del conductor</label>
+                    <input type="text" name="external_driver_phone" id="external_driver_phone" value="{{ old('external_driver_phone') }}" maxlength="20" placeholder="Número de teléfono">
+                    @error('external_driver_phone') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
 
                 <label for="note">Notas</label>
                 <textarea name="note" id="note" rows="2" placeholder="Opcional">{{ old('note') }}</textarea>
@@ -278,6 +301,35 @@
         let productIndex = 0;
         let availableProducts = [];
         const driverCapacities = @json($drivers->pluck('capacity', 'id'));
+
+        function toggleDriverBlocks() {
+            const useExternal = document.getElementById('use_external_driver').checked;
+            const blockReg = document.getElementById('driver-registered-block');
+            const blockExt = document.getElementById('driver-external-block');
+            const driverSelect = document.getElementById('driver_id');
+            const extName = document.getElementById('external_driver_name');
+            const extId = document.getElementById('external_driver_identity');
+            const extPlate = document.getElementById('external_driver_plate');
+            const extPhone = document.getElementById('external_driver_phone');
+            if (useExternal) {
+                if (blockReg) blockReg.style.display = 'none';
+                if (blockExt) blockExt.style.display = 'block';
+                if (driverSelect) { driverSelect.removeAttribute('required'); driverSelect.value = ''; }
+                if (extName) extName.setAttribute('required', 'required');
+                if (extId) extId.setAttribute('required', 'required');
+                if (extPlate) extPlate.setAttribute('required', 'required');
+                document.getElementById('conductor_show').value = '';
+            } else {
+                if (blockReg) blockReg.style.display = 'block';
+                if (blockExt) blockExt.style.display = 'none';
+                if (driverSelect) driverSelect.setAttribute('required', 'required');
+                if (extName) { extName.removeAttribute('required'); extName.value = ''; }
+                if (extId) { extId.removeAttribute('required'); extId.value = ''; }
+                if (extPlate) { extPlate.removeAttribute('required'); extPlate.value = ''; }
+                if (extPhone) { extPhone.value = ''; }
+            }
+            calculateTotalWeightAndCheckCapacity();
+        }
 
         function setConductorFromPlate(sel) {
             let n = sel.options[sel.selectedIndex].getAttribute('data-name');
@@ -335,7 +387,17 @@
             const weightTitle = document.getElementById('weight-title');
             const weightVal = document.getElementById('total-transfer-weight');
 
-            if (driverSelect && driverSelect.value !== "") {
+            const useExternalDriver = document.getElementById('use_external_driver') && document.getElementById('use_external_driver').checked;
+            if (useExternalDriver) {
+                alertDiv.style.display = 'none';
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+                weightBox.style.background = '#e8f5e9';
+                weightBox.style.borderColor = '#c8e6c9';
+                weightTitle.style.color = '#2e7d32';
+                weightVal.style.color = '#1b5e20';
+            } else if (driverSelect && driverSelect.value !== "") {
                 const driverId = driverSelect.value;
                 const capacity = parseFloat(driverCapacities[driverId]) || 0;
 
@@ -369,8 +431,6 @@
                 saveBtn.disabled = false;
                 saveBtn.style.opacity = '1';
                 saveBtn.style.cursor = 'pointer';
-
-                // Default GREEN
                 weightBox.style.background = '#e8f5e9';
                 weightBox.style.borderColor = '#c8e6c9';
                 weightTitle.style.color = '#2e7d32';
@@ -709,6 +769,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            const useExternalEl = document.getElementById('use_external_driver');
+            if (useExternalEl) {
+                useExternalEl.addEventListener('change', toggleDriverBlocks);
+                toggleDriverBlocks();
+            }
             addProduct();
 
             document.getElementById('transferForm').addEventListener('submit', function (e) {

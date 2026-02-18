@@ -434,7 +434,7 @@
                         @elseif($import->status == 'completed')
                             <span class="badge badge-completed">Completado</span>
                         @elseif($import->status == 'recibido')
-                            <span class="badge badge-received">Recibido</span>
+                            <span class="badge badge-received">Arribo Confirmado</span>
                         @elseif($import->status == 'pendiente_por_confirmar')
                             <span class="badge" style="background: #ff9800; color: white;">Pendiente por confirmar</span>
                         @else
@@ -541,16 +541,25 @@
                                 <i class="bi bi-calendar-event me-1"></i>Actualizar Fecha Estimada
                             </button>
                             <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
-                                Marcar Recibido
+                                Confirmar Arribo
                             </button>
                         @elseif($import->status != 'recibido')
                             <button class="btn-update-arrival" onclick="openUpdateModal({{ $import->id }}, '{{ $import->do_code }}')">
-                                Marcar Recibido
+                                Confirmar Arribo
                             </button>
                         @else
                             <span style="color: #28a745; font-size: 12px; margin-bottom: 5px;">
-                                Recibido: {{ $import->actual_arrival_date ? \Carbon\Carbon::parse($import->actual_arrival_date)->format('d/m/Y') : 'N/A' }}
+                                Arribo: {{ $import->actual_arrival_date ? \Carbon\Carbon::parse($import->actual_arrival_date)->format('d/m/Y') : 'N/A' }}
                             </span>
+                            @if(!$import->delivered_to_transport_at)
+                                <button type="button" class="btn-deliver-transport" onclick="openDeliverTransportModal({{ $import->id }}, '{{ $import->do_code }}')" style="background: #0d6efd; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 4px;">
+                                    <i class="bi bi-truck"></i> Entregado a transporte
+                                </button>
+                            @else
+                                <span style="color: #0d6efd; font-size: 12px; display: block; margin-top: 4px;">
+                                    <i class="bi bi-truck"></i> Entregado a transporte {{ $import->delivered_to_transport_at ? \Carbon\Carbon::parse($import->delivered_to_transport_at)->format('d/m/Y H:i') : '' }}
+                                </span>
+                            @endif
                         @endif
                         <a href="{{ route('imports.report', $import->id) }}" class="btn-report" style="background: #4a8af4; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; text-align: center; display: inline-block;" target="_blank">
                             <i class="bi bi-file-pdf me-1"></i>Reporte PDF
@@ -578,11 +587,11 @@
     </div>
 </div>
 
-<!-- Modal para actualizar fecha de llegada -->
+<!-- Modal Confirmar Arribo -->
 <div id="updateModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Actualizar Fecha de Llegada</h3>
+            <h3>Confirmar Arribo</h3>
         </div>
         <form id="updateArrivalForm" method="POST">
             @csrf
@@ -590,9 +599,47 @@
                 <label for="actual_arrival_date">Fecha Real de Llegada *</label>
                 <input type="date" name="actual_arrival_date" id="actual_arrival_date" required />
             </div>
+            <div class="form-group">
+                <label for="arrival_confirmed_by_user_id">Entregado a (opcional)</label>
+                <select name="arrival_confirmed_by_user_id" id="arrival_confirmed_by_user_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                    <option value="">-- Seleccione un usuario --</option>
+                    @isset($transportUsers)
+                        @foreach($transportUsers as $u)
+                            <option value="{{ $u->id }}">{{ $u->nombre_completo ?? $u->name }} ({{ $u->email }})</option>
+                        @endforeach
+                    @endisset
+                </select>
+            </div>
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" onclick="closeUpdateModal()">Cancelar</button>
-                <button type="submit" class="btn-save">Marcar como Recibido</button>
+                <button type="submit" class="btn-save">Confirmar Arribo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Entregado a transporte -->
+<div id="deliverTransportModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Entregado a transporte</h3>
+        </div>
+        <form id="deliverTransportForm" method="POST">
+            @csrf
+            <div class="form-group">
+                <label for="delivered_to_transport_by_user_id">Entregado a (opcional)</label>
+                <select name="delivered_to_transport_by_user_id" id="delivered_to_transport_by_user_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                    <option value="">-- Seleccione un usuario --</option>
+                    @isset($transportUsers)
+                        @foreach($transportUsers as $u)
+                            <option value="{{ $u->id }}">{{ $u->nombre_completo ?? $u->name }} ({{ $u->email }})</option>
+                        @endforeach
+                    @endisset
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeDeliverTransportModal()">Cancelar</button>
+                <button type="submit" class="btn-save" style="background: #0d6efd;">Entregado a transporte</button>
             </div>
         </form>
     </div>
@@ -745,15 +792,30 @@ function closeUpdateEstimatedModal() {
     document.getElementById('updateEstimatedModal').style.display = 'none';
 }
 
+function openDeliverTransportModal(importId, doCode) {
+    const routeTemplate = '{{ route("imports.deliver-to-transport", 0) }}';
+    const url = routeTemplate.replace(/\/0(\/deliver-to-transport)/, '/' + importId + '$1');
+    document.getElementById('deliverTransportForm').action = url;
+    document.getElementById('deliverTransportModal').style.display = 'block';
+}
+
+function closeDeliverTransportModal() {
+    document.getElementById('deliverTransportModal').style.display = 'none';
+}
+
 // Cerrar modal al hacer clic fuera
 window.onclick = function(event) {
     const modal = document.getElementById('updateModal');
     const estimatedModal = document.getElementById('updateEstimatedModal');
+    const deliverModal = document.getElementById('deliverTransportModal');
     if (event.target == modal) {
         closeUpdateModal();
     }
     if (event.target == estimatedModal) {
         closeUpdateEstimatedModal();
+    }
+    if (event.target == deliverModal) {
+        closeDeliverTransportModal();
     }
 }
 
@@ -790,6 +852,58 @@ document.getElementById('updateArrivalForm').addEventListener('submit', function
                 icon: 'error',
                 title: 'Error',
                 text: data.message || 'Error al actualizar la fecha',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al procesar la solicitud',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    });
+});
+
+// Entregado a transporte
+document.getElementById('deliverTransportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const url = this.action;
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Éxito',
+                text: data.message || 'Marcado como entregado a transporte',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            closeDeliverTransportModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message || 'Error al procesar',
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,

@@ -16,6 +16,10 @@ class Salida extends Model
         'warehouse_id',
         'user_id',
         'driver_id',
+        'external_driver_name',
+        'external_driver_identity',
+        'external_driver_plate',
+        'external_driver_phone',
         'fecha',
         'a_nombre_de',
         'nit_cedula',
@@ -62,5 +66,42 @@ class Salida extends Model
     public function driver()
     {
         return $this->belongsTo(\App\Models\Driver::class, 'driver_id');
+    }
+
+    public function getDriverNameAttribute(): ?string
+    {
+        if (!empty($this->external_driver_name)) {
+            return $this->external_driver_name;
+        }
+        return $this->driver ? $this->driver->name : null;
+    }
+
+    public function getDriverIdentityAttribute(): ?string
+    {
+        if (!empty($this->external_driver_identity)) {
+            return $this->external_driver_identity;
+        }
+        return $this->driver ? $this->driver->identity : null;
+    }
+
+    public function getDriverPlateAttribute(): ?string
+    {
+        if (!empty($this->external_driver_plate)) {
+            return $this->external_driver_plate;
+        }
+        return $this->driver ? $this->driver->vehicle_plate : null;
+    }
+
+    public function getDriverPhoneAttribute(): ?string
+    {
+        if (!empty($this->external_driver_phone)) {
+            return $this->external_driver_phone;
+        }
+        return $this->driver ? $this->driver->phone : null;
+    }
+
+    public function isExternalDriver(): bool
+    {
+        return !empty($this->external_driver_name);
     }
 }

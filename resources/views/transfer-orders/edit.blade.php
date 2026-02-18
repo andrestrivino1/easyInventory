@@ -259,24 +259,59 @@
 
                 @error('products') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
-                <label for="driver_id">Placa del Vehículo*</label>
-                <select name="driver_id" id="driver_id" required onchange="setConductorFromPlate(this)" @if(!$isEditable)
-                disabled @endif>
-                    <option value="">Seleccione</option>
-                    @foreach($drivers as $driver)
-                        <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}"
-                            @if(old('driver_id', $transferOrder->driver_id) == $driver->id) selected @endif>
-                            {{ $driver->vehicle_plate }} - {{ $driver->name }}
-                        </option>
-                    @endforeach
-                </select>
-                @if(!$isEditable) <input type="hidden" name="driver_id" value="{{ $transferOrder->driver_id }}"> @endif
-                @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                @php
+                    $useExternalDriver = $transferOrder->isExternalDriver();
+                @endphp
+                <div style="margin-bottom: 14px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="use_external_driver" id="use_external_driver" value="1"
+                            {{ old('use_external_driver', $useExternalDriver) ? 'checked' : '' }}
+                            @if(!$isEditable) disabled @endif style="width: auto; margin: 0;">
+                        <span>Conductor externo (no registrado)</span>
+                    </label>
+                </div>
 
-                <label for="conductor_show">Conductor</label>
-                <input type="text" id="conductor_show"
-                    value="{{ old('conductor_show', $transferOrder->driver ? ($transferOrder->driver->name . ' (' . $transferOrder->driver->identity . ')') : '') }}"
-                    readonly style="background:#e9ecef; pointer-events:none;">
+                <div id="driver-registered-block" style="{{ $useExternalDriver ? 'display:none;' : '' }}">
+                    <label for="driver_id">Placa del Vehículo*</label>
+                    <select name="driver_id" id="driver_id" onchange="setConductorFromPlate(this)" @if(!$isEditable) disabled @endif>
+                        <option value="">Seleccione</option>
+                        @foreach($drivers as $driver)
+                            <option value="{{ $driver->id }}" data-name="{{ $driver->name }}" data-id="{{ $driver->identity }}"
+                                @if(old('driver_id', $transferOrder->driver_id) == $driver->id) selected @endif>
+                                {{ $driver->vehicle_plate }} - {{ $driver->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @if(!$isEditable) <input type="hidden" name="driver_id" value="{{ $transferOrder->driver_id }}"> @endif
+                    @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="conductor_show">Conductor</label>
+                    <input type="text" id="conductor_show"
+                        value="{{ old('conductor_show', $transferOrder->driver ? ($transferOrder->driver->name . ' (' . $transferOrder->driver->identity . ')') : '') }}"
+                        readonly style="background:#e9ecef; pointer-events:none;">
+                </div>
+
+                <div id="driver-external-block" style="{{ $useExternalDriver ? '' : 'display:none;' }}">
+                    <label for="external_driver_name">Nombre del conductor*</label>
+                    <input type="text" name="external_driver_name" id="external_driver_name"
+                        value="{{ old('external_driver_name', $transferOrder->external_driver_name) }}" maxlength="255"
+                        @if(!$isEditable) readonly @endif>
+                    @error('external_driver_name') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_identity">Cédula / NIT*</label>
+                    <input type="text" name="external_driver_identity" id="external_driver_identity"
+                        value="{{ old('external_driver_identity', $transferOrder->external_driver_identity) }}" maxlength="50"
+                        @if(!$isEditable) readonly @endif>
+                    @error('external_driver_identity') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_plate">Placa del vehículo*</label>
+                    <input type="text" name="external_driver_plate" id="external_driver_plate"
+                        value="{{ old('external_driver_plate', $transferOrder->external_driver_plate) }}" maxlength="50"
+                        @if(!$isEditable) readonly @endif>
+                    @error('external_driver_plate') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <label for="external_driver_phone">Teléfono del conductor</label>
+                    <input type="text" name="external_driver_phone" id="external_driver_phone"
+                        value="{{ old('external_driver_phone', $transferOrder->external_driver_phone) }}" maxlength="20"
+                        @if(!$isEditable) readonly @endif placeholder="Número de teléfono">
+                    @error('external_driver_phone') <div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
 
                 <label for="note">Notas</label>
                 <textarea name="note" id="note" rows="2" placeholder="Opcional" @if(!$isEditable) readonly
@@ -324,6 +359,34 @@
         const ID_PABLO_ROJAS = 1;
         const isEditable = @json($transferOrder->status === 'en_transito');
 
+        function toggleDriverBlocks() {
+            const useExternal = document.getElementById('use_external_driver').checked;
+            const blockReg = document.getElementById('driver-registered-block');
+            const blockExt = document.getElementById('driver-external-block');
+            const driverSelect = document.getElementById('driver_id');
+            const extName = document.getElementById('external_driver_name');
+            const extId = document.getElementById('external_driver_identity');
+            const extPlate = document.getElementById('external_driver_plate');
+            const extPhone = document.getElementById('external_driver_phone');
+            if (useExternal) {
+                if (blockReg) blockReg.style.display = 'none';
+                if (blockExt) blockExt.style.display = 'block';
+                if (driverSelect && !driverSelect.disabled) { driverSelect.removeAttribute('required'); driverSelect.value = ''; }
+                if (extName && !extName.readOnly) { extName.setAttribute('required', 'required'); }
+                if (extId && !extId.readOnly) extId.setAttribute('required', 'required');
+                if (extPlate && !extPlate.readOnly) extPlate.setAttribute('required', 'required');
+                if (document.getElementById('conductor_show')) document.getElementById('conductor_show').value = '';
+            } else {
+                if (blockReg) blockReg.style.display = 'block';
+                if (blockExt) blockExt.style.display = 'none';
+                if (driverSelect && !driverSelect.disabled) driverSelect.setAttribute('required', 'required');
+                if (extName && !extName.readOnly) extName.removeAttribute('required');
+                if (extId && !extId.readOnly) extId.removeAttribute('required');
+                if (extPlate && !extPlate.readOnly) extPlate.removeAttribute('required');
+            }
+            calculateTotalWeightAndCheckCapacity();
+        }
+
         function setConductorFromPlate(sel) {
             let n = sel.options[sel.selectedIndex].getAttribute('data-name');
             let cid = sel.options[sel.selectedIndex].getAttribute('data-id');
@@ -368,7 +431,14 @@
             const weightTitle = document.getElementById('weight-title');
             const weightVal = document.getElementById('total-transfer-weight');
 
-            if (driverSelect && driverSelect.value !== "") {
+            const useExternalDriver = document.getElementById('use_external_driver') && document.getElementById('use_external_driver').checked;
+            if (useExternalDriver) {
+                if (alertDiv) alertDiv.style.display = 'none';
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; saveBtn.style.cursor = 'pointer'; }
+                if (weightBox) { weightBox.style.background = '#e8f5e9'; weightBox.style.borderColor = '#c8e6c9'; }
+                if (weightTitle) weightTitle.style.color = '#2e7d32';
+                if (weightVal) weightVal.style.color = '#1b5e20';
+            } else if (driverSelect && driverSelect.value !== "") {
                 const driverId = driverSelect.value;
                 const capacity = parseFloat(driverCapacities[driverId]) || 0;
 
@@ -437,7 +507,9 @@
             }
 
             try {
-                const response = await fetch(`{{ route('transfer-orders.get-products', ':id') }}`.replace(':id', warehouseId));
+                const forEditTransferId = {{ $transferOrder->id }};
+                const url = `{{ route('transfer-orders.get-products', ':id') }}`.replace(':id', warehouseId) + '?for_edit_transfer_id=' + forEditTransferId;
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('Error al cargar productos');
 
                 availableProducts = await response.json();
@@ -492,44 +564,48 @@
         }
 
         function restoreProductSelections() {
-            // Restaurar selecciones de productos existentes
+            // Restaurar selecciones de productos existentes (producto + contenedor + cantidad)
             existingProducts.forEach((product, idx) => {
                 const productItem = document.getElementById(`product-${idx}`);
-                if (productItem) {
-                    const productSelect = productItem.querySelector(`select[id^="product-select-"]`);
+                if (!productItem) return;
 
-                    // Buscar el índice correcto en availableProducts
-                    // Coincidir ID y sheets_per_box si existe
-                    let foundIndex = -1;
+                const productSelect = productItem.querySelector(`select[id^="product-select-"]`);
+                if (!productSelect || productSelect.disabled) return;
 
-                    // Primero intentar coincidencia exacta con sheets_per_box si el producto existente lo tiene
-                    if (product.pivot && product.pivot.sheets_per_box) {
-                        foundIndex = availableProducts.findIndex(p => p.id == product.id && p.sheets_per_box == product.pivot.sheets_per_box);
-                    }
+                const pivot = product.pivot || {};
+                const containerId = pivot.container_id;
+                const sheetsPerBox = pivot.sheets_per_box;
 
-                    // Si no se encuentra (o no tiene sheets_per_box), buscar por ID básico (primer match)
-                    if (foundIndex === -1) {
-                        foundIndex = availableProducts.findIndex(p => p.id == product.id);
-                    }
+                // Buscar el índice en availableProducts: mismo producto Y contenedor que coincida
+                let foundIndex = availableProducts.findIndex(p => {
+                    if (p.id != product.id) return false;
+                    const sheetMatch = !sheetsPerBox || p.sheets_per_box == sheetsPerBox;
+                    const containerMatch = !containerId || (p.containers || []).some(c => c.id == containerId);
+                    return sheetMatch && (containerMatch || (p.containers || []).length === 0);
+                });
 
-                    if (productSelect && !productSelect.disabled && foundIndex !== -1) {
-                        productSelect.value = foundIndex;
-                        const index = productSelect.id.replace('product-select-', '');
-                        loadContainersForProduct(index);
+                // Fallback: solo por producto y sheets_per_box
+                if (foundIndex === -1 && sheetsPerBox) {
+                    foundIndex = availableProducts.findIndex(p => p.id == product.id && p.sheets_per_box == sheetsPerBox);
+                }
+                if (foundIndex === -1) {
+                    foundIndex = availableProducts.findIndex(p => p.id == product.id);
+                }
 
-                        // Restaurar contenedor si existe
-                        if (product.pivot && product.pivot.container_id) {
-                            // Esperar a que se carguen los contenedores en el DOM (sync call en loadContainersForProduct)
-                            const containerSelect = document.getElementById(`container-select-${index}`);
-                            if (containerSelect) {
-                                containerSelect.value = product.pivot.container_id;
-                                // Actualizar info de stock basada en contenedor seleccionado
-                                updateStockForContainer(index);
-                            }
+                if (foundIndex !== -1) {
+                    productSelect.value = foundIndex;
+                    const index = productSelect.id.replace('product-select-', '');
+                    loadContainersForProduct(index);
+
+                    if (containerId) {
+                        const containerSelect = document.getElementById(`container-select-${index}`);
+                        if (containerSelect) {
+                            containerSelect.value = containerId;
+                            updateStockForContainer(index);
                         }
-
-                        updateProductInfo(index);
                     }
+                    updateProductInfo(index);
+                    calculateTotalWeightAndCheckCapacity();
                 }
             });
         }
@@ -786,6 +862,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            const useExternalEl = document.getElementById('use_external_driver');
+            if (useExternalEl && !useExternalEl.disabled) {
+                useExternalEl.addEventListener('change', toggleDriverBlocks);
+                toggleDriverBlocks();
+            }
             // Cargar productos existentes
             if (existingProducts.length > 0) {
                 existingProducts.forEach(product => {

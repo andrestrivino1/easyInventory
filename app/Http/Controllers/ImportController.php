@@ -405,16 +405,24 @@ class ImportController extends Controller
         return redirect()->route('imports.provider-index')->with('success', 'Import submitted successfully!');
     }
 
-    // PROVIDER: Edit their own import
+    // PROVIDER: Edit their own import | ADMIN: Edit any import
     public function edit($id)
     {
-        $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+        if (Auth::user()->rol === 'admin') {
+            $import = Import::with('containers')->findOrFail($id);
+        } else {
+            $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+        }
         return view('imports.edit', compact('import'));
     }
 
     public function update(Request $request, $id)
     {
-        $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+        if (Auth::user()->rol === 'admin') {
+            $import = Import::with('containers')->findOrFail($id);
+        } else {
+            $import = Import::with('containers')->where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+        }
         $data = $request->validate([
             'commercial_invoice_number' => 'nullable|string|max:255',
             'origin' => 'nullable|string|max:255',
@@ -564,6 +572,9 @@ class ImportController extends Controller
         // Delete containers that were removed
         $import->containers()->whereNotIn('id', $existingContainerIds)->delete();
 
+        if (Auth::user()->rol === 'admin') {
+            return redirect()->route('imports.index')->with('success', 'Importación actualizada correctamente.');
+        }
         return redirect()->route('imports.provider-index')->with('success', 'Import updated successfully!');
     }
 
@@ -1358,7 +1369,7 @@ class ImportController extends Controller
             } elseif ($import->status === 'in_transit') {
                 $statusText = 'En tránsito';
             } elseif ($import->status === 'recibido') {
-                $statusText = 'Recibido';
+                $statusText = 'Arribo Confirmado';
             } elseif ($import->status === 'pendiente_por_confirmar') {
                 $statusText = 'Pendiente por confirmar';
             } else {
@@ -1427,27 +1438,32 @@ class ImportController extends Controller
     }
 
     /**
-     * Sort imports: pending by progress % descending, then completed by arrival date descending
+     * Sort imports: pending by progress % descending, then completed by arrival date descending, then admin-confirmed at the end
      */
     private function sortImportsByProgress($imports)
     {
-        // Separar importaciones: las que faltan por llegar primero, luego las completadas
-        $pendingImports = $imports->filter(function ($import) {
+        // Importaciones confirmadas por admin van siempre al final (deshabilitadas)
+        $adminConfirmedImports = $imports->filter(function ($import) {
+            return $import->admin_confirmed_at !== null;
+        })->values();
+
+        $rest = $imports->filter(function ($import) {
+            return $import->admin_confirmed_at === null;
+        })->values();
+
+        $pendingImports = $rest->filter(function ($import) {
             return $import->status !== 'completed';
         })->values();
 
-        $completedImports = $imports->filter(function ($import) {
+        $completedImports = $rest->filter(function ($import) {
             return $import->status === 'completed';
         })->values();
 
-        // Ordenar las que faltan por llegar: por porcentaje de progreso descendente (las más cercanas a completarse primero)
         $pendingImports = $pendingImports->sortByDesc(function ($import) {
             return $this->calculateProgress($import);
         })->values();
 
-        // Ordenar las completadas: por fecha de llegada (más recientes primero)
         $completedImports = $completedImports->sortByDesc(function ($import) {
-            // Usar fecha real de llegada si existe, sino fecha estimada, sino fecha de creación
             if ($import->actual_arrival_date) {
                 return \Carbon\Carbon::parse($import->actual_arrival_date)->timestamp;
             } elseif ($import->arrival_date) {
@@ -1457,8 +1473,11 @@ class ImportController extends Controller
             }
         })->values();
 
-        // Combinar: primero las que faltan por llegar (ordenadas por % descendente), luego las completadas
-        return $pendingImports->merge($completedImports)->values();
+        $adminConfirmedImports = $adminConfirmedImports->sortByDesc(function ($import) {
+            return $import->admin_confirmed_at->timestamp;
+        })->values();
+
+        return $pendingImports->merge($completedImports)->merge($adminConfirmedImports)->values();
     }
 
     public function exportAllReports()
@@ -1868,10 +1887,13 @@ class ImportController extends Controller
             $imports->setPath($request->url());
         }
 
-        return view('imports.funcionario-index', compact('imports'));
+        // Usuarios para listado al confirmar arribo / entregado a transporte (simulado por el momento)
+        $transportUsers = User::where('rol', 'proveedor_itr')->orderBy('name')->get();
+
+        return view('imports.funcionario-index', compact('imports', 'transportUsers'));
     }
 
-    // FUNCIONARIO/ADMIN: Update actual arrival date and mark as received
+    // FUNCIONARIO/ADMIN: Confirmar arribo (fecha real de llegada y opcional usuario)
     public function updateArrival(Request $request, $id)
     {
         if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
@@ -1882,22 +1904,103 @@ class ImportController extends Controller
 
         $data = $request->validate([
             'actual_arrival_date' => 'required|date',
+            'arrival_confirmed_by_user_id' => 'nullable|exists:users,id',
         ]);
 
         $import->update([
             'actual_arrival_date' => $data['actual_arrival_date'],
             'received_at' => now(),
             'status' => 'recibido',
+            'arrival_confirmed_by_user_id' => $data['arrival_confirmed_by_user_id'] ?? null,
+        ]);
+
+        // Crear registro ITR para el módulo de desembalaje (proveedor ITR)
+        if (!$import->itr) {
+            $diasLibres = (int) ($import->free_days_at_dest ?? 4);
+            $fechaLlegada = \Carbon\Carbon::parse($data['actual_arrival_date']);
+            // Fecha vencimiento = fecha llegada + días libres - 4 días (por defecto)
+            $diasParaVencimiento = max(0, $diasLibres - 4);
+            $fechaVencimiento = $fechaLlegada->copy()->addDays($diasParaVencimiento);
+            \App\Models\Itr::create([
+                'import_id' => $import->id,
+                'do_code' => $import->do_code ?? 'DO-' . $import->id,
+                'bl_number' => $import->bl_number,
+                'fecha_llegada' => $fechaLlegada,
+                'dias_libres' => $diasLibres,
+                'fecha_vencimiento' => $fechaVencimiento,
+            ]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Arribo confirmado correctamente.'
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Arribo confirmado correctamente.');
+    }
+
+    // FUNCIONARIO: Marcar como entregado a transporte (solo después de confirmar arribo)
+    public function deliverToTransport(Request $request, $id)
+    {
+        if (!in_array(Auth::user()->rol, ['funcionario', 'admin'])) {
+            abort(403);
+        }
+
+        $import = Import::findOrFail($id);
+
+        if (!$import->received_at) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Debe confirmar el arribo antes de marcar como entregado a transporte.'], 422);
+            }
+            return redirect()->back()->with('error', 'Debe confirmar el arribo antes de marcar como entregado a transporte.');
+        }
+
+        if ($import->delivered_to_transport_at) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Esta importación ya fue marcada como entregada a transporte.'], 422);
+            }
+            return redirect()->back()->with('error', 'Esta importación ya fue marcada como entregada a transporte.');
+        }
+
+        $data = $request->validate([
+            'delivered_to_transport_by_user_id' => 'nullable|exists:users,id',
+        ]);
+
+        $import->update([
+            'delivered_to_transport_at' => now(),
+            'delivered_to_transport_by_user_id' => $data['delivered_to_transport_by_user_id'] ?? null,
         ]);
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Fecha de llegada actualizada y marcada como recibido.'
+                'message' => 'Marcado como entregado a transporte correctamente.'
             ]);
         }
 
-        return redirect()->back()->with('success', 'Fecha de llegada actualizada y marcada como recibido.');
+        return redirect()->back()->with('success', 'Marcado como entregado a transporte correctamente.');
+    }
+
+    // ADMIN: Confirmar importación (pasa al final del listado y queda deshabilitada)
+    public function adminConfirm($id)
+    {
+        if (Auth::user()->rol !== 'admin') {
+            abort(403);
+        }
+
+        $import = Import::findOrFail($id);
+        $import->update(['admin_confirmed_at' => now()]);
+
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Importación confirmada por el administrador.'
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Importación confirmada por el administrador.');
     }
 
     // FUNCIONARIO/ADMIN: Update estimated arrival date when import is delayed

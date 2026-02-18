@@ -175,16 +175,40 @@ body .form-bg {
         <input type="text" name="ciudad_destino" id="ciudad_destino" value="{{ old('ciudad_destino') }}" placeholder="Ciudad destino (opcional)">
         @error('ciudad_destino') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
-        <label for="driver_id">Conductor</label>
-        <select name="driver_id" id="driver_id" class="form-control">
-            <option value="">Seleccione un conductor (opcional)</option>
-            @foreach($drivers as $driver)
-                <option value="{{ $driver->id }}" {{ old('driver_id') == $driver->id ? 'selected' : '' }}>
-                    {{ $driver->name }} - {{ $driver->identity }}
-                </option>
-            @endforeach
-        </select>
-        @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div style="margin-bottom: 14px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                <input type="checkbox" name="use_external_driver" id="use_external_driver" value="1" {{ old('use_external_driver') ? 'checked' : '' }} style="width: auto; margin: 0;">
+                <span>Conductor externo (no registrado)</span>
+            </label>
+        </div>
+
+        <div id="driver-registered-block">
+            <label for="driver_id">Conductor</label>
+            <select name="driver_id" id="driver_id" class="form-control">
+                <option value="">Seleccione un conductor (opcional)</option>
+                @foreach($drivers as $driver)
+                    <option value="{{ $driver->id }}" {{ old('driver_id') == $driver->id ? 'selected' : '' }}>
+                        {{ $driver->name }} - {{ $driver->identity }}
+                    </option>
+                @endforeach
+            </select>
+            @error('driver_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+
+        <div id="driver-external-block" style="display: none;">
+            <label for="external_driver_name">Nombre del conductor*</label>
+            <input type="text" name="external_driver_name" id="external_driver_name" value="{{ old('external_driver_name') }}" maxlength="255" placeholder="Nombre completo">
+            @error('external_driver_name') <div class="invalid-feedback">{{ $message }}</div>@enderror
+            <label for="external_driver_identity">Cédula / NIT*</label>
+            <input type="text" name="external_driver_identity" id="external_driver_identity" value="{{ old('external_driver_identity') }}" maxlength="50" placeholder="Documento de identidad">
+            @error('external_driver_identity') <div class="invalid-feedback">{{ $message }}</div>@enderror
+            <label for="external_driver_plate">Placa del vehículo*</label>
+            <input type="text" name="external_driver_plate" id="external_driver_plate" value="{{ old('external_driver_plate') }}" maxlength="50" placeholder="Placa">
+            @error('external_driver_plate') <div class="invalid-feedback">{{ $message }}</div>@enderror
+            <label for="external_driver_phone">Teléfono del conductor</label>
+            <input type="text" name="external_driver_phone" id="external_driver_phone" value="{{ old('external_driver_phone') }}" maxlength="20" placeholder="Número de teléfono">
+            @error('external_driver_phone') <div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
 
         <div style="margin-top: 20px; margin-bottom: 10px;">
             <label style="margin-bottom: 10px;">Productos a dar salida*</label>
@@ -214,6 +238,34 @@ let productIndex = 0;
 let availableProducts = @json($products ?? []);
 let isBuenaventura = @json($isBuenaventura ?? false);
 let bodegasBuenaventuraIds = @json($bodegasBuenaventuraIds ?? []);
+
+function toggleDriverBlocks() {
+    const useExternal = document.getElementById('use_external_driver').checked;
+    const blockReg = document.getElementById('driver-registered-block');
+    const blockExt = document.getElementById('driver-external-block');
+    const driverSelect = document.getElementById('driver_id');
+    const extName = document.getElementById('external_driver_name');
+    const extId = document.getElementById('external_driver_identity');
+    const extPlate = document.getElementById('external_driver_plate');
+    const extPhone = document.getElementById('external_driver_phone');
+    if (useExternal) {
+        if (blockReg) blockReg.style.display = 'none';
+        if (blockExt) blockExt.style.display = 'block';
+        if (driverSelect) { driverSelect.value = ''; }
+        if (extName) extName.setAttribute('required', 'required');
+        if (extId) extId.setAttribute('required', 'required');
+        if (extPlate) extPlate.setAttribute('required', 'required');
+    } else {
+        if (blockReg) blockReg.style.display = 'block';
+        if (blockExt) blockExt.style.display = 'none';
+        if (extName) { extName.removeAttribute('required'); extName.value = ''; }
+        if (extId) { extId.removeAttribute('required'); extId.value = ''; }
+        if (extPlate) { extPlate.removeAttribute('required'); extPlate.value = ''; }
+        if (extPhone) { extPhone.value = ''; }
+    }
+}
+document.getElementById('use_external_driver').addEventListener('change', toggleDriverBlocks);
+document.addEventListener('DOMContentLoaded', toggleDriverBlocks);
 
 // Función para actualizar los labels según el tipo de bodega
 function updateWarehouseType() {

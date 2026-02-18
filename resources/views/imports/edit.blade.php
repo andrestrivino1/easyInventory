@@ -325,7 +325,7 @@
             </div>
 
             <div class="actions">
-                <a href="{{ route('imports.provider-index') }}" class="btn-cancel">Cancelar</a>
+                <a href="{{ Auth::user()->rol === 'admin' ? route('imports.index') : route('imports.provider-index') }}" class="btn-cancel">Cancelar</a>
                 <button type="submit" class="btn-save">Actualizar</button>
             </div>
         </form>

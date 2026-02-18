@@ -90,6 +90,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Medidas</th>
+                <th>Calibre</th>
+                <th>Peso empaque</th>
                 <th>Estado</th>
                 <th>Acciones</th>
             </tr>
@@ -100,6 +102,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>{{ $producto->codigo }}</td>
             <td><strong>{{ $producto->nombre }}</strong></td>
             <td>{{ $producto->medidas ?? '-' }}</td>
+            <td>{{ $producto->calibre !== null ? number_format($producto->calibre, 2, ',', '.') : '-' }}</td>
+            <td>{{ $producto->peso_empaque !== null ? number_format($producto->peso_empaque, 2, ',', '.') : '-' }}</td>
             <td>
                 @if($producto->estado)
                     <span style="color: #28a745; font-weight: 500;">Activo</span>
@@ -122,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
         @empty
         <tr>
-            <td colspan="5" style="text-align: center; padding: 40px; color: #999;">
+            <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
                 <i class="bi bi-box" style="font-size: 3em; display: block; margin-bottom: 10px;"></i>
                 <div>No hay productos registrados</div>
             </td>

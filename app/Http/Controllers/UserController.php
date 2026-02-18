@@ -62,7 +62,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer',
+            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer,proveedor_itr',
             'password' => 'required|string|min:6|confirmed',
         ];
 
@@ -152,7 +152,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email,' . $usuario->id,
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer',
+            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer,proveedor_itr',
             'password' => 'nullable|string|min:6|confirmed',
         ];
 

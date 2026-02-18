@@ -395,7 +395,7 @@
                             @elseif($import->status === 'in_transit')
                                 <span class="status-badge status-in-transit">{{ __('common.en_transito') }}</span>
                             @elseif($import->status === 'recibido')
-                                <span class="status-badge" style="background: #17a2b8; color: white;">{{ __('common.recibido') }}</span>
+                                <span class="status-badge" style="background: #17a2b8; color: white;">Arribo Confirmado</span>
                             @elseif($import->status === 'pendiente_por_confirmar')
                                 <span class="status-badge" style="background: #ff9800; color: white;">Pendiente por confirmar</span>
                             @else

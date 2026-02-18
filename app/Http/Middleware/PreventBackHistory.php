@@ -18,8 +18,9 @@ class PreventBackHistory
     {
         $response = $next($request);
 
-        // Skip for binary file downloads (e.g. PDF generation) to avoid "Call to undefined method header()" error
-        if ($response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+        // No modificar respuestas de descarga: StreamedResponse y BinaryFileResponse no tienen header() encadenable
+        if ($response instanceof \Symfony\Component\HttpFoundation\StreamedResponse
+            || $response instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
             return $response;
         }
 

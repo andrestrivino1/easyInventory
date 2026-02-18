@@ -80,20 +80,24 @@ class ProductController extends Controller
         $data = $request->validate([
             'nombre' => 'required|string|max:255',
             'medidas' => 'nullable|string|max:255',
+            'calibre' => 'nullable|numeric|min:0',
+            'alto' => 'nullable|numeric|min:0',
+            'ancho' => 'nullable|numeric|min:0',
+            'peso_empaque' => 'nullable|numeric|min:0',
+            'tipo_medida' => 'nullable|in:unidad,caja',
+            'unidades_por_caja' => 'nullable|integer|min:0',
             'estado' => 'nullable|boolean',
         ]);
         
-        // Valores por defecto - productos globales inician sin stock
         $data['stock'] = 0;
-        $data['unidades_por_caja'] = null;
         $data['estado'] = $data['estado'] ?? true;
         $data['precio'] = 0;
-        // Los productos globales no tienen almacen_id específico
         $data['almacen_id'] = null;
-        // tipo_medida es opcional - se definirá cuando se agregue a contenedor o se transfiera
-        $data['tipo_medida'] = $data['tipo_medida'] ?? null;
+        $data['peso_empaque'] = $data['peso_empaque'] ?? 2.5;
+        if (isset($data['tipo_medida']) && $data['tipo_medida'] === '') {
+            $data['tipo_medida'] = null;
+        }
         
-        // Crear producto global
         \App\Models\Product::create($data);
         return redirect()->route('products.index')->with('success', 'Producto global creado correctamente. El stock se asignará automáticamente cuando se agregue a contenedores o se reciban transferencias.');
     }
@@ -146,18 +150,24 @@ class ProductController extends Controller
             return redirect()->route('products.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
         
-        // Los productos son globales - todos los usuarios pueden editarlos
         $data = $request->validate([
-            'nombre'   => 'required|string|max:255',
-            'medidas'  => 'nullable|string|max:255',
-            'estado'   => 'nullable|boolean',
+            'nombre' => 'required|string|max:255',
+            'medidas' => 'nullable|string|max:255',
+            'calibre' => 'nullable|numeric|min:0',
+            'alto' => 'nullable|numeric|min:0',
+            'ancho' => 'nullable|numeric|min:0',
+            'peso_empaque' => 'nullable|numeric|min:0',
+            'tipo_medida' => 'nullable|in:unidad,caja',
+            'unidades_por_caja' => 'nullable|integer|min:0',
+            'estado' => 'nullable|boolean',
         ]);
         $data['estado'] = $data['estado'] ?? true;
-        // Los productos son globales - almacen_id y tipo_medida deben ser null
         $data['almacen_id'] = null;
-        $data['tipo_medida'] = null;
+        $data['peso_empaque'] = $data['peso_empaque'] ?? 2.5;
+        if (isset($data['tipo_medida']) && $data['tipo_medida'] === '') {
+            $data['tipo_medida'] = null;
+        }
         
-        // Actualizar producto
         $product->update($data);
         return redirect()->route('products.index')->with('success', 'Producto actualizado correctamente.');
     }

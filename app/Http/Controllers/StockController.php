@@ -186,6 +186,10 @@ class StockController extends Controller
                 // Calcular stock final (descontar salidas del total unificado)
                 $stockFinal = max(0, $productGroup->stock_inicial_total - $salidasDescontadas);
                 $productGroup->laminas_en_contenedor = $stockFinal;
+                // Cajas deben reflejar el mismo stock: si no hay láminas disponibles, cajas = 0 (evita confusión con Salidas)
+                $productGroup->cajas_en_contenedor = ($originalProduct->unidades_por_caja > 0)
+                    ? (int) floor($stockFinal / $originalProduct->unidades_por_caja)
+                    : 0;
 
                 // Crear referencia de contenedores unificada (todas las referencias separadas por coma)
                 $productGroup->container_reference = $productGroup->container_references->unique()->implode(', ');

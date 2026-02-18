@@ -158,10 +158,10 @@
                 <span class="info-label">Fecha:</span>
                 <span class="info-value">{{ $transferOrder->date ? \Carbon\Carbon::parse($transferOrder->date)->format('d/m/Y') : '-' }}</span>
             </div>
-            @if($transferOrder->driver)
+            @if($transferOrder->driver_name)
             <div class="info-row">
                 <span class="info-label">Conductor:</span>
-                <span class="info-value">{{ $transferOrder->driver->nombre }}</span>
+                <span class="info-value">{{ $transferOrder->driver_name }} @if($transferOrder->driver_identity)({{ $transferOrder->driver_identity }})@endif</span>
             </div>
             @endif
         </div>
