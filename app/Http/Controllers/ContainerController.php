@@ -10,11 +10,28 @@ use Illuminate\Support\Facades\Auth;
 
 class ContainerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $containers = Container::with(['products', 'warehouse'])
-            ->orderByDesc('id')
-            ->paginate(10);
+        $query = Container::with(['products', 'warehouse']);
+
+        // Búsqueda global
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('reference', 'like', '%' . $search . '%')
+                    ->orWhere('note', 'like', '%' . $search . '%')
+                    ->orWhereHas('warehouse', function ($wq) use ($search) {
+                        $wq->where('nombre', 'like', '%' . $search . '%')
+                            ->orWhere('ciudad', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('products', function ($pq) use ($search) {
+                        $pq->where('nombre', 'like', '%' . $search . '%')
+                            ->orWhere('codigo', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $containers = $query->orderByDesc('id')->paginate(10);
 
         return view('containers.index', compact('containers'));
     }
@@ -105,6 +122,39 @@ class ContainerController extends Controller
         }
 
         $container->load('products');
+
+        // Para cada producto con 0 cajas, buscar de qué transferencia o salida provino
+        $productOrigin = [];
+        foreach ($container->products as $product) {
+            if ($product->pivot->boxes == 0) {
+                // Buscar en transferencias
+                $transfer = \App\Models\TransferOrder::whereHas('products', function ($q) use ($product, $container) {
+                    $q->where('product_id', $product->id)
+                        ->where('container_id', $container->id);
+                })->orderByDesc('id')->first();
+
+                // Buscar en salidas
+                $salida = \App\Models\Salida::whereHas('products', function ($q) use ($product, $container) {
+                    $q->where('product_id', $product->id)
+                        ->where('container_id', $container->id);
+                })->orderByDesc('id')->first();
+
+                if ($transfer) {
+                    $productOrigin[$product->id] = [
+                        'tipo' => 'transferencia',
+                        'numero' => $transfer->order_number,
+                    ];
+                } elseif ($salida) {
+                    $productOrigin[$product->id] = [
+                        'tipo' => 'salida',
+                        'numero' => $salida->salida_number,
+                    ];
+                } else {
+                    $productOrigin[$product->id] = null;
+                }
+            }
+        }
+
         // Mostrar todos los productos globales
         $products = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
@@ -113,7 +163,7 @@ class ContainerController extends Controller
         $warehouses = Warehouse::whereIn('id', Warehouse::getBodegasQueRecibenContenedores())
             ->orderBy('nombre')
             ->get();
-        return view('containers.edit', compact('container', 'products', 'warehouses'));
+        return view('containers.edit', compact('container', 'products', 'warehouses', 'productOrigin'));
     }
     public function update(Request $request, Container $container)
     {

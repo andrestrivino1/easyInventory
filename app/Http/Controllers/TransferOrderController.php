@@ -1294,7 +1294,9 @@ class TransferOrderController extends Controller
             $stock = 0;
 
             if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
-                // Bodega que recibe contenedores: stock desde container_product
+                // Bodega que recibe contenedores: calcular stock total para referencia
+                // NOTA: Este stock total solo se usa para decidir si mostrar el producto
+                // El stock real por contenedor se calcula más abajo
                 $containerProducts = DB::table('container_product')
                     ->join('containers', 'container_product.container_id', '=', 'containers.id')
                     ->where('container_product.product_id', $product->id)
@@ -1306,27 +1308,7 @@ class TransferOrderController extends Controller
                     $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
                 }
 
-                // Descontar salidas para bodegas que reciben contenedores
-                $salidas = \App\Models\Salida::where('warehouse_id', $warehouseId)
-                    ->whereHas('products', function ($query) use ($product) {
-                        $query->where('products.id', $product->id);
-                    })
-                    ->with([
-                        'products' => function ($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity');
-                        }
-                    ])
-                    ->get();
-
-                foreach ($salidas as $salida) {
-                    $productInSalida = $salida->products->first();
-                    if ($productInSalida) {
-                        // Las salidas ya se guardan en láminas (unidades), no en cajas
-                        // No necesitamos convertir porque la cantidad ya está en unidades
-                        $quantity = $productInSalida->pivot->quantity;
-                        $stock -= $quantity;
-                    }
-                }
+                // NO descontamos salidas aquí - se descontarán por contenedor individual más abajo
             } else {
                 // Otra bodega: stock desde transferencias recibidas menos salidas
                 $receivedTransfers = TransferOrder::where('status', 'recibido')
@@ -1447,15 +1429,6 @@ class TransferOrderController extends Controller
                 // Al editar una transferencia: cajas efectivas = cajas en BD + cajas que tiene esa transferencia (recuperar stock)
                 $transferQtys = $transferQuantitiesByProductContainer[$product->id] ?? [];
 
-                $stockTotalSinDescontar = 0;
-                foreach ($containerProducts as $cp2) {
-                    $boxesEffective = ($cp2->boxes ?? 0);
-                    if (isset($transferQtys[$cp2->container_id])) {
-                        $boxesEffective += $transferQtys[$cp2->container_id]['quantity'];
-                    }
-                    $stockTotalSinDescontar += $boxesEffective * ($cp2->sheets_per_box ?? 0);
-                }
-
                 foreach ($containerProducts as $cp) {
                     $boxesEnBd = (int) ($cp->boxes ?? 0);
                     $qtyEnTransferencia = isset($transferQtys[$cp->container_id]) ? $transferQtys[$cp->container_id]['quantity'] : 0;
@@ -1463,13 +1436,15 @@ class TransferOrderController extends Controller
 
                     $stockContenedor = $cajasEfectivas * ($cp->sheets_per_box ?? 0);
                     if ($stockContenedor > 0) {
-                        $stockContenedorFinal = $stockContenedor;
-                        if ($stockTotalSinDescontar > 0 && $stock < $stockTotalSinDescontar) {
-                            $salidasTotales = $stockTotalSinDescontar - $stock;
-                            $proporcion = $stockContenedor / $stockTotalSinDescontar;
-                            $salidasDelContenedor = $salidasTotales * $proporcion;
-                            $stockContenedorFinal = max(0, $stockContenedor - $salidasDelContenedor);
-                        }
+                        // Descontar solo las salidas que salieron de ESTE contenedor específico
+                        $salidasDelContenedor = DB::table('salida_products')
+                            ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                            ->where('salida_products.container_id', $cp->container_id)
+                            ->where('salida_products.product_id', $product->id)
+                            ->where('salidas.warehouse_id', $warehouseId)
+                            ->sum('salida_products.quantity');
+
+                        $stockContenedorFinal = max(0, $stockContenedor - $salidasDelContenedor);
 
                         // Solo ofrecer producto si hay stock disponible (coherente con Stock y Salidas: 0 cajas/0 láminas = no usable)
                         if ($stockContenedorFinal <= 0) {

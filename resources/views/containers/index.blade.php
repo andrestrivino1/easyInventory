@@ -94,13 +94,34 @@
             <h2 class="mb-4" style="text-align:center;color:#333;font-weight:bold;">Contenedores registrados</h2>
 
             <!-- Campo de búsqueda -->
-            <div class="mb-3" style="max-width: 400px; margin: 0 auto 20px; text-align: center;">
-                <div style="position: relative; width: 100%;">
-                    <input type="text" id="search-containers-main" class="form-control" placeholder="Buscar contenedores..."
-                        style="padding-left: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
-                    <i class="bi bi-search"
-                        style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
-                </div>
+            <div class="mb-3" style="max-width: 600px; margin: 0 auto 20px;">
+                <form method="GET" action="{{ route('containers.index') }}" id="search-form">
+                    <div style="position: relative; width: 100%; display: flex; gap: 10px; align-items: center;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="text" name="search" id="search-containers-main" class="form-control" 
+                                placeholder="Buscar por contenedor, bodega, producto..." 
+                                value="{{ request('search') }}"
+                                style="padding-left: 40px; padding-right: 40px; border-radius: 25px; border: 2px solid #e0e0e0; width: 100%;">
+                            <i class="bi bi-search"
+                                style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; pointer-events: none;"></i>
+                            @if(request('search'))
+                                <a href="{{ route('containers.index') }}" 
+                                   style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #999; font-size: 18px; text-decoration: none; cursor: pointer;"
+                                   title="Limpiar búsqueda">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </a>
+                            @endif
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="border-radius: 25px; padding: 8px 20px; white-space: nowrap;">
+                            <i class="bi bi-search me-1"></i> Buscar
+                        </button>
+                    </div>
+                </form>
+                @if(request('search'))
+                    <div style="text-align: center; margin-top: 10px; color: #666; font-size: 14px;">
+                        Resultados para: <strong>"{{ request('search') }}"</strong>
+                    </div>
+                @endif
             </div>
 
             @if(session('success') || session('error') || session('warning'))
@@ -143,23 +164,6 @@
                         });
                 </script>
             @endif
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    // Búsqueda en tiempo real
-                    const searchInput = document.getElementById('search-containers-main');
-                    const table = document.getElementById('containers-main-table');
-                    if (searchInput && table) {
-                        searchInput.addEventListener('input', function () {
-                            const searchTerm = this.value.toLowerCase().trim();
-                            const rows = table.querySelectorAll('tbody tr');
-                            rows.forEach(function (row) {
-                                const text = row.textContent.toLowerCase();
-                                row.style.display = text.includes(searchTerm) ? '' : 'none';
-                            });
-                        });
-                    }
-                });
-            </script>
             <div class="table-responsive-custom">
                 <table class="container-table" id="containers-main-table">
                     <thead>

@@ -211,6 +211,8 @@
         let productIndex = 0;
         const products = @json($products ?? []);
         const existingProducts = @json($container->products ?? []);
+        // Mapa productId => {tipo, numero} para productos que salieron en transferencias/salidas
+        const productOrigin = @json($productOrigin ?? []);
 
         function addProduct(existingProduct = null) {
             const container = document.getElementById('products-container');
@@ -223,46 +225,60 @@
             const selectedSheets = existingProduct ? existingProduct.pivot.sheets_per_box : 40;
             const selectedWeight = existingProduct ? existingProduct.pivot.weight_per_box : 0;
 
+            // Texto informativo si el producto salió en una transferencia o salida
+            let originNotice = '';
+            if (existingProduct && selectedBoxes == 0 && productOrigin[existingProduct.id]) {
+                const o = productOrigin[existingProduct.id];
+                originNotice = `<div style="margin-bottom:10px; padding:7px 11px; background:#fff8e1; border:1px solid #ffe082; border-radius:6px; font-size:12.5px; color:#795548;">
+                    ⚠️ Este producto salió en ${o.tipo === 'transferencia' ? 'la transferencia' : 'la salida'} <strong>${o.numero}</strong>.
+                </div>`;
+            } else if (existingProduct && selectedBoxes == 0) {
+                originNotice = `<div style="margin-bottom:10px; padding:7px 11px; background:#fff8e1; border:1px solid #ffe082; border-radius:6px; font-size:12.5px; color:#795548;">
+                    ⚠️ Este producto salió en una transferencia o salida registrada.
+                </div>`;
+            }
+
             productItem.innerHTML = `
-                    <div class="product-item-header">
-                        <span class="product-item-title">Producto #${productIndex + 1}</span>
-                        <button type="button" class="btn-remove-product" onclick="removeProduct(${productIndex})">Eliminar</button>
-                    </div>
-                    <div class="product-fields">
-                        <div>
-                            <label for="products[${productIndex}][product_id]">Producto*</label>
-                            <select name="products[${productIndex}][product_id]" required onchange="updateProductFields(${productIndex})">
-                                <option value="">Seleccione un producto</option>
-                                ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida || ''}" data-medidas="${(p.medidas || '')}" data-weight="${p.weight_per_box != null ? p.weight_per_box : ''}" data-sheets="${p.unidades_por_caja != null ? p.unidades_por_caja : ''}" data-calibre="${p.calibre != null ? p.calibre : ''}" data-alto="${p.alto != null ? p.alto : ''}" data-ancho="${p.ancho != null ? p.ancho : ''}" data-peso-empaque="${p.peso_empaque != null ? p.peso_empaque : ''}" ${p.id == selectedProductId ? 'selected' : ''}>${p.nombre} (${p.codigo})</option>`).join('')}
-                            </select>
+                        <div class="product-item-header">
+                            <span class="product-item-title">Producto #${productIndex + 1}</span>
+                            <button type="button" class="btn-remove-product" onclick="removeProduct(${productIndex})">Eliminar</button>
                         </div>
-                        <div>
-                            <label for="products[${productIndex}][medidas]">Medidas</label>
-                            <input type="text" name="products[${productIndex}][medidas]" id="medidas-${productIndex}" value="${existingProduct && existingProduct.medidas ? existingProduct.medidas : ''}" readonly placeholder="Seleccione un producto primero" style="background-color: #f0f0f0; cursor: not-allowed;">
+                        ${originNotice}
+                        <div class="product-fields">
+                            <div>
+                                <label for="products[${productIndex}][product_id]">Producto*</label>
+                                <select name="products[${productIndex}][product_id]" required onchange="updateProductFields(${productIndex})">
+                                    <option value="">Seleccione un producto</option>
+                                    ${products.map(p => `<option value="${p.id}" data-tipo="${p.tipo_medida || ''}" data-medidas="${(p.medidas || '')}" data-weight="${p.weight_per_box != null ? p.weight_per_box : ''}" data-sheets="${p.unidades_por_caja != null ? p.unidades_por_caja : ''}" data-calibre="${p.calibre != null ? p.calibre : ''}" data-alto="${p.alto != null ? p.alto : ''}" data-ancho="${p.ancho != null ? p.ancho : ''}" data-peso-empaque="${p.peso_empaque != null ? p.peso_empaque : ''}" ${p.id == selectedProductId ? 'selected' : ''}>${p.nombre} (${p.codigo})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="products[${productIndex}][medidas]">Medidas</label>
+                                <input type="text" name="products[${productIndex}][medidas]" id="medidas-${productIndex}" value="${existingProduct && existingProduct.medidas ? existingProduct.medidas : ''}" readonly placeholder="Seleccione un producto primero" style="background-color: #f0f0f0; cursor: not-allowed;">
+                            </div>
+                            <div>
+                                <label for="products[${productIndex}][boxes]">Cajas*</label>
+                                <input type="number" name="products[${productIndex}][boxes]" min="${existingProduct && existingProduct.pivot.boxes == 0 ? 0 : 1}" value="${selectedBoxes}" required data-depleted="${existingProduct && existingProduct.pivot.boxes == 0 ? 'true' : 'false'}" oninput="calculateSheets(${productIndex}); calculateWeight(${productIndex});">
+                            </div>
+                            <div>
+                                <label for="products[${productIndex}][sheets_per_box]">Láminas por caja*</label>
+                                <input type="number" name="products[${productIndex}][sheets_per_box]" min="1" value="${selectedSheets}" required oninput="calculateSheets(${productIndex}); updateWeightFromSheets(${productIndex}); calculateWeight(${productIndex});">
+                            </div>
+                            <div>
+                                <label for="products[${productIndex}][weight_per_box]">Peso por caja (kg)*</label>
+                                <input type="number" step="0.01" name="products[${productIndex}][weight_per_box]" id="weight-${productIndex}" min="0" value="${selectedWeight}" required oninput="calculateWeight(${productIndex})">
+                                <small class="text-muted" style="font-size:11px;">Se rellena automáticamente si el producto tiene calibre, alto, ancho y peso empaque.</small>
+                            </div>
+                            <div>
+                                <label>Total láminas</label>
+                                <div style="padding: 10px 16px; background: #e3f2fd; border-radius: 6px; color: #1565c0; font-weight: bold;" id="total-sheets-${productIndex}">${selectedBoxes * selectedSheets}</div>
+                            </div>
+                            <div>
+                                <label>Total peso (kg)</label>
+                                <div style="padding: 10px 16px; background: #f1f8e9; border-radius: 6px; color: #2e7d32; font-weight: bold;" id="total-weight-${productIndex}">${(selectedBoxes * selectedWeight).toFixed(2)}</div>
+                            </div>
                         </div>
-                        <div>
-                            <label for="products[${productIndex}][boxes]">Cajas*</label>
-                            <input type="number" name="products[${productIndex}][boxes]" min="1" value="${selectedBoxes}" required oninput="calculateSheets(${productIndex}); calculateWeight(${productIndex});">
-                        </div>
-                        <div>
-                            <label for="products[${productIndex}][sheets_per_box]">Láminas por caja*</label>
-                            <input type="number" name="products[${productIndex}][sheets_per_box]" min="1" value="${selectedSheets}" required oninput="calculateSheets(${productIndex}); updateWeightFromSheets(${productIndex}); calculateWeight(${productIndex});">
-                        </div>
-                        <div>
-                            <label for="products[${productIndex}][weight_per_box]">Peso por caja (kg)*</label>
-                            <input type="number" step="0.01" name="products[${productIndex}][weight_per_box]" id="weight-${productIndex}" min="0" value="${selectedWeight}" required oninput="calculateWeight(${productIndex})">
-                            <small class="text-muted" style="font-size:11px;">Se rellena automáticamente si el producto tiene calibre, alto, ancho y peso empaque.</small>
-                        </div>
-                        <div>
-                            <label>Total láminas</label>
-                            <div style="padding: 10px 16px; background: #e3f2fd; border-radius: 6px; color: #1565c0; font-weight: bold;" id="total-sheets-${productIndex}">${selectedBoxes * selectedSheets}</div>
-                        </div>
-                        <div>
-                            <label>Total peso (kg)</label>
-                            <div style="padding: 10px 16px; background: #f1f8e9; border-radius: 6px; color: #2e7d32; font-weight: bold;" id="total-weight-${productIndex}">${(selectedBoxes * selectedWeight).toFixed(2)}</div>
-                        </div>
-                    </div>
-                `;
+                    `;
 
             container.appendChild(productItem);
             productIndex++;
@@ -368,13 +384,13 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            // Cargar productos existentes
+            // Cargar solo productos activos (boxes > 0)
             if (existingProducts.length > 0) {
                 existingProducts.forEach(product => {
                     addProduct(product);
                 });
             } else {
-                // Si no hay productos, agregar uno vacío
+                // Si todos los productos están agotados o no hay ninguno, agregar fila vacía
                 addProduct();
             }
 
@@ -387,18 +403,20 @@
                     return false;
                 }
 
-                // Validar que ningún producto tenga 0 cajas
-                let hasZeroBoxes = false;
-                productItems.forEach((item, index) => {
+                // Validar que ningún producto nuevo tenga 0 cajas
+                // (se permite 0 en productos que ya salieron en transferencias/salidas)
+                let hasInvalidZeroBoxes = false;
+                productItems.forEach((item) => {
                     const boxesInput = item.querySelector('input[name*="[boxes]"]');
-                    if (boxesInput && (parseInt(boxesInput.value) || 0) === 0) {
-                        hasZeroBoxes = true;
+                    const isDepleted = boxesInput && boxesInput.dataset.depleted === 'true';
+                    if (boxesInput && (parseInt(boxesInput.value) || 0) === 0 && !isDepleted) {
+                        hasInvalidZeroBoxes = true;
                     }
                 });
 
-                if (hasZeroBoxes) {
+                if (hasInvalidZeroBoxes) {
                     e.preventDefault();
-                    alert('No puedes guardar productos con 0 cajas. Por favor, ingresa al menos 1 caja para cada producto o elimina el producto.');
+                    alert('No puedes guardar productos nuevos con 0 cajas. Por favor, ingresa al menos 1 caja o elimina el producto.');
                     return false;
                 }
             });

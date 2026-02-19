@@ -138,6 +138,7 @@ class SalidaController extends Controller
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
+            'products.*.container_id' => 'nullable|exists:containers,id',
         ]);
 
         // Validar que el usuario tenga permiso para esta bodega
@@ -199,42 +200,47 @@ class SalidaController extends Controller
 
                 if (in_array($data['warehouse_id'], $bodegasQueRecibenContenedores)) {
                     // Bodega que recibe contenedores: stock desde container_product
-                    // Calcular stock total de TODOS los contenedores (unificado)
-                    $containerProducts = DB::table('container_product')
+                    // Si el usuario eligió un contenedor específico, filtrar por ese
+                    $chosenContainerId = !empty($productData['container_id']) ? (int) $productData['container_id'] : null;
+
+                    $cpQuery = DB::table('container_product')
                         ->join('containers', 'container_product.container_id', '=', 'containers.id')
                         ->where('container_product.product_id', $product->id)
                         ->where('containers.warehouse_id', $data['warehouse_id'])
                         ->where('container_product.boxes', '>', 0)
-                        ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box')
-                        ->get();
+                        ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box');
 
-                    // Sumar stock de todos los contenedores
+                    if ($chosenContainerId) {
+                        $cpQuery->where('container_product.container_id', $chosenContainerId);
+                    }
+
+                    $containerProducts = $cpQuery->get();
+
+                    // Sumar stock (del contenedor elegido o de todos si no se eligió)
                     foreach ($containerProducts as $cp) {
                         $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
-                        // Usar el primer container_id como referencia (para trazabilidad)
                         if ($containerId === null) {
                             $containerId = $cp->container_id;
                         }
                     }
 
-                    // Descontar salidas existentes (las salidas se descuentan del total unificado)
-                    $salidas = Salida::where('warehouse_id', $data['warehouse_id'])
-                        ->whereHas('products', function ($query) use ($product) {
-                            $query->where('products.id', $product->id);
-                        })
-                        ->with([
-                            'products' => function ($query) use ($product) {
-                                $query->where('products.id', $product->id)->withPivot('quantity');
-                            }
-                        ])
-                        ->get();
+                    // Usar el contenedor elegido por el usuario si se especificó
+                    if ($chosenContainerId) {
+                        $containerId = $chosenContainerId;
+                    }
 
-                    foreach ($salidas as $salida) {
-                        $productInSalida = $salida->products->first();
-                        if ($productInSalida) {
-                            // Las salidas ya se guardan en láminas (unidades)
-                            $stock -= $productInSalida->pivot->quantity;
-                        }
+                    // Descontar salidas existentes (filtradas por contenedor si aplica)
+                    $salidasQuery = DB::table('salida_products')
+                        ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                        ->where('salidas.warehouse_id', $data['warehouse_id'])
+                        ->where('salida_products.product_id', $product->id);
+
+                    if ($chosenContainerId) {
+                        $salidasQuery->where('salida_products.container_id', $chosenContainerId);
+                    }
+
+                    foreach ($salidasQuery->select('salida_products.quantity')->get() as $sp) {
+                        $stock -= $sp->quantity;
                     }
                 } else {
                     // Otra bodega: stock desde transferencias recibidas menos salidas
@@ -694,7 +700,7 @@ class SalidaController extends Controller
                     ->where('container_product.product_id', $product->id)
                     ->where('containers.warehouse_id', $warehouseId)
                     ->where('container_product.boxes', '>', 0)
-                    ->select('container_product.boxes', 'container_product.sheets_per_box')
+                    ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box', 'containers.reference')
                     ->get();
 
                 foreach ($containerProducts as $cp) {
@@ -831,6 +837,55 @@ class SalidaController extends Controller
             // Si el stock es 0 pero hay transferencias recibidas, también incluirlo para diagnóstico
             // (esto ayuda a identificar problemas donde las salidas descontaron más de lo recibido)
             if ($finalStock > 0 || ($hasReceivedTransfers && $finalStock == 0)) {
+                // Obtener contenedores del producto para esta bodega
+                $containers = [];
+                if (in_array($warehouseId, $bodegasQueRecibenContenedores)) {
+                    // Bodegas que reciben contenedores: contenedores desde container_product
+                    // Incluir stock individual por contenedor para el selector del frontend
+                    $cpRows = DB::table('container_product')
+                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                        ->where('container_product.product_id', $product->id)
+                        ->where('containers.warehouse_id', $warehouseId)
+                        ->where('container_product.boxes', '>', 0)
+                        ->select('container_product.container_id', 'containers.reference', 'container_product.boxes', 'container_product.sheets_per_box')
+                        ->get();
+                    foreach ($cpRows as $cpRow) {
+                        // Stock del contenedor = cajas × láminas por caja - salidas de ese contenedor
+                        $containerStock = ($cpRow->boxes ?? 0) * ($cpRow->sheets_per_box ?? 0);
+                        $salidasContainer = DB::table('salida_products')
+                            ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                            ->where('salidas.warehouse_id', $warehouseId)
+                            ->where('salida_products.product_id', $product->id)
+                            ->where('salida_products.container_id', $cpRow->container_id)
+                            ->sum('salida_products.quantity');
+                        $containerStock = max(0, $containerStock - $salidasContainer);
+
+                        $containers[] = [
+                            'id' => $cpRow->container_id,
+                            'reference' => $cpRow->reference,
+                            'stock' => $containerStock,
+                        ];
+                    }
+                } else {
+                    // Otras bodegas: contenedores desde transferencias recibidas
+                    $transfers = DB::table('transfer_order_products')
+                        ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+                        ->join('containers', 'transfer_order_products.container_id', '=', 'containers.id')
+                        ->where('transfer_orders.status', 'recibido')
+                        ->where('transfer_orders.warehouse_to_id', $warehouseId)
+                        ->where('transfer_order_products.product_id', $product->id)
+                        ->whereNotNull('transfer_order_products.container_id')
+                        ->select('transfer_order_products.container_id', 'containers.reference')
+                        ->distinct()
+                        ->get();
+                    foreach ($transfers as $t) {
+                        $containers[] = [
+                            'id' => $t->container_id,
+                            'reference' => $t->reference,
+                        ];
+                    }
+                }
+
                 $productsWithStock[] = [
                     'id' => $product->id,
                     'nombre' => $product->nombre,
@@ -839,6 +894,7 @@ class SalidaController extends Controller
                     'stock' => $finalStock,
                     'tipo_medida' => $product->tipo_medida,
                     'unidades_por_caja' => $product->unidades_por_caja ?? 1,
+                    'containers' => $containers,
                 ];
 
                 if ($finalStock == 0 && $hasReceivedTransfers) {
