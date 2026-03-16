@@ -286,8 +286,7 @@ class SalidaController extends Controller
                         ->get();
 
                     foreach ($salidas as $salida) {
-                        $productInSalida = $salida->products->first();
-                        if ($productInSalida) {
+                        foreach ($salida->products as $productInSalida) {
                             $quantity = $productInSalida->pivot->quantity;
                             $stock -= $quantity;
                         }
@@ -581,6 +580,265 @@ class SalidaController extends Controller
                 'salida_id' => $salida->id ?? null
             ]);
             return redirect()->route('salidas.index')->with('error', 'Error al cargar la salida: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     * Solo admin puede editar salidas.
+     *
+     * @param  \App\Models\Salida  $salida
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
+     */
+    public function edit(Salida $salida)
+    {
+        $user = Auth::user();
+
+        if ($user->rol !== 'admin') {
+            return redirect()->route('salidas.index')->with('error', 'No tienes permiso para editar salidas.');
+        }
+
+        $salida->load([
+            'warehouse',
+            'products' => function ($q) {
+                $q->withPivot('quantity', 'container_id');
+            },
+            'driver',
+        ]);
+
+        $warehouses = Warehouse::orderBy('nombre')->get();
+        $products = \App\Models\Product::with('containers')
+            ->whereNull('almacen_id')
+            ->orderBy('nombre')
+            ->get();
+        $drivers = \App\Models\Driver::activeWithValidSocialSecurity()->orderBy('name')->get();
+        $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+
+        return view('salidas.edit', compact('salida', 'warehouses', 'products', 'drivers', 'bodegasBuenaventuraIds'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     * Solo admin puede actualizar salidas.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Salida  $salida
+     * @return \Illuminate\Http\Response|\Illuminate\View\View
+     */
+    public function update(Request $request, Salida $salida)
+    {
+        $user = Auth::user();
+
+        if ($user->rol !== 'admin') {
+            return redirect()->route('salidas.index')->with('error', 'No tienes permiso para editar salidas.');
+        }
+
+        $data = $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'fecha' => 'required|date',
+            'a_nombre_de' => 'required|string|max:255',
+            'nit_cedula' => 'required|string|max:255',
+            'note' => 'nullable|string|max:500',
+            'aprobo' => 'nullable|string|max:255',
+            'ciudad_destino' => 'nullable|string|max:255',
+            'use_external_driver' => 'nullable|boolean',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'external_driver_name' => 'nullable|required_if:use_external_driver,1|string|max:255',
+            'external_driver_identity' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_plate' => 'nullable|required_if:use_external_driver,1|string|max:50',
+            'external_driver_phone' => 'nullable|string|max:20',
+            'products' => 'required|array|min:1',
+            'products.*.product_id' => 'required|exists:products,id',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.container_id' => 'nullable|exists:containers,id',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $warehouse = Warehouse::findOrFail($data['warehouse_id']);
+            $bodegasQueRecibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+            $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
+            $isBuenaventura = in_array($data['warehouse_id'], $bodegasBuenaventuraIds);
+
+            $productsToAttach = [];
+
+            foreach ($data['products'] as $index => $productData) {
+                $product = \App\Models\Product::where('id', $productData['product_id'])
+                    ->whereNull('almacen_id')
+                    ->first();
+
+                if (!$product) {
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto seleccionado no existe.")->withInput();
+                }
+
+                // Validar que para bodegas de Buenaventura solo se permitan productos tipo "caja"
+                if ($isBuenaventura && $product->tipo_medida !== 'caja') {
+                    DB::rollBack();
+                    return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Las bodegas de Buenaventura solo pueden dar salida a productos medidos en cajas.")->withInput();
+                }
+
+                $stock = 0;
+                $containerId = null;
+
+                if (in_array($data['warehouse_id'], $bodegasQueRecibenContenedores)) {
+                    $chosenContainerId = !empty($productData['container_id']) ? (int) $productData['container_id'] : null;
+
+                    $cpQuery = DB::table('container_product')
+                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                        ->where('container_product.product_id', $product->id)
+                        ->where('containers.warehouse_id', $data['warehouse_id'])
+                        ->where('container_product.boxes', '>', 0)
+                        ->select('container_product.container_id', 'container_product.boxes', 'container_product.sheets_per_box');
+
+                    if ($chosenContainerId) {
+                        $cpQuery->where('container_product.container_id', $chosenContainerId);
+                    }
+
+                    foreach ($cpQuery->get() as $cp) {
+                        $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
+                        if ($containerId === null) {
+                            $containerId = $cp->container_id;
+                        }
+                    }
+
+                    if ($chosenContainerId) {
+                        $containerId = $chosenContainerId;
+                    }
+
+                    // Descontar salidas existentes EXCEPTO la salida actual que se está editando
+                    $salidasQuery = DB::table('salida_products')
+                        ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                        ->where('salidas.warehouse_id', $data['warehouse_id'])
+                        ->where('salida_products.product_id', $product->id)
+                        ->where('salidas.id', '!=', $salida->id); // Excluir la salida actual
+
+                    if ($chosenContainerId) {
+                        $salidasQuery->where('salida_products.container_id', $chosenContainerId);
+                    }
+
+                    foreach ($salidasQuery->select('salida_products.quantity')->get() as $sp) {
+                        $stock -= $sp->quantity;
+                    }
+                } else {
+                    $receivedQuantities = DB::table('transfer_order_products')
+                        ->join('transfer_orders', 'transfer_order_products.transfer_order_id', '=', 'transfer_orders.id')
+                        ->where('transfer_orders.status', 'recibido')
+                        ->where('transfer_orders.warehouse_to_id', $data['warehouse_id'])
+                        ->where('transfer_order_products.product_id', $product->id)
+                        ->select('transfer_order_products.quantity', 'transfer_order_products.good_sheets', 'transfer_order_products.container_id')
+                        ->get();
+
+                    foreach ($receivedQuantities as $received) {
+                        if ($received->good_sheets !== null) {
+                            $stock += $received->good_sheets;
+                        } else {
+                            $qty = $received->quantity;
+                            if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                                $qty = $qty * $product->unidades_por_caja;
+                            }
+                            $stock += $qty;
+                        }
+                        if ($containerId === null && $received->container_id) {
+                            $containerId = $received->container_id;
+                        }
+                    }
+
+                    // Descontar salidas existentes EXCEPTO la actual
+                    $salidasQuantities = DB::table('salida_products')
+                        ->join('salidas', 'salida_products.salida_id', '=', 'salidas.id')
+                        ->where('salidas.warehouse_id', $data['warehouse_id'])
+                        ->where('salida_products.product_id', $product->id)
+                        ->where('salidas.id', '!=', $salida->id) // Excluir la salida actual
+                        ->select('salida_products.quantity')
+                        ->get();
+
+                    foreach ($salidasQuantities as $sq) {
+                        $stock -= $sq->quantity;
+                    }
+                }
+
+                // Convertir cantidad según el tipo de bodega
+                $quantity = $productData['quantity'];
+                if ($isBuenaventura) {
+                    if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                        $quantity = $quantity * $product->unidades_por_caja;
+                    }
+                }
+
+                // Validar stock suficiente
+                if ($stock < $quantity) {
+                    DB::rollBack();
+                    $laminasDisponibles = $stock;
+                    if ($isBuenaventura && $product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                        $cajasDisponibles = floor($stock / $product->unidades_por_caja);
+                        $cajasSolicitadas = $productData['quantity'];
+                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$cajasDisponibles} cajas ({$laminasDisponibles} láminas). Solicitado: {$cajasSolicitadas} cajas.")->withInput();
+                    } else {
+                        if ($product->tipo_medida === 'caja' && $product->unidades_por_caja > 0) {
+                            $cajasDisponibles = floor($stock / $product->unidades_por_caja);
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas ({$cajasDisponibles} cajas). Solicitado: {$quantity} láminas.")->withInput();
+                        } else {
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): Stock insuficiente. Disponible: {$laminasDisponibles} láminas. Solicitado: {$quantity} láminas.")->withInput();
+                        }
+                    }
+                }
+
+                $productsToAttach[] = [
+                    'product_id' => $productData['product_id'],
+                    'container_id' => $containerId,
+                    'quantity' => $quantity,
+                ];
+            }
+
+            $useExternalDriver = !empty($data['use_external_driver']);
+            $driverId = $useExternalDriver ? null : ($data['driver_id'] ?? null);
+
+            // Actualizar los campos de la salida
+            $salida->update([
+                'warehouse_id' => $data['warehouse_id'],
+                'driver_id' => $driverId,
+                'external_driver_name' => $useExternalDriver ? ($data['external_driver_name'] ?? null) : null,
+                'external_driver_identity' => $useExternalDriver ? ($data['external_driver_identity'] ?? null) : null,
+                'external_driver_plate' => $useExternalDriver ? ($data['external_driver_plate'] ?? null) : null,
+                'external_driver_phone' => $useExternalDriver ? ($data['external_driver_phone'] ?? null) : null,
+                'fecha' => $data['fecha'],
+                'a_nombre_de' => $data['a_nombre_de'],
+                'nit_cedula' => $data['nit_cedula'],
+                'note' => $data['note'] ?? null,
+                'aprobo' => $data['aprobo'] ?? null,
+                'ciudad_destino' => $data['ciudad_destino'] ?? null,
+            ]);
+
+            // Reemplazar los productos de la salida (detach todos y volver a adjuntar)
+            $salida->products()->detach();
+
+            foreach ($productsToAttach as $item) {
+                $salida->products()->attach($item['product_id'], [
+                    'quantity' => $item['quantity'],
+                    'container_id' => $item['container_id'],
+                ]);
+            }
+
+            DB::commit();
+            return redirect()->route('salidas.index')->with('success', 'Salida actualizada correctamente.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('SALIDA update - exception', [
+                'msg' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'salida_id' => $salida->id,
+            ]);
+            $errorMessage = "Error al actualizar la salida: " . $e->getMessage();
+            if (config('app.debug')) {
+                $errorMessage .= " (Archivo: " . basename($e->getFile()) . ", Línea: " . $e->getLine() . ")";
+            }
+            return back()->with('error', $errorMessage)->withInput();
         }
     }
 

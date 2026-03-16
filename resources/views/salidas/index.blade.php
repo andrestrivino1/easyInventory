@@ -75,6 +75,12 @@
             color: white;
         }
 
+        .btn-edit {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+        }
+
         .btn-delete {
             background: #ffb3b3;
             color: #b30000;
@@ -164,6 +170,7 @@
                                         <a href="{{ route('salidas.print', $salida) }}" class="btn-print" target="_blank"><i
                                                 class="bi bi-printer"></i></a>
                                         @if(Auth::user()->rol === 'admin')
+                                            <a href="{{ route('salidas.edit', $salida) }}" class="btn-edit">✏️ Editar</a>
                                             <form action="{{ route('salidas.destroy', $salida) }}" method="POST"
                                                 style="display:inline; margin:0;">
                                                 @csrf @method('DELETE')
@@ -257,6 +264,6 @@
             @if(session('error'))
                 Swal.fire({ icon: 'error', title: '', text: '{{ session('error') }}', toast: true, position: 'top-end', showConfirmButton: false, timer: 3500 });
             @endif
-    });
+        });
     </script>
 @endsection

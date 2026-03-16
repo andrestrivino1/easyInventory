@@ -176,8 +176,7 @@ class StockController extends Controller
 
                 $salidasDescontadas = 0;
                 foreach ($salidas as $salida) {
-                    $productInSalida = $salida->products->first();
-                    if ($productInSalida) {
+                    foreach ($salida->products as $productInSalida) {
                         // Las salidas ya se guardan en láminas (unidades)
                         $salidasDescontadas += $productInSalida->pivot->quantity;
                     }
@@ -1019,8 +1018,10 @@ class StockController extends Controller
                         // Agrupar POR CONTENEDOR - cada contenedor mantiene su propia fila
                         // Si ya existe el contenedor, sumar a sus cantidades existentes (puede haber múltiples transferencias del mismo producto en el mismo contenedor)
                         if ($cantidadesPorContenedor->has($containerId)) {
-                            $cantidadesPorContenedor[$containerId]['cajas'] += $quantity;
-                            $cantidadesPorContenedor[$containerId]['laminas'] += $laminas;
+                            $data = $cantidadesPorContenedor->get($containerId);
+                            $data['cajas'] += $quantity;
+                            $data['laminas'] += $laminas;
+                            $cantidadesPorContenedor->put($containerId, $data);
                         } else {
                             // Crear nueva entrada para este contenedor
                             // El contenedor puede estar en cualquier bodega, no solo en la bodega de destino
@@ -1077,8 +1078,10 @@ class StockController extends Controller
 
                         if ($cantidadesPorContenedor->has($unifiedContainerId)) {
                             // Si ya existe una entrada unificada para transferencias sin contenedor, sumar
-                            $cantidadesPorContenedor[$unifiedContainerId]['cajas'] += $quantity;
-                            $cantidadesPorContenedor[$unifiedContainerId]['laminas'] += $laminas;
+                            $data = $cantidadesPorContenedor->get($unifiedContainerId);
+                            $data['cajas'] += $quantity;
+                            $data['laminas'] += $laminas;
+                            $cantidadesPorContenedor->put($unifiedContainerId, $data);
                         } else {
                             // Crear nueva entrada unificada solo para transferencias sin contenedor
                             $cantidadesPorContenedor[$unifiedContainerId] = [
@@ -1108,8 +1111,7 @@ class StockController extends Controller
                     ->get();
 
                 foreach ($outgoingTransfers as $transfer) {
-                    $productInTransfer = $transfer->products->first();
-                    if ($productInTransfer) {
+                    foreach ($transfer->products as $productInTransfer) {
                         $containerId = $productInTransfer->pivot->container_id;
                         $qty = $productInTransfer->pivot->quantity;
 
@@ -1119,7 +1121,6 @@ class StockController extends Controller
                             $laminas = $qty * $producto->unidades_por_caja;
                         }
 
-                        // Descontar del contenedor específico si existe en el cálculo actual
                         // Descontar del contenedor específico si existe en el cálculo actual
                         if ($containerId && $cantidadesPorContenedor->has($containerId)) {
                             $data = $cantidadesPorContenedor->get($containerId);
@@ -1132,6 +1133,53 @@ class StockController extends Controller
                                 $data['cajas'] = 0;
                             }
                             $cantidadesPorContenedor->put($containerId, $data);
+                        }
+                    }
+                }
+
+                // 3. Descontar Salidas (Ventas)
+                $salidas = Salida::where('warehouse_id', $selectedWarehouseId)
+                    ->whereHas('products', function ($query) use ($producto) {
+                        $query->where('products.id', $producto->id);
+                    })
+                    ->with([
+                        'products' => function ($query) use ($producto) {
+                            $query->where('products.id', $producto->id)->withPivot('quantity', 'container_id');
+                        }
+                    ])
+                    ->get();
+
+                foreach ($salidas as $salida) {
+                    foreach ($salida->products as $productInSalida) {
+                        $containerId = $productInSalida->pivot->container_id;
+                        $qtyLaminas = $productInSalida->pivot->quantity;
+
+                        // Descontar del contenedor específico o de la entrada unificada
+                        $targetId = $containerId;
+                        if (!$targetId || !$cantidadesPorContenedor->has($targetId)) {
+                            // Si no hay contenedor o no existe, intentar con "SIN_CONTENEDOR"
+                            $targetId = "SIN_CONTENEDOR_" . $producto->id;
+                        }
+
+                        if ($cantidadesPorContenedor->has($targetId)) {
+                            $data = $cantidadesPorContenedor->get($targetId);
+
+                            // Si es tipo caja, calcular cuántas cajas representa la salida de láminas
+                            if ($producto->tipo_medida === 'caja' && $producto->unidades_por_caja > 0) {
+                                $cajasARestar = $qtyLaminas / $producto->unidades_por_caja;
+                                $data['cajas'] -= $cajasARestar;
+                            } else {
+                                $data['cajas'] -= $qtyLaminas;
+                            }
+
+                            $data['laminas'] -= $qtyLaminas;
+
+                            // Evitar negativos visuales
+                            if ($data['laminas'] < 0) {
+                                $data['laminas'] = 0;
+                                $data['cajas'] = 0;
+                            }
+                            $cantidadesPorContenedor->put($targetId, $data);
                         }
                     }
                 }
@@ -1915,8 +1963,7 @@ class StockController extends Controller
                     ->get();
 
                 foreach ($salidas as $salida) {
-                    $productInSalida = $salida->products->first();
-                    if ($productInSalida) {
+                    foreach ($salida->products as $productInSalida) {
                         // Las salidas ya se guardan en láminas (unidades), no en cajas
                         // No necesitamos convertir porque la cantidad ya está en unidades
                         $quantity = $productInSalida->pivot->quantity;
@@ -1940,8 +1987,7 @@ class StockController extends Controller
 
                 $transitoQty = 0;
                 foreach ($transfersInTransit as $transfer) {
-                    $productInTransfer = $transfer->products->first();
-                    if ($productInTransfer) {
+                    foreach ($transfer->products as $productInTransfer) {
                         $quantity = $productInTransfer->pivot->quantity;
                         // Si es tipo caja, convertir a láminas
                         if ($product->tipo_medida === 'caja') {
