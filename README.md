@@ -1,64 +1,121 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# VIDRIOS J&P S.A.S. — Sistema de Inventario (`easy_inventory`)
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplicación web de gestión de inventario, transferencias, salidas, importaciones y trazabilidad para VIDRIOS J&P S.A.S. (NIT 901.701.161-4). Interfaz multi-rol y multi-idioma (español, inglés, chino).
 
-## About Laravel
+## Stack tecnológico
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Backend**: PHP `^7.4 || ^8.0`, Laravel `^8.75`
+- **Frontend**: Tailwind CSS 3, Alpine.js 3, Chart.js (vía CDN), SweetAlert2 (vía CDN), Bootstrap Icons (vía CDN)
+- **Bundler**: Vite
+- **Base de datos**: MySQL / MariaDB
+- **Autenticación**: Laravel Breeze + Sanctum (tokens API)
+- **PDF**: DomPDF, FPDF/FPDI, TCPDF, pdftk
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requisitos
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 7.4+ (recomendado 8.x)
+- Composer 2.x
+- Node.js LTS y npm
+- MySQL/MariaDB (XAMPP, LAMP o equivalente)
+- Servidor Apache con `mod_rewrite` (o `php artisan serve` para desarrollo)
 
-## Learning Laravel
+## Instalación
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```bash
+# 1. Clonar y entrar al proyecto
+git clone <repo-url> easy_inventory
+cd easy_inventory
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# 2. Dependencias PHP y Node
+composer install
+npm install
 
-## Laravel Sponsors
+# 3. Configuración de entorno
+cp .env.example .env
+php artisan key:generate
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+# 4. Base de datos
+# Crear la BD vacía (ej. en MySQL: CREATE DATABASE vidriosj_inventory;)
+# Importar el dump de referencia:
+mysql -u root -p vidriosj_inventory < database/dumps/vidriosj_inventory.sql
+# O ejecutar las migraciones desde cero:
+php artisan migrate
 
-### Premium Partners
+# 5. Compilar assets
+npm run build
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+# 6. Servir
+php artisan serve
+# o acceder vía XAMPP en http://localhost/easy_inventory/
+```
 
-## Contributing
+## Estructura no estándar (importante)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Este proyecto despliega Laravel con `index.php` y `.htaccess` en la **raíz** del repositorio, no en `public/`. El document root del servidor web debe apuntar a la raíz del proyecto.
 
-## Code of Conduct
+Consecuencia práctica: en plantillas Blade, los assets dentro de `public/` se referencian como `asset('public/logo.png')`, `asset('public/images/flags/colombia.png')`, etc. **Esto es correcto en este deployment**; no cambiar a `asset('...')` sin reorganizar primero la estructura a estándar Laravel.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Roles del sistema
 
-## Security Vulnerabilities
+- **`admin`**: acceso total. Gestiona usuarios, bodegas, productos, transferencias, salidas, importaciones, ITR, conductores, contenedores, stock, trazabilidad.
+- **`funcionario`**: operación diaria (productos, transferencias, salidas, conductores, contenedores, ITR, stock, trazabilidad).
+- **`importer`**: ve y opera sólo el módulo de importaciones (vista de proveedor).
+- **`import_viewer`**: lectura del módulo de importaciones.
+- **`proveedor_itr`**: acceso restringido al módulo ITR (desembalaje).
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Módulos / áreas funcionales
 
-## License
+- Movimientos / Dashboard
+- Productos
+- Bodegas (sólo admin)
+- Transferencias
+- Salidas
+- Conductores y contenedores
+- Stock
+- Trazabilidad
+- Importaciones
+- ITR (desembalaje)
+- Usuarios (sólo admin)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Comandos artisan personalizados
+
+Los siguientes comandos viven en `app/Console/Commands/`:
+
+- `php artisan app:clean-database` — limpieza/mantenimiento de datos.
+- `php artisan app:debug-transfer-products` — diagnóstico de productos en órdenes de transferencia.
+- `php artisan app:sync-itrs-from-imports` — sincroniza registros ITR a partir de importaciones.
+- `php artisan app:update-products-calibre-from-name` — recalcula el calibre de productos a partir de su nombre.
+
+Ejecutar `php artisan list app` para ver descripciones y firmas detalladas.
+
+## Comandos de desarrollo
+
+```bash
+# Servir la app (sin Apache)
+php artisan serve
+
+# Compilar assets una vez
+npm run build
+
+# Modo desarrollo con HMR
+npm run dev
+
+# Format de código PHP (Pint)
+composer pint           # aplicar formato
+composer pint:test      # sólo verificar (no modifica)
+
+# Format de código JS/CSS (Prettier)
+npm run format          # aplicar formato
+npm run format:check    # sólo verificar
+
+# Tests
+php artisan test
+```
+
+## Internacionalización
+
+Tres idiomas disponibles: español (default), inglés, chino. Las traducciones viven en `resources/lang/{es,en,zh}/common.php`. Cambio de idioma vía el selector del header (rutas en `routes/web.php`).
+
+## Licencia
+
+Software propietario de VIDRIOS J&P S.A.S.

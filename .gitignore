@@ -1,13 +1,15 @@
 /node_modules
 /public/hot
 /public/storage
+/public/build
 /storage/*.key
+/storage/app/public
 /vendor
 *.log
-*.env
 .DS_Store
 .env
-.env.backup
+.env.*
+!.env.example
 .phpunit.result.cache
 docker-compose.override.yml
 Homestead.json
@@ -16,3 +18,4 @@ npm-debug.log
 yarn-error.log
 /.idea
 /.vscode
+/specs/*/baseline/
