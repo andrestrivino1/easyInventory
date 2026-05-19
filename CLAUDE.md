@@ -1,4 +1,9 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active plan: [specs/001-cosmetic-cleanup/plan.md](specs/001-cosmetic-cleanup/plan.md)
+
+For additional context about technologies, project structure, shell commands,
+and validation procedures, read the active plan and its related artifacts:
+- [spec.md](specs/001-cosmetic-cleanup/spec.md)
+- [research.md](specs/001-cosmetic-cleanup/research.md)
+- [quickstart.md](specs/001-cosmetic-cleanup/quickstart.md)
 <!-- SPECKIT END -->
