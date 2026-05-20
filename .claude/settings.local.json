@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(specify init *)"
+      "Bash(specify init *)",
+      "Bash(php artisan *)",
+      "Bash(npm run *)"
     ]
   }
 }
