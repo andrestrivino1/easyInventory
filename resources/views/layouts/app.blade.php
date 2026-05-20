@@ -12,7 +12,8 @@
         rel="stylesheet">
     <!-- App CSS (Tailwind + estilos del shell extraídos a resources/css/layout.css) -->
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    <!-- Bootstrap 5 (CSS + Icons, vía CDN — usado por módulo Liquidación de Viajes) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -75,6 +76,8 @@
                 <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
             @endif
             @if($user && $user->rol === 'admin' && !$isImporter && !$isImportViewer)
+                <li><a class="nav-link {{ request()->routeIs('liquidaciones.*') ? 'active' : '' }}" href="{{ route('liquidaciones.index') }}"><i class="bi bi-cash-coin"></i>
+                        Liquidación de Viajes</a></li>
                 <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i>
                         {{ __('common.usuarios') }}</a></li>
             @endif
@@ -142,6 +145,7 @@
         </div>
     </footer>
     <script src="{{ asset('js/app.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @yield('scripts')
     @include('partials.scripts.session-manager')

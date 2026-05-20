@@ -117,3 +117,39 @@ Route::get('traceability/export-excel', [App\Http\Controllers\TraceabilityContro
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Liquidación de Viajes (módulo admin)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'can:liquidaciones.access'])
+    ->prefix('liquidaciones')
+    ->name('liquidaciones.')
+    ->group(function () {
+        // Helpers AJAX (antes del resource para no chocar con wildcards)
+        Route::get('drivers/{driver}/info', [App\Http\Controllers\LiquidacionController::class, 'driverInfo'])->name('drivers.info');
+        Route::get('duplicate-check', [App\Http\Controllers\LiquidacionController::class, 'duplicateCheck'])->name('duplicate-check');
+
+        // Catálogo de Rutas + Peajes (sub-CRUD dentro del módulo)
+        Route::get('rutas/{route}/peajes', [App\Http\Controllers\LiquidacionRouteController::class, 'peajes'])->name('routes.peajes');
+        Route::post('rutas/{route}/toggle-active', [App\Http\Controllers\LiquidacionRouteController::class, 'toggleActive'])->name('routes.toggle-active');
+        Route::resource('rutas', App\Http\Controllers\LiquidacionRouteController::class)->parameters(['rutas' => 'route'])->names('routes');
+
+        // PDF
+        Route::get('{liquidacion}/pdf', [App\Http\Controllers\LiquidacionPdfController::class, 'download'])->name('pdf');
+
+        // Transiciones de estado
+        Route::post('{liquidacion}/cerrar', [App\Http\Controllers\LiquidacionController::class, 'cerrar'])->name('cerrar');
+        Route::post('{liquidacion}/reabrir', [App\Http\Controllers\LiquidacionController::class, 'reabrir'])->name('reabrir');
+        Route::post('{liquidacion}/anular', [App\Http\Controllers\LiquidacionController::class, 'anular'])->name('anular');
+
+        // CRUD principal
+        Route::get('/',                [App\Http\Controllers\LiquidacionController::class, 'index'])->name('index');
+        Route::get('create',           [App\Http\Controllers\LiquidacionController::class, 'create'])->name('create');
+        Route::post('/',               [App\Http\Controllers\LiquidacionController::class, 'store'])->name('store');
+        Route::get('{liquidacion}',    [App\Http\Controllers\LiquidacionController::class, 'show'])->name('show');
+        Route::get('{liquidacion}/edit',[App\Http\Controllers\LiquidacionController::class, 'edit'])->name('edit');
+        Route::put('{liquidacion}',    [App\Http\Controllers\LiquidacionController::class, 'update'])->name('update');
+        Route::delete('{liquidacion}', [App\Http\Controllers\LiquidacionController::class, 'destroy'])->name('destroy');
+    });
