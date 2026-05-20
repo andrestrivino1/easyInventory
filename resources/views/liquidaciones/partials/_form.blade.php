@@ -10,6 +10,114 @@
     $existingTolls = $liq ? $liq->tolls : collect();
 @endphp
 
+{{-- Fallback inline: garantiza que liquidacionForm exista aunque public/js/app.js
+     esté desactualizado en producción. Se registra en alpine:init para sobrescribir
+     cualquier versión parcial cargada por el bundle. --}}
+<script>
+document.addEventListener('alpine:init', function () {
+    window.liquidacionForm = function (config) {
+        return {
+            categories: config.categories || [],
+            routePeajesUrlTpl: config.routePeajesUrlTpl,
+            driverInfoUrlTpl: config.driverInfoUrlTpl,
+            anticipo: parseInt(config.initialAnticipo || 0, 10),
+            sobreanticipo: parseInt(config.initialSobreanticipo || 0, 10),
+            valorFlete: parseInt(config.initialFlete || 0, 10),
+            expenses: [],
+            tolls: [],
+            init() {
+                const existingMap = {};
+                (config.existingExpenses || []).forEach(e => { existingMap[e.expense_category_id] = e; });
+                this.expenses = this.categories.map(cat => {
+                    const existing = existingMap[cat.id];
+                    return {
+                        expense_category_id: cat.id,
+                        category_name: cat.name,
+                        has_galones: cat.has_galones,
+                        valor: existing ? parseInt(existing.valor, 10) || 0 : 0,
+                        galones: existing && existing.galones !== null ? parseFloat(existing.galones) : null,
+                    };
+                });
+                this.tolls = (config.existingTolls || []).map(t => ({
+                    name: t.name,
+                    valor: parseInt(t.valor, 10) || 0,
+                    sort_order: parseInt(t.sort_order, 10),
+                    direction: t.direction || 'ida',
+                    route_toll_id: t.route_toll_id || null,
+                    is_adhoc: !!t.is_adhoc,
+                    is_used: t.is_used !== false,
+                }));
+            },
+            get sumGastosOperativos() {
+                return this.expenses.reduce((s, e) => s + (parseInt(e.valor, 10) || 0), 0);
+            },
+            get sumPeajes() {
+                return this.tolls.filter(t => t.is_used).reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
+            },
+            get sumGastosTotales() { return this.sumGastosOperativos + this.sumPeajes; },
+            get totalAnticipos() {
+                return (parseInt(this.anticipo, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
+            },
+            get saldoViaje() { return this.totalAnticipos - this.sumGastosOperativos; },
+            get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosTotales; },
+            get aFavorDeLabel() {
+                const s = this.saldoViaje;
+                if (s > 0) return 'EMPRESA';
+                if (s < 0) return 'CONDUCTOR';
+                return 'NINGUNO';
+            },
+            recalc() {},
+            formatMoney(n) {
+                return Math.round(parseFloat(n) || 0).toLocaleString('es-CO');
+            },
+            loadDriver(driverId) {
+                if (!driverId) return;
+                fetch(this.driverInfoUrlTpl.replace('__ID__', driverId), {
+                    headers: { 'Accept': 'application/json' }, credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.vehicle_plate && this.$refs.plateInput) {
+                        this.$refs.plateInput.value = data.vehicle_plate;
+                    }
+                })
+                .catch(err => console.error('No se pudo cargar conductor:', err));
+            },
+            loadRouteTolls(routeId) {
+                if (!routeId) return;
+                fetch(this.routePeajesUrlTpl.replace('__ID__', routeId), {
+                    headers: { 'Accept': 'application/json' }, credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    const arr = (data && data.tolls) ? data.tolls : [];
+                    this.tolls = arr.map(t => ({
+                        name: t.name,
+                        valor: parseInt(t.suggested_value, 10) || 0,
+                        sort_order: parseInt(t.sort_order, 10),
+                        direction: t.direction || 'ida',
+                        route_toll_id: t.id,
+                        is_adhoc: false,
+                        is_used: true,
+                    }));
+                })
+                .catch(err => console.error('No se pudieron cargar los peajes de la ruta:', err));
+            },
+            addAdhocToll() {
+                const nextOrder = this.tolls.length > 0
+                    ? Math.max(...this.tolls.map(t => t.sort_order)) + 1
+                    : 1;
+                this.tolls.push({
+                    name: '', valor: 0, sort_order: nextOrder,
+                    direction: 'ida', route_toll_id: null, is_adhoc: true, is_used: true,
+                });
+            },
+            removeToll(idx) { this.tolls.splice(idx, 1); },
+        };
+    };
+});
+</script>
+
 <div x-data='liquidacionForm({!! json_encode([
     "categories" => $categories->map(fn($c) => ["id" => $c->id, "code" => $c->code, "name" => $c->name, "has_galones" => (bool)$c->has_galones])->all(),
     "existingExpenses" => $liq ? $liq->expenses->map(fn($e) => ["expense_category_id" => $e->expense_category_id, "valor" => (int)$e->valor, "galones" => $e->galones])->all() : [],

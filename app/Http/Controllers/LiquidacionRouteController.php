@@ -34,6 +34,7 @@ class LiquidacionRouteController extends Controller
             $route = LiquidacionRoute::create([
                 'origen' => $data['origen'],
                 'destino' => $data['destino'],
+                'vehicle_type' => $data['vehicle_type'],
                 'descripcion' => $data['descripcion'] ?? null,
                 'active' => (bool) ($data['active'] ?? true),
             ]);
@@ -76,6 +77,7 @@ class LiquidacionRouteController extends Controller
             $route->update([
                 'origen' => $data['origen'],
                 'destino' => $data['destino'],
+                'vehicle_type' => $data['vehicle_type'],
                 'descripcion' => $data['descripcion'] ?? null,
                 'active' => (bool) ($data['active'] ?? true),
             ]);

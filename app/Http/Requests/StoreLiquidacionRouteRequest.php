@@ -17,6 +17,7 @@ class StoreLiquidacionRouteRequest extends FormRequest
         return [
             'origen' => ['required', 'string', 'max:100'],
             'destino' => ['required', 'string', 'max:100'],
+            'vehicle_type' => ['required', Rule::in(array_keys(\App\Models\LiquidacionRoute::VEHICLE_LABELS))],
             'descripcion' => ['nullable', 'string'],
             'active' => ['nullable', 'boolean'],
             'tolls' => ['nullable', 'array'],

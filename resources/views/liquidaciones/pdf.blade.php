@@ -6,7 +6,30 @@
 <style>
     @page { margin: 12mm; size: letter portrait; }
     body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #000; }
-    h1 { font-size: 14pt; text-align: center; margin: 0; padding: 4px 0; border: 2px solid #000; }
+    .doc-header { width: 100%; border-collapse: collapse; margin-bottom: 6px; border: 2px solid #000; }
+    .doc-header td { vertical-align: middle; padding: 6px; }
+    .doc-header .col-logo { width: 18%; text-align: center; border-right: 1px solid #000; }
+    .doc-header .col-logo img { max-width: 70px; max-height: 70px; display: block; margin: 0 auto; }
+    .doc-header .col-title { text-align: center; }
+    .doc-header .col-title .company { font-size: 11pt; font-weight: bold; }
+    .doc-header .col-title .company-sub { font-size: 8pt; color: #333; margin-top: 1px; }
+    .doc-header .col-title .doc-title {
+        font-size: 13pt; font-weight: bold; margin-top: 4px;
+        border-top: 1px solid #000; padding-top: 3px;
+    }
+    .doc-header .col-photos { width: 28%; border-left: 1px solid #000; text-align: center; }
+    .doc-header .col-photos table { width: 100%; border-collapse: collapse; }
+    .doc-header .col-photos td { padding: 0 2px; vertical-align: top; text-align: center; }
+    .doc-header .photo-item img {
+        width: 60px; height: 60px; object-fit: cover;
+        border: 1px solid #999; display: block; margin: 0 auto;
+    }
+    .doc-header .photo-placeholder {
+        width: 60px; height: 60px; border: 1px dashed #999;
+        display: block; margin: 0 auto; text-align: center;
+        font-size: 7pt; color: #999; padding-top: 24px; box-sizing: border-box;
+    }
+    .doc-header .photo-label { font-size: 7pt; font-weight: bold; margin-top: 2px; text-transform: uppercase; }
     .header-table, .data-table { width: 100%; border-collapse: collapse; margin: 4px 0; }
     .header-table td, .data-table td, .data-table th {
         border: 1px solid #000; padding: 3px 5px; vertical-align: middle;
@@ -37,7 +60,75 @@
     <div class="anulada-watermark">ANULADA</div>
 @endif
 
-<h1>LIQUIDACIÓN DE VIAJE — VIDRIOS J&amp;P S.A.S.</h1>
+@php
+    $logoBase64 = '';
+    $logoPath = public_path('logo.png');
+    if (file_exists($logoPath)) {
+        $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+    }
+
+    $driverPhotoBase64 = '';
+    if ($liq->driver && $liq->driver->photo_path) {
+        $p = storage_path('app/public/' . $liq->driver->photo_path);
+        if (file_exists($p)) {
+            $info = @getimagesize($p);
+            $mime = $info ? $info['mime'] : 'image/jpeg';
+            $driverPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($p));
+        }
+    }
+
+    $vehiclePhotoBase64 = '';
+    if ($liq->driver && $liq->driver->vehicle_photo_path) {
+        $p = storage_path('app/public/' . $liq->driver->vehicle_photo_path);
+        if (file_exists($p)) {
+            $info = @getimagesize($p);
+            $mime = $info ? $info['mime'] : 'image/jpeg';
+            $vehiclePhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($p));
+        }
+    }
+
+@endphp
+
+<table class="doc-header">
+    <tr>
+        <td class="col-logo">
+            @if ($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="Logo">
+            @endif
+        </td>
+        <td class="col-title">
+            <div class="company">VIDRIOS J&amp;P S.A.S.</div>
+            <div class="company-sub">NIT: 901.701.161-4</div>
+            <div class="doc-title">LIQUIDACIÓN DE VIAJE</div>
+        </td>
+        <td class="col-photos">
+            <table>
+                <tr>
+                    <td>
+                        <div class="photo-item">
+                            @if ($driverPhotoBase64)
+                                <img src="{{ $driverPhotoBase64 }}" alt="Conductor">
+                            @else
+                                <div class="photo-placeholder">Sin foto</div>
+                            @endif
+                            <div class="photo-label">Conductor</div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="photo-item">
+                            @if ($vehiclePhotoBase64)
+                                <img src="{{ $vehiclePhotoBase64 }}" alt="Vehículo">
+                            @else
+                                <div class="photo-placeholder">Sin foto</div>
+                            @endif
+                            <div class="photo-label">Vehículo</div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 
 <table class="header-table">
     <tr>

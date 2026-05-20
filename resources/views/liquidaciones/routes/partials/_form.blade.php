@@ -21,15 +21,27 @@
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label">Ciudad Origen</label>
                     <input type="text" name="origen" class="form-control text-uppercase" required maxlength="100"
                            value="{{ old('origen', $route->origen ?? '') }}">
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label">Ciudad Destino</label>
                     <input type="text" name="destino" class="form-control text-uppercase" required maxlength="100"
                            value="{{ old('destino', $route->destino ?? '') }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tipo de veh&iacute;culo</label>
+                    <select name="vehicle_type" class="form-select" required>
+                        <option value="">&mdash; Seleccionar &mdash;</option>
+                        @foreach (\App\Models\LiquidacionRoute::VEHICLE_LABELS as $value => $label)
+                            <option value="{{ $value }}"
+                                {{ old('vehicle_type', $route->vehicle_type ?? '') === $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label d-block">Estado</label>
@@ -41,7 +53,7 @@
                     </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Descripción (opcional)</label>
+                    <label class="form-label">Descripci&oacute;n (opcional)</label>
                     <textarea name="descripcion" class="form-control" rows="2">{{ old('descripcion', $route->descripcion ?? '') }}</textarea>
                 </div>
             </div>
@@ -100,6 +112,9 @@
         <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-secondary">Cancelar</a>
         <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar ruta</button>
     </div>
+
+    {{-- Espaciador para que los botones no queden tapados por el main-footer fijo del layout --}}
+    <div style="height: 70px;"></div>
 </div>
 
 <script>

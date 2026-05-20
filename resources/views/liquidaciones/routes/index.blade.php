@@ -3,9 +3,9 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Rutas — Liquidación de Viajes</h1>
+        <h1>Rutas &mdash; Liquidaci&oacute;n de Viajes</h1>
         <div>
-            <a href="{{ route('liquidaciones.index') }}" class="btn btn-outline-secondary">← Liquidaciones</a>
+            <a href="{{ route('liquidaciones.index') }}" class="btn btn-outline-secondary">&larr; Liquidaciones</a>
             <a href="{{ route('liquidaciones.routes.create') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nueva ruta</a>
         </div>
     </div>
@@ -20,6 +20,7 @@
                     <tr>
                         <th>Origen</th>
                         <th>Destino</th>
+                        <th>Tipo veh&iacute;culo</th>
                         <th class="text-end"># Peajes</th>
                         <th class="text-end"># Liquidaciones</th>
                         <th>Estado</th>
@@ -31,6 +32,13 @@
                         <tr class="{{ !$route->active ? 'text-muted' : '' }}">
                             <td>{{ $route->origen }}</td>
                             <td>{{ $route->destino }}</td>
+                            <td>
+                                @if ($route->vehicle_type)
+                                    <span class="badge bg-info text-dark">{{ strtoupper($route->vehicleTypeLabel()) }}</span>
+                                @else
+                                    <span class="text-muted">&mdash;</span>
+                                @endif
+                            </td>
                             <td class="text-end">{{ $route->tolls_count }}</td>
                             <td class="text-end">{{ $route->liquidaciones_count }}</td>
                             <td>
@@ -56,7 +64,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-muted py-4">No hay rutas configuradas. <a href="{{ route('liquidaciones.routes.create') }}">Crea la primera</a>.</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4">No hay rutas configuradas. <a href="{{ route('liquidaciones.routes.create') }}">Crea la primera</a>.</td></tr>
                     @endforelse
                 </tbody>
             </table>

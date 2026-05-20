@@ -4,10 +4,13 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>{{ $route->name }}
+            @if ($route->vehicle_type)
+                <span class="badge bg-info text-dark fs-6">{{ strtoupper($route->vehicleTypeLabel()) }}</span>
+            @endif
             @if ($route->active)<span class="badge bg-success fs-6">ACTIVA</span>@else<span class="badge bg-secondary fs-6">INACTIVA</span>@endif
         </h1>
         <div>
-            <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-outline-secondary">← Volver</a>
+            <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-outline-secondary">&larr; Volver</a>
             <a href="{{ route('liquidaciones.routes.edit', $route) }}" class="btn btn-primary"><i class="bi bi-pencil"></i> Editar</a>
         </div>
     </div>
