@@ -138,10 +138,10 @@ Route::middleware(['auth', 'can:liquidaciones.access'])
 
         // Gastos mensuales (solo administradores) — antes del wildcard {liquidacion}
         Route::middleware('can:liquidaciones.gastos.access')->group(function () {
-            Route::resource('gastos', App\Http\Controllers\MonthlyExpenseController::class)
-                ->parameters(['gastos' => 'gasto'])
-                ->except(['show'])
-                ->names('gastos');
+            Route::get('gastos', [App\Http\Controllers\MonthlyExpenseController::class, 'index'])->name('gastos.index');
+            Route::get('gastos/anio', [App\Http\Controllers\MonthlyExpenseController::class, 'year'])->name('gastos.year');
+            Route::post('gastos/anio', [App\Http\Controllers\MonthlyExpenseController::class, 'saveYear'])->name('gastos.year.save');
+            Route::delete('gastos/{gasto}', [App\Http\Controllers\MonthlyExpenseController::class, 'destroy'])->name('gastos.destroy');
         });
 
         // Manifiesto PDF de la liquidación
