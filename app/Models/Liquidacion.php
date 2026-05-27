@@ -16,26 +16,28 @@ class Liquidacion extends Model
     protected $fillable = [
         'driver_id', 'vehicle_plate', 'route_id',
         'transportadora', 'telefono_empresa',
-        'anticipo', 'sobreanticipo',
+        'anticipo_empresa', 'anticipo_conductor', 'descuentos',
         'fecha_inicio', 'fecha_fin',
-        'numero_mfto', 'valor_flete',
+        'numero_mfto', 'manifiesto_pdf_path', 'valor_flete',
         'estado', 'motivo_anulacion',
         'sumatoria_gastos_operativos', 'sumatoria_peajes', 'sumatoria_peajes_conductor', 'sumatoria_gastos_totales',
-        'total_anticipos', 'saldo_viaje', 'ganancia_viaje', 'a_favor_de',
+        'total_anticipos', 'saldo_pendiente', 'saldo_viaje', 'ganancia_viaje', 'a_favor_de',
         'created_by', 'updated_by',
     ];
 
     protected $casts = [
         'fecha_inicio' => 'date',
         'fecha_fin' => 'date',
-        'anticipo' => 'integer',
-        'sobreanticipo' => 'integer',
+        'anticipo_empresa' => 'integer',
+        'anticipo_conductor' => 'integer',
+        'descuentos' => 'integer',
         'valor_flete' => 'integer',
         'sumatoria_gastos_operativos' => 'integer',
         'sumatoria_peajes' => 'integer',
         'sumatoria_peajes_conductor' => 'integer',
         'sumatoria_gastos_totales' => 'integer',
         'total_anticipos' => 'integer',
+        'saldo_pendiente' => 'integer',
         'saldo_viaje' => 'integer',
         'ganancia_viaje' => 'integer',
     ];
@@ -120,5 +122,10 @@ class Liquidacion extends Model
     public function isAnulada(): bool
     {
         return $this->estado === self::ESTADO_ANULADA;
+    }
+
+    public function hasManifiesto(): bool
+    {
+        return ! is_null($this->manifiesto_pdf_path);
     }
 }

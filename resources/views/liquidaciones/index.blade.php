@@ -8,6 +8,9 @@
             @can('viewAny', App\Models\LiquidacionRoute::class)
                 <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-outline-secondary"><i class="bi bi-signpost-split"></i> Rutas</a>
             @endcan
+            @can('liquidaciones.gastos.access')
+                <a href="{{ route('liquidaciones.gastos.index') }}" class="btn btn-outline-secondary"><i class="bi bi-cash-stack"></i> Gastos mensuales</a>
+            @endcan
             <a href="{{ route('liquidaciones.create') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nueva</a>
         </div>
     </div>

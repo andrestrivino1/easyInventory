@@ -20,8 +20,9 @@ document.addEventListener('alpine:init', function () {
             categories: config.categories || [],
             routePeajesUrlTpl: config.routePeajesUrlTpl,
             driverInfoUrlTpl: config.driverInfoUrlTpl,
-            anticipo: parseInt(config.initialAnticipo || 0, 10),
-            sobreanticipo: parseInt(config.initialSobreanticipo || 0, 10),
+            anticipoEmpresa: parseInt(config.initialAnticipoEmpresa || 0, 10),
+            anticipoConductor: parseInt(config.initialAnticipoConductor || 0, 10),
+            descuentos: parseInt(config.initialDescuentos || 0, 10),
             valorFlete: parseInt(config.initialFlete || 0, 10),
             expenses: [],
             tolls: [],
@@ -61,7 +62,10 @@ document.addEventListener('alpine:init', function () {
             get sumPeajesEmpresa() { return this.sumPeajes - this.sumPeajesConductor; },
             get sumGastosTotales() { return this.sumGastosOperativos + this.sumPeajes; },
             get totalAnticipos() {
-                return (parseInt(this.anticipo, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
+                return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0);
+            },
+            get saldoPendiente() {
+                return (parseInt(this.anticipoEmpresa, 10) || 0) - (parseInt(this.descuentos, 10) || 0);
             },
             get saldoViaje() { return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor; },
             get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosOperativos - this.sumPeajesEmpresa; },
@@ -129,8 +133,9 @@ document.addEventListener('alpine:init', function () {
     "categories" => $categories->map(fn($c) => ["id" => $c->id, "code" => $c->code, "name" => $c->name, "has_galones" => (bool)$c->has_galones])->all(),
     "existingExpenses" => $liq ? $liq->expenses->map(fn($e) => ["expense_category_id" => $e->expense_category_id, "valor" => (int)$e->valor, "galones" => $e->galones])->all() : [],
     "existingTolls" => $existingTolls->map(fn($t) => ["name" => $t->name, "valor" => (int)$t->valor, "sort_order" => (int)$t->sort_order, "direction" => $t->direction, "route_toll_id" => $t->route_toll_id, "is_adhoc" => (bool)$t->is_adhoc, "is_used" => (bool)$t->is_used, "paid_by" => $t->paid_by])->values()->all(),
-    "initialAnticipo" => (int)($liq->anticipo ?? 0),
-    "initialSobreanticipo" => (int)($liq->sobreanticipo ?? 0),
+    "initialAnticipoEmpresa" => (int)($liq->anticipo_empresa ?? 0),
+    "initialAnticipoConductor" => (int)($liq->anticipo_conductor ?? 0),
+    "initialDescuentos" => (int)($liq->descuentos ?? 0),
     "initialFlete" => (int)($liq->valor_flete ?? 0),
     "routePeajesUrlTpl" => url("/liquidaciones/rutas/__ID__/peajes"),
     "driverInfoUrlTpl" => url("/liquidaciones/drivers/__ID__/info"),
@@ -192,16 +197,28 @@ document.addEventListener('alpine:init', function () {
                 </div>
 
                 <div class="col-md-3">
-                    <label class="form-label">ANTICIPO</label>
-                    <input type="number" name="anticipo" class="form-control" min="0" required
-                           x-model.number="anticipo"
-                           value="{{ old('anticipo', $liq->anticipo ?? 0) }}">
+                    <label class="form-label">ANTICIPO EMPRESA</label>
+                    <input type="number" name="anticipo_empresa" class="form-control" min="0" required
+                           x-model.number="anticipoEmpresa"
+                           value="{{ old('anticipo_empresa', $liq->anticipo_empresa ?? 0) }}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">SOBREANTICIPO</label>
-                    <input type="number" name="sobreanticipo" class="form-control" min="0"
-                           x-model.number="sobreanticipo"
-                           value="{{ old('sobreanticipo', $liq->sobreanticipo ?? 0) }}">
+                    <label class="form-label">ANTICIPO CONDUCTOR</label>
+                    <input type="number" name="anticipo_conductor" class="form-control" min="0"
+                           x-model.number="anticipoConductor"
+                           value="{{ old('anticipo_conductor', $liq->anticipo_conductor ?? 0) }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">DESCUENTOS (empresa transporte)</label>
+                    <input type="number" name="descuentos" class="form-control" min="0"
+                           x-model.number="descuentos"
+                           value="{{ old('descuentos', $liq->descuentos ?? 0) }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">SALDO PENDIENTE</label>
+                    <input type="text" class="form-control fw-bold" readonly
+                           x-bind:value="formatMoney(saldoPendiente)"
+                           x-bind:class="saldoPendiente >= 0 ? 'text-success' : 'text-danger'">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">FECHA INICIO</label>
@@ -229,6 +246,16 @@ document.addEventListener('alpine:init', function () {
                     <input type="number" name="valor_flete" class="form-control" min="0" required
                            x-model.number="valorFlete"
                            value="{{ old('valor_flete', $liq->valor_flete ?? 0) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">MANIFIESTO (PDF)</label>
+                    <input type="file" name="manifiesto_pdf" class="form-control" accept="application/pdf">
+                    @if ($liq && $liq->hasManifiesto())
+                        <small class="text-muted d-block mt-1">
+                            Actual: <a href="{{ route('liquidaciones.manifiesto', $liq) }}" target="_blank">ver manifiesto</a>.
+                            Subir uno nuevo lo reemplaza.
+                        </small>
+                    @endif
                 </div>
             </div>
         </div>
@@ -274,6 +301,15 @@ document.addEventListener('alpine:init', function () {
                         <div class="col">
                             <div class="text-muted">ANTICIPOS</div>
                             <strong x-text="formatMoney(totalAnticipos)" class="fs-6"></strong>
+                        </div>
+                        <div class="col">
+                            <div class="text-muted">DESCUENTOS</div>
+                            <strong x-text="formatMoney(descuentos)" class="fs-6" :class="descuentos > 0 ? 'text-danger' : ''"></strong>
+                        </div>
+                        <div class="col">
+                            <div class="text-muted" title="Anticipo empresa − descuentos">SALDO PEND.</div>
+                            <strong x-text="formatMoney(saldoPendiente)" class="fs-6"
+                                    :class="saldoPendiente >= 0 ? 'text-success' : 'text-danger'"></strong>
                         </div>
                         <div class="col border-start">
                             <div class="text-muted">SALDO</div>

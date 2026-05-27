@@ -136,6 +136,18 @@ Route::middleware(['auth', 'can:liquidaciones.access'])
         Route::post('rutas/{route}/toggle-active', [App\Http\Controllers\LiquidacionRouteController::class, 'toggleActive'])->name('routes.toggle-active');
         Route::resource('rutas', App\Http\Controllers\LiquidacionRouteController::class)->parameters(['rutas' => 'route'])->names('routes');
 
+        // Gastos mensuales (solo administradores) — antes del wildcard {liquidacion}
+        Route::middleware('can:liquidaciones.gastos.access')->group(function () {
+            Route::resource('gastos', App\Http\Controllers\MonthlyExpenseController::class)
+                ->parameters(['gastos' => 'gasto'])
+                ->except(['show'])
+                ->names('gastos');
+        });
+
+        // Manifiesto PDF de la liquidación
+        Route::get('{liquidacion}/manifiesto', [App\Http\Controllers\LiquidacionController::class, 'manifiesto'])->name('manifiesto');
+        Route::delete('{liquidacion}/manifiesto', [App\Http\Controllers\LiquidacionController::class, 'destroyManifiesto'])->name('manifiesto.destroy');
+
         // PDF
         Route::get('{liquidacion}/pdf', [App\Http\Controllers\LiquidacionPdfController::class, 'download'])->name('pdf');
 

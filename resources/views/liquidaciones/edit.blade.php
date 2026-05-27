@@ -7,7 +7,7 @@
         <span class="badge bg-secondary fs-6 align-self-center">{{ strtoupper($liq->estado) }}</span>
     </div>
 
-    <form method="POST" action="{{ route('liquidaciones.update', $liq) }}">
+    <form method="POST" action="{{ route('liquidaciones.update', $liq) }}" enctype="multipart/form-data">
         @include('liquidaciones.partials._form')
     </form>
 </div>

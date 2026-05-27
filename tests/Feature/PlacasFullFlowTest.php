@@ -42,7 +42,7 @@ class PlacasFullFlowTest extends TestCase
             'driver_id' => $driver->id,
             'vehicle_plate' => $driver->vehicle_plate,
             'transportadora' => 'Transporte X',
-            'anticipo' => 0,
+            'anticipo_empresa' => 0,
             'fecha_inicio' => '2026-05-01',
             'fecha_fin' => '2026-05-02',
             'valor_flete' => 100000,
@@ -53,7 +53,7 @@ class PlacasFullFlowTest extends TestCase
     {
         return Liquidacion::create(array_merge($this->storePayload($driver), [
             'estado' => Liquidacion::ESTADO_BORRADOR,
-            'sobreanticipo' => 0,
+            'anticipo_conductor' => 0,
             'sumatoria_gastos_operativos' => 0,
             'sumatoria_peajes' => 0,
             'sumatoria_gastos_totales' => 0,

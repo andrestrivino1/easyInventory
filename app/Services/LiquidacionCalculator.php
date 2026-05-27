@@ -56,9 +56,18 @@ class LiquidacionCalculator
         return $total;
     }
 
-    public static function computeTotalAnticipos(int $anticipo, int $sobreanticipo): int
+    public static function computeTotalAnticipos(int $anticipoEmpresa, int $anticipoConductor): int
     {
-        return $anticipo + $sobreanticipo;
+        return $anticipoEmpresa + $anticipoConductor;
+    }
+
+    /**
+     * Saldo pendiente = anticipo de la empresa − descuentos aplicados por la transportadora.
+     * Puede ser negativo si los descuentos superan el anticipo empresa.
+     */
+    public static function computeSaldoPendiente(int $anticipoEmpresa, int $descuentos): int
+    {
+        return $anticipoEmpresa - $descuentos;
     }
 
     /**
@@ -106,8 +115,9 @@ class LiquidacionCalculator
         $peajesConductor = self::computeSumatoriaPeajesConductor($tolls);     // subconjunto que paga el conductor
         $peajesEmpresa = $peajes - $peajesConductor;
         $gastosTot = $gastosOp + $peajes;                                     // total del viaje (incluye ambos)
-        $totalAnt = self::computeTotalAnticipos((int) $liq->anticipo, (int) $liq->sobreanticipo);
+        $totalAnt = self::computeTotalAnticipos((int) $liq->anticipo_empresa, (int) $liq->anticipo_conductor);
         $saldo = self::computeSaldoViaje($totalAnt, $gastosOp, $peajesConductor);
+        $saldoPendiente = self::computeSaldoPendiente((int) $liq->anticipo_empresa, (int) $liq->descuentos);
         $ganancia = self::computeGananciaViaje((int) $liq->valor_flete, $gastosOp + $peajesEmpresa);
 
         $liq->sumatoria_gastos_operativos = $gastosOp;
@@ -115,6 +125,7 @@ class LiquidacionCalculator
         $liq->sumatoria_peajes_conductor = $peajesConductor;
         $liq->sumatoria_gastos_totales = $gastosTot;
         $liq->total_anticipos = $totalAnt;
+        $liq->saldo_pendiente = $saldoPendiente;
         $liq->saldo_viaje = $saldo;
         $liq->ganancia_viaje = $ganancia;
         $liq->a_favor_de = self::aFavorDe($saldo);
@@ -136,6 +147,7 @@ class LiquidacionCalculator
                 COALESCE(SUM(sumatoria_peajes_conductor),0) as sum_peajes_conductor,
                 COALESCE(SUM(sumatoria_gastos_totales),0) as sum_gastos_totales,
                 COALESCE(SUM(total_anticipos),0) as sum_anticipos,
+                COALESCE(SUM(descuentos),0) as sum_descuentos,
                 COALESCE(SUM(valor_flete),0) as sum_flete,
                 COALESCE(SUM(saldo_viaje),0) as sum_saldo,
                 COALESCE(SUM(ganancia_viaje),0) as sum_ganancia
@@ -153,6 +165,7 @@ class LiquidacionCalculator
             'sum_peajes_conductor' => (int) $row->sum_peajes_conductor,
             'sum_gastos_totales' => (int) $row->sum_gastos_totales,
             'sum_anticipos' => (int) $row->sum_anticipos,
+            'sum_descuentos' => (int) $row->sum_descuentos,
             'sum_flete' => $sumFlete,
             'sum_saldo' => (int) $row->sum_saldo,
             'sum_ganancia' => $sumGanancia,
@@ -177,6 +190,7 @@ class LiquidacionCalculator
                 COALESCE(SUM(sumatoria_peajes_conductor),0) as sum_peajes_conductor,
                 COALESCE(SUM(sumatoria_gastos_totales),0) as sum_gastos_totales,
                 COALESCE(SUM(total_anticipos),0) as sum_anticipos,
+                COALESCE(SUM(descuentos),0) as sum_descuentos,
                 COALESCE(SUM(valor_flete),0) as sum_flete,
                 COALESCE(SUM(saldo_viaje),0) as sum_saldo,
                 COALESCE(SUM(ganancia_viaje),0) as sum_ganancia
@@ -197,6 +211,7 @@ class LiquidacionCalculator
                 'sum_peajes_conductor' => (int) $r->sum_peajes_conductor,
                 'sum_gastos_totales' => (int) $r->sum_gastos_totales,
                 'sum_anticipos' => (int) $r->sum_anticipos,
+                'sum_descuentos' => (int) $r->sum_descuentos,
                 'sum_flete' => $sumFlete,
                 'sum_saldo' => (int) $r->sum_saldo,
                 'sum_ganancia' => $sumGanancia,

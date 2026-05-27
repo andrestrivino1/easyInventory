@@ -23,7 +23,10 @@ class CreateContainerProductTable extends Migration
             
             $table->foreign('container_id')->references('id')->on('containers')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
-            $table->unique(['container_id', 'product_id']);
+            // Nombre explícito: una migración posterior (2026_01_25) hace
+            // dropUnique('unique_container_product'); sin este nombre, migrate:fresh
+            // falla en entornos nuevos / tests.
+            $table->unique(['container_id', 'product_id'], 'unique_container_product');
         });
     }
 

@@ -4,7 +4,7 @@
 <div class="container-fluid">
     <h1 class="mb-4">Nueva Liquidación de Viaje</h1>
 
-    <form method="POST" action="{{ route('liquidaciones.store') }}">
+    <form method="POST" action="{{ route('liquidaciones.store') }}" enctype="multipart/form-data">
         @include('liquidaciones.partials._form')
     </form>
 </div>

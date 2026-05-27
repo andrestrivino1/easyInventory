@@ -56,12 +56,10 @@
                                    value="1">
                         </td>
                         <td class="text-center">
-                            <template x-if="toll.is_adhoc">
-                                <button type="button" class="btn btn-sm btn-outline-danger"
-                                        x-on:click="removeToll(idx)" title="Eliminar peaje ad-hoc">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </template>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    x-on:click="removeToll(idx)" title="Eliminar peaje del viaje">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </td>
                     </tr>
                 </template>

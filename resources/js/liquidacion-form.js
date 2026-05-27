@@ -10,8 +10,9 @@ window.liquidacionForm = function (config) {
         driverInfoUrlTpl: config.driverInfoUrlTpl,
 
         // Estado reactivo
-        anticipo: parseInt(config.initialAnticipo || 0, 10),
-        sobreanticipo: parseInt(config.initialSobreanticipo || 0, 10),
+        anticipoEmpresa: parseInt(config.initialAnticipoEmpresa || 0, 10),
+        anticipoConductor: parseInt(config.initialAnticipoConductor || 0, 10),
+        descuentos: parseInt(config.initialDescuentos || 0, 10),
         valorFlete: parseInt(config.initialFlete || 0, 10),
         expenses: [],
         tolls: [],
@@ -67,7 +68,10 @@ window.liquidacionForm = function (config) {
             return this.sumGastosOperativos + this.sumPeajes;
         },
         get totalAnticipos() {
-            return (parseInt(this.anticipo, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
+            return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0);
+        },
+        get saldoPendiente() {
+            return (parseInt(this.anticipoEmpresa, 10) || 0) - (parseInt(this.descuentos, 10) || 0);
         },
         get saldoViaje() {
             return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor;

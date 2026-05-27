@@ -27,5 +27,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('liquidaciones.access', function ($user) {
             return in_array($user->rol, ['admin', 'placas'], true);
         });
+
+        // Gastos mensuales: exclusivo de administradores (el rol "placas" no accede).
+        Gate::define('liquidaciones.gastos.access', function ($user) {
+            return $user->rol === 'admin';
+        });
     }
 }

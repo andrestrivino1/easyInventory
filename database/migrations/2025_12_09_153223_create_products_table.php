@@ -19,7 +19,11 @@ class CreateProductsTable extends Migration
             $table->unsignedBigInteger('almacen_id')->nullable();
             $table->foreign('almacen_id')->references('id')->on('warehouses')->nullOnDelete();
             $table->string('nombre');
-            $table->string('codigo');
+            // codigo arranca con índice UNIQUE (products_codigo_unique); migraciones
+            // posteriores lo cambian a (codigo, almacen_id) y luego de vuelta a codigo.
+            // Sin este unique, change_codigo_unique_to_per_warehouse falla al dropUnique
+            // en migrate:fresh (entornos nuevos / tests).
+            $table->string('codigo')->unique();
             $table->decimal('precio', 12, 2)->default(0);
             $table->integer('stock')->default(0);
             $table->boolean('estado')->default(true); // 1=activo, 0=inactivo

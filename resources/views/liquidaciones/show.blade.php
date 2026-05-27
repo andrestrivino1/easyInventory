@@ -39,6 +39,15 @@
                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalAnular"><i class="bi bi-x-circle"></i> Anular</button>
             @endif
             <a href="{{ route('liquidaciones.pdf', $liq) }}" class="btn btn-info" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+            @if ($liq->hasManifiesto())
+                <a href="{{ route('liquidaciones.manifiesto', $liq) }}" class="btn btn-outline-dark" target="_blank"><i class="bi bi-paperclip"></i> Manifiesto</a>
+                @if ($liq->isBorrador())
+                    <form method="POST" action="{{ route('liquidaciones.manifiesto.destroy', $liq) }}" class="d-inline" onsubmit="return confirm('¿Eliminar el manifiesto cargado?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-outline-danger" title="Eliminar manifiesto"><i class="bi bi-trash"></i> Manifiesto</button>
+                    </form>
+                @endif
+            @endif
             <a href="{{ route('liquidaciones.index') }}" class="btn btn-secondary">Volver</a>
         </div>
     </div>
@@ -58,8 +67,11 @@
                 <div class="col-md-2"><strong>PLACA:</strong><br>{{ $liq->vehicle_plate }}</div>
                 <div class="col-md-4"><strong>RUTA:</strong><br>{{ $liq->route->name ?? '—' }}</div>
 
-                <div class="col-md-3 mt-3"><strong>ANTICIPO:</strong><br>{{ number_format($liq->anticipo, 0, ',', '.') }}</div>
-                <div class="col-md-3 mt-3"><strong>SOBREANTICIPO:</strong><br>{{ number_format($liq->sobreanticipo, 0, ',', '.') }}</div>
+                <div class="col-md-3 mt-3"><strong>ANTICIPO EMPRESA:</strong><br>{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</div>
+                <div class="col-md-3 mt-3"><strong>ANTICIPO CONDUCTOR:</strong><br>{{ number_format($liq->anticipo_conductor, 0, ',', '.') }}</div>
+                <div class="col-md-3 mt-3"><strong>DESCUENTOS:</strong><br>{{ number_format($liq->descuentos, 0, ',', '.') }}</div>
+                <div class="col-md-3 mt-3"><strong>SALDO PENDIENTE:</strong><br><span class="{{ $liq->saldo_pendiente >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</span></div>
+
                 <div class="col-md-3 mt-3"><strong>FECHA INICIO:</strong><br>{{ $liq->fecha_inicio?->format('Y-m-d') }}</div>
                 <div class="col-md-3 mt-3"><strong>FECHA FIN:</strong><br>{{ $liq->fecha_fin?->format('Y-m-d') }}</div>
 
@@ -125,6 +137,8 @@
                 <div class="col-md-3"><strong>PEAJES (CONDUCTOR)</strong><br><span class="fs-5 {{ $liq->sumatoria_peajes_conductor > 0 ? 'text-danger' : '' }}">{{ number_format($liq->sumatoria_peajes_conductor, 0, ',', '.') }}</span></div>
                 <div class="col-md-3"><strong>SUMATORIA DE GASTOS (TOTAL)</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</span></div>
                 <div class="col-md-3"><strong>TOTAL ANTICIPOS</strong><br><span class="fs-5">{{ number_format($liq->total_anticipos, 0, ',', '.') }}</span></div>
+                <div class="col-md-3"><strong>DESCUENTOS (EMPRESA)</strong><br><span class="fs-5 {{ $liq->descuentos > 0 ? 'text-danger' : '' }}">{{ number_format($liq->descuentos, 0, ',', '.') }}</span></div>
+                <div class="col-md-3"><strong>SALDO PENDIENTE</strong><br><span class="fs-5 fw-bold {{ $liq->saldo_pendiente >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</span></div>
                 <div class="col-md-4 mt-3"><strong>SALDO VIAJE</strong><br><span class="fs-4 fw-bold {{ $liq->saldo_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</span></div>
                 <div class="col-md-4 mt-3"><strong>GANANCIA VIAJE</strong><br><span class="fs-4 fw-bold {{ $liq->ganancia_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</span></div>
                 <div class="col-md-4 mt-3"><strong>A FAVOR DE</strong><br><span class="badge bg-warning text-dark fs-5">{{ strtoupper($liq->a_favor_de) }}</span></div>

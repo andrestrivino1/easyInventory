@@ -21,8 +21,11 @@
         <server name="APP_ENV" value="testing"/>
         <server name="BCRYPT_ROUNDS" value="4"/>
         <server name="CACHE_DRIVER" value="array"/>
-        <server name="DB_CONNECTION" value="sqlite"/>
-        <server name="DB_DATABASE" value=":memory:"/>
+        <!-- Feature tests requieren MySQL real (no sqlite :memory:): el historial de
+             migraciones del proyecto no corre en sqlite. Base de pruebas dedicada para
+             no afectar los datos de desarrollo (RefreshDatabase limpia la BD). -->
+        <server name="DB_CONNECTION" value="mysql"/>
+        <server name="DB_DATABASE" value="easy_inventory_test"/>
         <server name="MAIL_MAILER" value="array"/>
         <server name="QUEUE_CONNECTION" value="sync"/>
         <server name="SESSION_DRIVER" value="array"/>

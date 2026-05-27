@@ -11,6 +11,7 @@ use App\Models\LiquidacionRoute;
 use App\Services\LiquidacionCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class LiquidacionController extends Controller
 {
@@ -76,19 +77,22 @@ class LiquidacionController extends Controller
     {
         $data = $request->validated();
         $userId = $request->user()->id;
+        $manifiestoPath = $this->storeManifiestoFile($request);
 
-        $liq = DB::transaction(function () use ($data, $userId) {
+        $liq = DB::transaction(function () use ($data, $userId, $manifiestoPath) {
             $liquidacion = Liquidacion::create([
                 'driver_id' => $data['driver_id'],
                 'vehicle_plate' => strtoupper($data['vehicle_plate']),
                 'route_id' => $data['route_id'] ?? null,
                 'transportadora' => $data['transportadora'],
                 'telefono_empresa' => $data['telefono_empresa'] ?? null,
-                'anticipo' => (int) $data['anticipo'],
-                'sobreanticipo' => (int) ($data['sobreanticipo'] ?? 0),
+                'anticipo_empresa' => (int) $data['anticipo_empresa'],
+                'anticipo_conductor' => (int) ($data['anticipo_conductor'] ?? 0),
+                'descuentos' => (int) ($data['descuentos'] ?? 0),
                 'fecha_inicio' => $data['fecha_inicio'],
                 'fecha_fin' => $data['fecha_fin'],
                 'numero_mfto' => $data['numero_mfto'] ?? null,
+                'manifiesto_pdf_path' => $manifiestoPath,
                 'valor_flete' => (int) $data['valor_flete'],
                 'estado' => Liquidacion::ESTADO_BORRADOR,
                 'created_by' => $userId,
@@ -156,21 +160,32 @@ class LiquidacionController extends Controller
         $data = $request->validated();
         $userId = $request->user()->id;
 
-        DB::transaction(function () use ($liquidacion, $data, $userId) {
-            $liquidacion->update([
+        // Manifiesto: si llega uno nuevo, reemplaza al anterior (borra el archivo previo).
+        $newManifiesto = $this->storeManifiestoFile($request);
+        if ($newManifiesto && $liquidacion->manifiesto_pdf_path) {
+            Storage::delete($liquidacion->manifiesto_pdf_path);
+        }
+
+        DB::transaction(function () use ($liquidacion, $data, $userId, $newManifiesto) {
+            $attrs = [
                 'driver_id' => $data['driver_id'],
                 'vehicle_plate' => strtoupper($data['vehicle_plate']),
                 'route_id' => $data['route_id'] ?? null,
                 'transportadora' => $data['transportadora'],
                 'telefono_empresa' => $data['telefono_empresa'] ?? null,
-                'anticipo' => (int) $data['anticipo'],
-                'sobreanticipo' => (int) ($data['sobreanticipo'] ?? 0),
+                'anticipo_empresa' => (int) $data['anticipo_empresa'],
+                'anticipo_conductor' => (int) ($data['anticipo_conductor'] ?? 0),
+                'descuentos' => (int) ($data['descuentos'] ?? 0),
                 'fecha_inicio' => $data['fecha_inicio'],
                 'fecha_fin' => $data['fecha_fin'],
                 'numero_mfto' => $data['numero_mfto'] ?? null,
                 'valor_flete' => (int) $data['valor_flete'],
                 'updated_by' => $userId,
-            ]);
+            ];
+            if ($newManifiesto) {
+                $attrs['manifiesto_pdf_path'] = $newManifiesto;
+            }
+            $liquidacion->update($attrs);
 
             $liquidacion->expenses()->delete();
             $liquidacion->tolls()->delete();
@@ -194,6 +209,36 @@ class LiquidacionController extends Controller
         return redirect()
             ->route('liquidaciones.index')
             ->with('success', 'Liquidación eliminada.');
+    }
+
+    // --- Manifiesto PDF ---
+
+    public function manifiesto(Liquidacion $liquidacion)
+    {
+        $this->authorize('view', $liquidacion);
+
+        abort_if(
+            ! $liquidacion->manifiesto_pdf_path || ! Storage::exists($liquidacion->manifiesto_pdf_path),
+            404,
+            'Esta liquidación no tiene manifiesto cargado.'
+        );
+
+        return Storage::response($liquidacion->manifiesto_pdf_path, 'manifiesto-' . $liquidacion->id . '.pdf');
+    }
+
+    public function destroyManifiesto(Liquidacion $liquidacion)
+    {
+        $this->authorize('update', $liquidacion);
+        abort_unless($liquidacion->isBorrador(), 403, 'Solo se puede modificar el manifiesto en estado Borrador.');
+
+        if ($liquidacion->manifiesto_pdf_path && Storage::exists($liquidacion->manifiesto_pdf_path)) {
+            Storage::delete($liquidacion->manifiesto_pdf_path);
+        }
+        $liquidacion->update(['manifiesto_pdf_path' => null]);
+
+        return redirect()
+            ->route('liquidaciones.show', $liquidacion)
+            ->with('success', 'Manifiesto eliminado.');
     }
 
     // --- AJAX helpers ---
@@ -289,6 +334,19 @@ class LiquidacionController extends Controller
     }
 
     // --- Internos ---
+
+    /**
+     * Guarda el PDF del manifiesto en storage/app/manifiestos y devuelve su ruta,
+     * o null si no se subió archivo.
+     */
+    protected function storeManifiestoFile(Request $request): ?string
+    {
+        if (! $request->hasFile('manifiesto_pdf')) {
+            return null;
+        }
+
+        return $request->file('manifiesto_pdf')->store('manifiestos');
+    }
 
     protected function syncExpenses(Liquidacion $liq, array $expenses): void
     {

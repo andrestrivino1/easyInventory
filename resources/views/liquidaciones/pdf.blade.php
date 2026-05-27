@@ -144,14 +144,14 @@
         <td>{{ $liq->driver->name ?? '—' }}</td>
     </tr>
     <tr>
-        <td class="label-cell">ANTICIPO</td>
-        <td class="right">{{ number_format($liq->anticipo, 0, ',', '.') }}</td>
+        <td class="label-cell">ANTICIPO EMPRESA</td>
+        <td class="right">{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</td>
         <td class="label-cell">FECHA INICIO</td>
         <td>{{ $liq->fecha_inicio?->format('d/m/Y') }}</td>
     </tr>
     <tr>
-        <td class="label-cell">SOBREANTICIPO</td>
-        <td class="right">{{ number_format($liq->sobreanticipo, 0, ',', '.') }}</td>
+        <td class="label-cell">ANTICIPO CONDUCTOR</td>
+        <td class="right">{{ number_format($liq->anticipo_conductor, 0, ',', '.') }}</td>
         <td class="label-cell">FECHA FIN</td>
         <td>{{ $liq->fecha_fin?->format('d/m/Y') }}</td>
     </tr>
@@ -224,6 +224,12 @@
     <tr>
         <td class="label-cell">TOTAL ANTICIPOS</td>
         <td class="right">{{ number_format($liq->total_anticipos, 0, ',', '.') }}</td>
+        <td class="label-cell">DESCUENTOS (EMPRESA)</td>
+        <td class="right">{{ number_format($liq->descuentos, 0, ',', '.') }}</td>
+    </tr>
+    <tr>
+        <td class="label-cell">SALDO PENDIENTE</td>
+        <td class="right bold" style="background:#fff3cd;">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</td>
         <td></td><td></td>
     </tr>
     <tr>

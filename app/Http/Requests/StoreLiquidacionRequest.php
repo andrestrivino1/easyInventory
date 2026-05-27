@@ -27,11 +27,13 @@ class StoreLiquidacionRequest extends FormRequest
             'route_id' => ['nullable', 'integer', Rule::exists('liquidacion_routes', 'id')->where('active', 1)],
             'transportadora' => ['required', 'string', 'max:150'],
             'telefono_empresa' => ['nullable', 'string', 'max:40'],
-            'anticipo' => ['required', 'integer', 'min:0'],
-            'sobreanticipo' => ['nullable', 'integer', 'min:0'],
+            'anticipo_empresa' => ['required', 'integer', 'min:0'],
+            'anticipo_conductor' => ['nullable', 'integer', 'min:0'],
+            'descuentos' => ['nullable', 'integer', 'min:0'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio'],
             'numero_mfto' => ['nullable', 'string', 'max:60'],
+            'manifiesto_pdf' => ['nullable', 'file', 'mimetypes:application/pdf', 'max:10240'],
             'valor_flete' => ['required', 'integer', 'min:0'],
 
             'expenses' => ['nullable', 'array'],
@@ -54,7 +56,13 @@ class StoreLiquidacionRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'sobreanticipo' => $this->input('sobreanticipo', 0),
+            'anticipo_conductor' => $this->blankToZero($this->input('anticipo_conductor')),
+            'descuentos' => $this->blankToZero($this->input('descuentos')),
         ]);
+    }
+
+    private function blankToZero($value): int
+    {
+        return ($value === null || $value === '') ? 0 : (int) $value;
     }
 }
