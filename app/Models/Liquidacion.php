@@ -20,7 +20,7 @@ class Liquidacion extends Model
         'fecha_inicio', 'fecha_fin',
         'numero_mfto', 'valor_flete',
         'estado', 'motivo_anulacion',
-        'sumatoria_gastos_operativos', 'sumatoria_peajes', 'sumatoria_gastos_totales',
+        'sumatoria_gastos_operativos', 'sumatoria_peajes', 'sumatoria_peajes_conductor', 'sumatoria_gastos_totales',
         'total_anticipos', 'saldo_viaje', 'ganancia_viaje', 'a_favor_de',
         'created_by', 'updated_by',
     ];
@@ -33,6 +33,7 @@ class Liquidacion extends Model
         'valor_flete' => 'integer',
         'sumatoria_gastos_operativos' => 'integer',
         'sumatoria_peajes' => 'integer',
+        'sumatoria_peajes_conductor' => 'integer',
         'sumatoria_gastos_totales' => 'integer',
         'total_anticipos' => 'integer',
         'saldo_viaje' => 'integer',

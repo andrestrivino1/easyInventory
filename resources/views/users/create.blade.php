@@ -10,7 +10,7 @@
 .checkbox-group{background:#f8fafc;border:1px solid #ccc;border-radius:7px;padding:15px;max-height:200px;overflow-y:auto;}
 .checkbox-item{margin-bottom:10px;display:flex;align-items:center;}
 .checkbox-item:last-child{margin-bottom:0;}
-.checkbox-item input[type="checkbox"]{width:18px;height:18px;margin-right:10px;cursor:pointer;accent-color:#4284f5;}
+.checkbox-item input[type="checkbox"]{-webkit-appearance:auto;-moz-appearance:auto;appearance:auto;width:18px;height:18px;margin-right:10px;cursor:pointer;accent-color:#4284f5;}
 .checkbox-item label{cursor:pointer;font-size:14px;color:#333;flex:1;}
 .form-group input:focus,.form-group select:focus{border-color:#4284f5;background:#fff;box-shadow:0 0 5px rgba(74,138,244,0.11);}
 .form-actions{display:flex;justify-content:space-between;margin-top:12px;}
@@ -50,6 +50,7 @@
               <option value="importer" {{ old('rol')=='importer' ? 'selected':'' }}>Proveedor/Importer</option>
               <option value="import_viewer" {{ old('rol')=='import_viewer' ? 'selected':'' }}>Visualizador de Importaciones</option>
               <option value="proveedor_itr" {{ old('rol')=='proveedor_itr' ? 'selected':'' }}>PROVEEDOR ITR (Desembalaje)</option>
+              <option value="placas" {{ old('rol')=='placas' ? 'selected':'' }}>Placas (Liquidación de Viajes)</option>
               <option value="admin" {{ old('rol')=='admin' ? 'selected':'' }}>Administrador</option>
           </select>
           @error('rol')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -76,6 +77,20 @@
           </div>
           @error('almacenes')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
+        <div class="form-group" id="conductores-group" style="display:none;">
+          <label>Conductores asignados *</label>
+          <div class="checkbox-group">
+              @forelse ($drivers as $driver)
+                  <div class="checkbox-item">
+                      <input type="checkbox" id="driver_{{ $driver->id }}" name="drivers[]" value="{{ $driver->id }}" {{ (old('drivers') && in_array($driver->id, old('drivers'))) ? 'checked' : '' }}>
+                      <label for="driver_{{ $driver->id }}">{{ $driver->name }}{{ $driver->vehicle_plate ? ' - ' . $driver->vehicle_plate : '' }}</label>
+                  </div>
+              @empty
+                  <div style="font-size:13px;color:#888;">No hay conductores activos disponibles.</div>
+              @endforelse
+          </div>
+          @error('drivers')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
         <div class="form-group">
           <label for="password">Contraseña *</label>
           <input type="password" id="password" name="password" required>
@@ -96,27 +111,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const rolSelect = document.getElementById('rol');
     const bodegaSimpleGroup = document.getElementById('bodega-simple-group');
     const bodegaMultipleGroup = document.getElementById('bodega-multiple-group');
+    const conductoresGroup = document.getElementById('conductores-group');
     const almacenId = document.getElementById('almacen_id');
     const form = document.querySelector('form');
     let validationHandler = null;
-    
+
     function toggleBodegaFields() {
         const rol = rolSelect.value;
         bodegaSimpleGroup.style.display = 'none';
         bodegaMultipleGroup.style.display = 'none';
+        conductoresGroup.style.display = 'none';
         almacenId.removeAttribute('required');
-        
+
         // Remover required de todos los checkboxes
         const checkboxes = bodegaMultipleGroup.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(cb => cb.removeAttribute('required'));
-        
+
         // Remover el listener anterior si existe
         if (validationHandler) {
             form.removeEventListener('submit', validationHandler);
             validationHandler = null;
         }
-        
-        if (rol === 'clientes') {
+
+        if (rol === 'placas') {
+            conductoresGroup.style.display = 'block';
+            // Validar que al menos un conductor esté seleccionado
+            validationHandler = function(e) {
+                const checked = conductoresGroup.querySelectorAll('input[type="checkbox"]:checked');
+                if (checked.length === 0) {
+                    e.preventDefault();
+                    alert('Debes seleccionar al menos un conductor');
+                    return false;
+                }
+            };
+            form.addEventListener('submit', validationHandler);
+        } else if (rol === 'clientes') {
             bodegaMultipleGroup.style.display = 'block';
             document.getElementById('bodega-multiple-label').textContent = 'Bodegas *';
             // Validar que al menos un checkbox esté seleccionado

@@ -12,6 +12,8 @@ class LiquidacionRouteController extends Controller
 {
     public function index()
     {
+        $this->authorize('viewAny', LiquidacionRoute::class);
+
         $routes = LiquidacionRoute::withCount('tolls')
             ->withCount('liquidaciones')
             ->orderBy('active', 'desc')
@@ -23,6 +25,8 @@ class LiquidacionRouteController extends Controller
 
     public function create()
     {
+        $this->authorize('create', LiquidacionRoute::class);
+
         return view('liquidaciones.routes.create');
     }
 

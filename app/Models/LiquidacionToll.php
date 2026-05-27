@@ -9,10 +9,13 @@ class LiquidacionToll extends Model
 {
     protected $table = 'liquidacion_tolls';
 
+    public const PAGA_EMPRESA = 'empresa';
+    public const PAGA_CONDUCTOR = 'conductor';
+
     protected $fillable = [
         'liquidacion_id', 'route_toll_id',
         'name', 'valor', 'sort_order', 'direction',
-        'is_adhoc', 'is_used',
+        'is_adhoc', 'is_used', 'paid_by',
     ];
 
     protected $casts = [

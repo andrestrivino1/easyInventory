@@ -37,7 +37,12 @@ class HomeController extends Controller
         if (auth()->check() && auth()->user()->rol === 'proveedor_itr') {
             return redirect()->route('itrs.index');
         }
-        
+
+        // Si el usuario es placas, redirigir al módulo de Liquidación de Viajes
+        if (auth()->check() && auth()->user()->rol === 'placas') {
+            return redirect()->route('liquidaciones.index');
+        }
+
         // Invoca directamente la lógica de WelcomeController
         return app(\App\Http\Controllers\WelcomeController::class)->index();
     }

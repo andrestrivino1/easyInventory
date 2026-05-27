@@ -24,6 +24,14 @@ class Driver extends Model
     ];
 
     /**
+     * Usuarios "placas" que tienen asignado este conductor.
+     */
+    public function placasUsers()
+    {
+        return $this->belongsToMany(User::class, 'user_driver')->withTimestamps();
+    }
+
+    /**
      * Check if social security is expired (more than 1 day past expiration date)
      */
     public function isSocialSecurityExpired()

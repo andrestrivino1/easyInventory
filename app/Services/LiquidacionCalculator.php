@@ -25,7 +25,7 @@ class LiquidacionCalculator
 
     /**
      * Suma los valores de peajes — solo cuenta peajes con is_used = true.
-     * Cada $toll: ['valor' => int, 'is_used' => bool].
+     * Cada $toll: ['valor' => int, 'is_used' => bool, 'paid_by' => string].
      */
     public static function computeSumatoriaPeajes(array $tolls): int
     {
@@ -39,26 +39,45 @@ class LiquidacionCalculator
         return $total;
     }
 
+    /**
+     * Suma los peajes usados que paga el CONDUCTOR (paid_by = 'conductor').
+     * Estos se descuentan de su saldo y NO se cuentan como costo de empresa.
+     */
+    public static function computeSumatoriaPeajesConductor(array $tolls): int
+    {
+        $total = 0;
+        foreach ($tolls as $t) {
+            $used = $t['is_used'] ?? true;
+            $payer = $t['paid_by'] ?? 'empresa';
+            if ($used && $payer === 'conductor') {
+                $total += (int) ($t['valor'] ?? 0);
+            }
+        }
+        return $total;
+    }
+
     public static function computeTotalAnticipos(int $anticipo, int $sobreanticipo): int
     {
         return $anticipo + $sobreanticipo;
     }
 
     /**
-     * Saldo viaje = total_anticipos − sumatoria_gastos_operativos.
-     * NO se descuentan peajes (los paga la empresa, no el conductor con su anticipo).
+     * Saldo viaje = total_anticipos − gastos_operativos − peajes pagados por el conductor.
+     * Los peajes de empresa (GoPass) NO tocan el saldo; los del conductor sí (salen de su anticipo).
      */
-    public static function computeSaldoViaje(int $totalAnticipos, int $sumatoriaGastosOperativos): int
+    public static function computeSaldoViaje(int $totalAnticipos, int $sumatoriaGastosOperativos, int $peajesConductor = 0): int
     {
-        return $totalAnticipos - $sumatoriaGastosOperativos;
+        return $totalAnticipos - $sumatoriaGastosOperativos - $peajesConductor;
     }
 
     /**
-     * Ganancia viaje = valor_flete − sumatoria_gastos_totales (operativos + peajes).
+     * Ganancia viaje = valor_flete − costo de empresa.
+     * Costo de empresa = gastos_operativos + peajes de empresa (los del conductor los absorbe él,
+     * por eso NO entran en la ganancia).
      */
-    public static function computeGananciaViaje(int $valorFlete, int $sumatoriaGastosTotales): int
+    public static function computeGananciaViaje(int $valorFlete, int $costoEmpresa): int
     {
-        return $valorFlete - $sumatoriaGastosTotales;
+        return $valorFlete - $costoEmpresa;
     }
 
     /**
@@ -80,17 +99,20 @@ class LiquidacionCalculator
     public static function recalcAndSave(Liquidacion $liq): void
     {
         $expenses = $liq->expenses->map(fn ($e) => ['valor' => $e->valor])->all();
-        $tolls = $liq->tolls->map(fn ($t) => ['valor' => $t->valor, 'is_used' => $t->is_used])->all();
+        $tolls = $liq->tolls->map(fn ($t) => ['valor' => $t->valor, 'is_used' => $t->is_used, 'paid_by' => $t->paid_by])->all();
 
         $gastosOp = self::computeSumatoriaGastos($expenses);
-        $peajes = self::computeSumatoriaPeajes($tolls);
-        $gastosTot = $gastosOp + $peajes;
+        $peajes = self::computeSumatoriaPeajes($tolls);                       // todos los usados
+        $peajesConductor = self::computeSumatoriaPeajesConductor($tolls);     // subconjunto que paga el conductor
+        $peajesEmpresa = $peajes - $peajesConductor;
+        $gastosTot = $gastosOp + $peajes;                                     // total del viaje (incluye ambos)
         $totalAnt = self::computeTotalAnticipos((int) $liq->anticipo, (int) $liq->sobreanticipo);
-        $saldo = self::computeSaldoViaje($totalAnt, $gastosOp);
-        $ganancia = self::computeGananciaViaje((int) $liq->valor_flete, $gastosTot);
+        $saldo = self::computeSaldoViaje($totalAnt, $gastosOp, $peajesConductor);
+        $ganancia = self::computeGananciaViaje((int) $liq->valor_flete, $gastosOp + $peajesEmpresa);
 
         $liq->sumatoria_gastos_operativos = $gastosOp;
         $liq->sumatoria_peajes = $peajes;
+        $liq->sumatoria_peajes_conductor = $peajesConductor;
         $liq->sumatoria_gastos_totales = $gastosTot;
         $liq->total_anticipos = $totalAnt;
         $liq->saldo_viaje = $saldo;
@@ -111,6 +133,7 @@ class LiquidacionCalculator
                 COUNT(*) as count,
                 COALESCE(SUM(sumatoria_gastos_operativos),0) as sum_gastos_operativos,
                 COALESCE(SUM(sumatoria_peajes),0) as sum_peajes,
+                COALESCE(SUM(sumatoria_peajes_conductor),0) as sum_peajes_conductor,
                 COALESCE(SUM(sumatoria_gastos_totales),0) as sum_gastos_totales,
                 COALESCE(SUM(total_anticipos),0) as sum_anticipos,
                 COALESCE(SUM(valor_flete),0) as sum_flete,
@@ -127,6 +150,7 @@ class LiquidacionCalculator
             'count' => $count,
             'sum_gastos_operativos' => (int) $row->sum_gastos_operativos,
             'sum_peajes' => (int) $row->sum_peajes,
+            'sum_peajes_conductor' => (int) $row->sum_peajes_conductor,
             'sum_gastos_totales' => (int) $row->sum_gastos_totales,
             'sum_anticipos' => (int) $row->sum_anticipos,
             'sum_flete' => $sumFlete,
@@ -150,6 +174,7 @@ class LiquidacionCalculator
                 COUNT(*) as count,
                 COALESCE(SUM(sumatoria_gastos_operativos),0) as sum_gastos_operativos,
                 COALESCE(SUM(sumatoria_peajes),0) as sum_peajes,
+                COALESCE(SUM(sumatoria_peajes_conductor),0) as sum_peajes_conductor,
                 COALESCE(SUM(sumatoria_gastos_totales),0) as sum_gastos_totales,
                 COALESCE(SUM(total_anticipos),0) as sum_anticipos,
                 COALESCE(SUM(valor_flete),0) as sum_flete,
@@ -169,6 +194,7 @@ class LiquidacionCalculator
                 'count' => $count,
                 'sum_gastos_operativos' => (int) $r->sum_gastos_operativos,
                 'sum_peajes' => (int) $r->sum_peajes,
+                'sum_peajes_conductor' => (int) $r->sum_peajes_conductor,
                 'sum_gastos_totales' => (int) $r->sum_gastos_totales,
                 'sum_anticipos' => (int) $r->sum_anticipos,
                 'sum_flete' => $sumFlete,

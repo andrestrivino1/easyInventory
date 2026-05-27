@@ -182,11 +182,12 @@
     </div>
     <div style="float:left; width:50%;">
         <table class="data-table">
-            <thead><tr><th>PEAJE</th><th class="right">VALOR</th></tr></thead>
+            <thead><tr><th>PEAJE</th><th class="center">PAGA</th><th class="right">VALOR</th></tr></thead>
             <tbody>
                 @foreach ($liq->tolls as $t)
                     <tr style="{{ $t->is_used ? '' : 'text-decoration:line-through;color:#999;' }}">
                         <td>PEAJE {{ strtoupper($t->name) }} <small>({{ strtoupper($t->direction) }})</small></td>
+                        <td class="center">{{ $t->paid_by === 'conductor' ? 'CONDUCTOR' : 'EMPRESA' }}</td>
                         <td class="right">{{ number_format($t->valor, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
@@ -213,6 +214,11 @@
     <tr>
         <td class="label-cell">SUMATORIA DE GASTOS (TOTAL)</td>
         <td class="right">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</td>
+        <td></td><td></td>
+    </tr>
+    <tr>
+        <td class="label-cell">PEAJES (CONDUCTOR)</td>
+        <td class="right">{{ number_format($liq->sumatoria_peajes_conductor, 0, ',', '.') }}</td>
         <td></td><td></td>
     </tr>
     <tr>

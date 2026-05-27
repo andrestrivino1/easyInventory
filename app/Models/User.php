@@ -55,4 +55,30 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Warehouse::class, 'user_warehouse')->withTimestamps();
     }
+
+    /**
+     * Conductores asignados a este usuario (relevante para el rol "placas").
+     */
+    public function assignedDrivers()
+    {
+        return $this->belongsToMany(Driver::class, 'user_driver')->withTimestamps();
+    }
+
+    /**
+     * ¿El usuario tiene el rol "placas"?
+     */
+    public function isPlacas(): bool
+    {
+        return $this->rol === 'placas';
+    }
+
+    /**
+     * IDs de los conductores asignados (para whereIn / Rule::in).
+     *
+     * @return array<int, int>
+     */
+    public function assignedDriverIds(): array
+    {
+        return $this->assignedDrivers()->pluck('drivers.id')->all();
+    }
 }

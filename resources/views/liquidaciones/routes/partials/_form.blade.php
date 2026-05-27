@@ -32,9 +32,9 @@
                            value="{{ old('destino', $route->destino ?? '') }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Tipo de veh&iacute;culo</label>
+                    <label class="form-label">Tipo de vehículo</label>
                     <select name="vehicle_type" class="form-select" required>
-                        <option value="">&mdash; Seleccionar &mdash;</option>
+                        <option value="">— Seleccionar —</option>
                         @foreach (\App\Models\LiquidacionRoute::VEHICLE_LABELS as $value => $label)
                             <option value="{{ $value }}"
                                 {{ old('vehicle_type', $route->vehicle_type ?? '') === $value ? 'selected' : '' }}>
@@ -53,7 +53,7 @@
                     </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Descripci&oacute;n (opcional)</label>
+                    <label class="form-label">Descripción (opcional)</label>
                     <textarea name="descripcion" class="form-control" rows="2">{{ old('descripcion', $route->descripcion ?? '') }}</textarea>
                 </div>
             </div>
@@ -112,9 +112,6 @@
         <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-secondary">Cancelar</a>
         <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar ruta</button>
     </div>
-
-    {{-- Espaciador para que los botones no queden tapados por el main-footer fijo del layout --}}
-    <div style="height: 70px;"></div>
 </div>
 
 <script>

@@ -93,12 +93,19 @@
             <div class="card mb-3">
                 <div class="card-header"><strong>Peajes</strong></div>
                 <table class="table table-sm m-0">
-                    <thead class="table-light"><tr><th>PEAJE</th><th>Sentido</th><th class="text-end">VALOR</th></tr></thead>
+                    <thead class="table-light"><tr><th>PEAJE</th><th>Sentido</th><th>Paga</th><th class="text-end">VALOR</th></tr></thead>
                     <tbody>
                         @foreach ($liq->tolls as $t)
                             <tr class="{{ !$t->is_used ? 'text-muted text-decoration-line-through' : '' }}{{ $t->is_adhoc ? ' table-warning' : '' }}">
                                 <td>{{ $t->name }}</td>
                                 <td>{{ strtoupper($t->direction) }}</td>
+                                <td>
+                                    @if ($t->paid_by === 'conductor')
+                                        <span class="badge bg-danger">Conductor</span>
+                                    @else
+                                        <span class="badge bg-secondary">Empresa</span>
+                                    @endif
+                                </td>
                                 <td class="text-end">{{ number_format($t->valor, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
@@ -115,6 +122,7 @@
             <div class="row text-end">
                 <div class="col-md-3"><strong>SUMATORIA DE GASTOS</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_gastos_operativos, 0, ',', '.') }}</span></div>
                 <div class="col-md-3"><strong>SUMATORIA DE PEAJES</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</span></div>
+                <div class="col-md-3"><strong>PEAJES (CONDUCTOR)</strong><br><span class="fs-5 {{ $liq->sumatoria_peajes_conductor > 0 ? 'text-danger' : '' }}">{{ number_format($liq->sumatoria_peajes_conductor, 0, ',', '.') }}</span></div>
                 <div class="col-md-3"><strong>SUMATORIA DE GASTOS (TOTAL)</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</span></div>
                 <div class="col-md-3"><strong>TOTAL ANTICIPOS</strong><br><span class="fs-5">{{ number_format($liq->total_anticipos, 0, ',', '.') }}</span></div>
                 <div class="col-md-4 mt-3"><strong>SALDO VIAJE</strong><br><span class="fs-4 fw-bold {{ $liq->saldo_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</span></div>

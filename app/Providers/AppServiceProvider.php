@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Gate::define('liquidaciones.access', function ($user) {
-            return $user->rol === 'admin';
+            return in_array($user->rol, ['admin', 'placas'], true);
         });
     }
 }

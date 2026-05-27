@@ -11,8 +11,9 @@
                 <tr>
                     <th style="width:5%">#</th>
                     <th>PEAJE</th>
-                    <th class="text-end" style="width:30%">VALOR</th>
-                    <th class="text-center" style="width:10%">Usado</th>
+                    <th class="text-end" style="width:22%">VALOR</th>
+                    <th class="text-center" style="width:18%">PAGA</th>
+                    <th class="text-center" style="width:9%">Usado</th>
                     <th class="text-center" style="width:8%"></th>
                 </tr>
             </thead>
@@ -37,6 +38,16 @@
                                    x-model.number="toll.valor"
                                    x-on:input="recalc()">
                         </td>
+                        <td>
+                            <select class="form-select form-select-sm"
+                                    :name="'tolls[' + idx + '][paid_by]'"
+                                    x-model="toll.paid_by"
+                                    x-on:change="recalc()"
+                                    title="Empresa = GoPass (no afecta el saldo del conductor). Conductor = se descuenta de su saldo.">
+                                <option value="empresa">Empresa (GoPass)</option>
+                                <option value="conductor">Conductor</option>
+                            </select>
+                        </td>
                         <td class="text-center">
                             <input type="checkbox" class="form-check-input"
                                    :name="'tolls[' + idx + '][is_used]'"
@@ -55,7 +66,7 @@
                     </tr>
                 </template>
                 <template x-if="tolls.length === 0">
-                    <tr><td colspan="5" class="text-center text-muted py-3">
+                    <tr><td colspan="6" class="text-center text-muted py-3">
                         Selecciona una ruta para autocargar los peajes, o agrega peajes ad-hoc.
                     </td></tr>
                 </template>

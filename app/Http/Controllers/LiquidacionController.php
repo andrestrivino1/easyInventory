@@ -30,6 +30,13 @@ class LiquidacionController extends Controller
             ->when($filters['transportadora'] ?? null, fn ($q, $v) => $q->where('transportadora', 'like', '%' . $v . '%'))
             ->when(($filters['estado'] ?? 'all') !== 'all', fn ($q) => $q->where('estado', $filters['estado']));
 
+        // Scoping para el rol placas: solo liquidaciones de sus conductores asignados.
+        $user = $request->user();
+        $assignedIds = $user->isPlacas() ? $user->assignedDriverIds() : null;
+        if ($assignedIds !== null) {
+            $base->whereIn('driver_id', $assignedIds);
+        }
+
         $liquidaciones = (clone $base)
             ->with(['driver', 'route'])
             ->orderByDesc('fecha_inicio')
@@ -41,7 +48,9 @@ class LiquidacionController extends Controller
             ? \App\Services\LiquidacionCalculator::aggregateByMonth(clone $base)
             : null;
 
-        $drivers = Driver::where('active', 1)->orderBy('name')->get(['id', 'name']);
+        $drivers = Driver::where('active', 1)
+            ->when($assignedIds !== null, fn ($q) => $q->whereIn('id', $assignedIds))
+            ->orderBy('name')->get(['id', 'name']);
         $routes = LiquidacionRoute::orderBy('name')->get(['id', 'name']);
 
         return view('liquidaciones.index', compact(
@@ -52,7 +61,11 @@ class LiquidacionController extends Controller
 
     public function create()
     {
-        $drivers = Driver::where('active', 1)->orderBy('name')->get(['id', 'name', 'vehicle_plate', 'vehicle_owner', 'phone']);
+        $user = auth()->user();
+        $assignedIds = $user->isPlacas() ? $user->assignedDriverIds() : null;
+        $drivers = Driver::where('active', 1)
+            ->when($assignedIds !== null, fn ($q) => $q->whereIn('id', $assignedIds))
+            ->orderBy('name')->get(['id', 'name', 'vehicle_plate', 'vehicle_owner', 'phone']);
         $routes = LiquidacionRoute::active()->orderBy('name')->get(['id', 'name', 'origen', 'destino']);
         $categories = ExpenseCategory::active()->ordered()->get();
 
@@ -98,6 +111,8 @@ class LiquidacionController extends Controller
 
     public function show(Liquidacion $liquidacion)
     {
+        $this->authorize('view', $liquidacion);
+
         $liquidacion->load([
             'driver',
             'route',
@@ -115,8 +130,12 @@ class LiquidacionController extends Controller
     {
         $this->authorize('update', $liquidacion);
 
+        $user = auth()->user();
+        $assignedIds = $user->isPlacas() ? $user->assignedDriverIds() : null;
         $liquidacion->load(['expenses.category', 'tolls']);
-        $drivers = Driver::where('active', 1)->orderBy('name')->get(['id', 'name', 'vehicle_plate']);
+        $drivers = Driver::where('active', 1)
+            ->when($assignedIds !== null, fn ($q) => $q->whereIn('id', $assignedIds))
+            ->orderBy('name')->get(['id', 'name', 'vehicle_plate']);
         $routes = LiquidacionRoute::active()->orderBy('name')->get(['id', 'name', 'origen', 'destino']);
         $categories = ExpenseCategory::active()->ordered()->get();
 
@@ -181,6 +200,11 @@ class LiquidacionController extends Controller
 
     public function driverInfo(Driver $driver)
     {
+        $user = auth()->user();
+        if ($user->isPlacas() && !in_array($driver->id, $user->assignedDriverIds(), true)) {
+            abort(403);
+        }
+
         return response()->json([
             'id' => $driver->id,
             'name' => $driver->name,
@@ -295,6 +319,7 @@ class LiquidacionController extends Controller
                 'direction' => $t['direction'] ?? 'ida',
                 'is_adhoc' => (bool) ($t['is_adhoc'] ?? false),
                 'is_used' => array_key_exists('is_used', $t) ? (bool) $t['is_used'] : true,
+                'paid_by' => ($t['paid_by'] ?? 'empresa') === 'conductor' ? 'conductor' : 'empresa',
             ]);
         }
     }

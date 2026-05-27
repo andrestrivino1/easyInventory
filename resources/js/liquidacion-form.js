@@ -42,6 +42,7 @@ window.liquidacionForm = function (config) {
                 route_toll_id: t.route_toll_id || null,
                 is_adhoc: !!t.is_adhoc,
                 is_used: t.is_used !== false,
+                paid_by: t.paid_by || 'empresa',
             }));
         },
 
@@ -54,6 +55,14 @@ window.liquidacionForm = function (config) {
                 .filter(t => t.is_used)
                 .reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
         },
+        get sumPeajesConductor() {
+            return this.tolls
+                .filter(t => t.is_used && t.paid_by === 'conductor')
+                .reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
+        },
+        get sumPeajesEmpresa() {
+            return this.sumPeajes - this.sumPeajesConductor;
+        },
         get sumGastosTotales() {
             return this.sumGastosOperativos + this.sumPeajes;
         },
@@ -61,10 +70,10 @@ window.liquidacionForm = function (config) {
             return (parseInt(this.anticipo, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
         },
         get saldoViaje() {
-            return this.totalAnticipos - this.sumGastosOperativos;
+            return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor;
         },
         get gananciaViaje() {
-            return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosTotales;
+            return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosOperativos - this.sumPeajesEmpresa;
         },
         get aFavorDeLabel() {
             const s = this.saldoViaje;
@@ -120,6 +129,7 @@ window.liquidacionForm = function (config) {
                     route_toll_id: t.id,
                     is_adhoc: false,
                     is_used: true,
+                    paid_by: 'empresa',
                 }));
             })
             .catch(err => console.error('No se pudieron cargar los peajes de la ruta:', err));
@@ -137,6 +147,7 @@ window.liquidacionForm = function (config) {
                 route_toll_id: null,
                 is_adhoc: true,
                 is_used: true,
+                paid_by: 'empresa',
             });
         },
 

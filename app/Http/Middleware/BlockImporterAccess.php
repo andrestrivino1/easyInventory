@@ -113,6 +113,43 @@ class BlockImporterAccess
                 if (!in_array($routeName, $allowedRoutes) && !$isAllowedPath && $routeName !== null) {
                     return redirect()->route('itrs.index')->with('error', 'Acceso no autorizado. Solo puedes acceder al módulo ITR.');
                 }
+            } elseif ($userRole === 'placas') {
+                // Solo el módulo de Liquidación de Viajes (acciones operativas), sin el catálogo de Rutas.
+                $allowedRoutes = [
+                    'liquidaciones.index',
+                    'liquidaciones.create',
+                    'liquidaciones.store',
+                    'liquidaciones.show',
+                    'liquidaciones.edit',
+                    'liquidaciones.update',
+                    'liquidaciones.destroy',
+                    'liquidaciones.cerrar',
+                    'liquidaciones.reabrir',
+                    'liquidaciones.anular',
+                    'liquidaciones.pdf',
+                    'liquidaciones.drivers.info',
+                    'liquidaciones.duplicate-check',
+                    'liquidaciones.routes.peajes', // AJAX: peajes de la ruta seleccionada (solo lectura)
+                    'language.switch',
+                    'home',
+                    'logout',
+                ];
+                $route = $request->route();
+                $routeName = $route ? $route->getName() : null;
+                $path = $request->path();
+                // No se permite el path 'liquidaciones' de forma amplia: el catálogo de rutas
+                // (liquidaciones.routes.*) queda excluido salvo el endpoint de peajes.
+                $allowedPaths = ['home', 'logout', 'language'];
+                $isAllowedPath = false;
+                foreach ($allowedPaths as $allowedPath) {
+                    if (strpos($path, $allowedPath) === 0 || $path === '' || $path === '/') {
+                        $isAllowedPath = true;
+                        break;
+                    }
+                }
+                if (!in_array($routeName, $allowedRoutes) && !$isAllowedPath && $routeName !== null) {
+                    return redirect()->route('liquidaciones.index')->with('error', 'Acceso no autorizado. Solo puedes acceder a Liquidación de Viajes.');
+                }
             }
         }
         

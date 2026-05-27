@@ -46,6 +46,7 @@ document.addEventListener('alpine:init', function () {
                     route_toll_id: t.route_toll_id || null,
                     is_adhoc: !!t.is_adhoc,
                     is_used: t.is_used !== false,
+                    paid_by: t.paid_by || 'empresa',
                 }));
             },
             get sumGastosOperativos() {
@@ -54,12 +55,16 @@ document.addEventListener('alpine:init', function () {
             get sumPeajes() {
                 return this.tolls.filter(t => t.is_used).reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
             },
+            get sumPeajesConductor() {
+                return this.tolls.filter(t => t.is_used && t.paid_by === 'conductor').reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
+            },
+            get sumPeajesEmpresa() { return this.sumPeajes - this.sumPeajesConductor; },
             get sumGastosTotales() { return this.sumGastosOperativos + this.sumPeajes; },
             get totalAnticipos() {
                 return (parseInt(this.anticipo, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
             },
-            get saldoViaje() { return this.totalAnticipos - this.sumGastosOperativos; },
-            get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosTotales; },
+            get saldoViaje() { return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor; },
+            get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosOperativos - this.sumPeajesEmpresa; },
             get aFavorDeLabel() {
                 const s = this.saldoViaje;
                 if (s > 0) return 'EMPRESA';
@@ -99,6 +104,7 @@ document.addEventListener('alpine:init', function () {
                         route_toll_id: t.id,
                         is_adhoc: false,
                         is_used: true,
+                        paid_by: 'empresa',
                     }));
                 })
                 .catch(err => console.error('No se pudieron cargar los peajes de la ruta:', err));
@@ -110,6 +116,7 @@ document.addEventListener('alpine:init', function () {
                 this.tolls.push({
                     name: '', valor: 0, sort_order: nextOrder,
                     direction: 'ida', route_toll_id: null, is_adhoc: true, is_used: true,
+                    paid_by: 'empresa',
                 });
             },
             removeToll(idx) { this.tolls.splice(idx, 1); },
@@ -121,7 +128,7 @@ document.addEventListener('alpine:init', function () {
 <div x-data='liquidacionForm({!! json_encode([
     "categories" => $categories->map(fn($c) => ["id" => $c->id, "code" => $c->code, "name" => $c->name, "has_galones" => (bool)$c->has_galones])->all(),
     "existingExpenses" => $liq ? $liq->expenses->map(fn($e) => ["expense_category_id" => $e->expense_category_id, "valor" => (int)$e->valor, "galones" => $e->galones])->all() : [],
-    "existingTolls" => $existingTolls->map(fn($t) => ["name" => $t->name, "valor" => (int)$t->valor, "sort_order" => (int)$t->sort_order, "direction" => $t->direction, "route_toll_id" => $t->route_toll_id, "is_adhoc" => (bool)$t->is_adhoc, "is_used" => (bool)$t->is_used])->values()->all(),
+    "existingTolls" => $existingTolls->map(fn($t) => ["name" => $t->name, "valor" => (int)$t->valor, "sort_order" => (int)$t->sort_order, "direction" => $t->direction, "route_toll_id" => $t->route_toll_id, "is_adhoc" => (bool)$t->is_adhoc, "is_used" => (bool)$t->is_used, "paid_by" => $t->paid_by])->values()->all(),
     "initialAnticipo" => (int)($liq->anticipo ?? 0),
     "initialSobreanticipo" => (int)($liq->sobreanticipo ?? 0),
     "initialFlete" => (int)($liq->valor_flete ?? 0),
@@ -255,6 +262,10 @@ document.addEventListener('alpine:init', function () {
                         <div class="col">
                             <div class="text-muted">Σ PEAJES</div>
                             <strong x-text="formatMoney(sumPeajes)" class="fs-6"></strong>
+                        </div>
+                        <div class="col">
+                            <div class="text-muted" title="Peajes que paga el conductor: se descuentan de su saldo y no entran en la ganancia.">PEAJES COND.</div>
+                            <strong x-text="formatMoney(sumPeajesConductor)" class="fs-6" :class="sumPeajesConductor > 0 ? 'text-danger' : ''"></strong>
                         </div>
                         <div class="col">
                             <div class="text-muted">Σ TOTAL</div>

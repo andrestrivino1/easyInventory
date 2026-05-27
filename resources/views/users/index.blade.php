@@ -126,6 +126,8 @@
                                     @endif
                                 @elseif($user->rol === 'admin')
                                     Todas
+                                @elseif($user->rol === 'placas')
+                                    {{ $user->assignedDrivers->count() }} conductor(es)
                                 @else
                                     {{ $user->almacen ? $user->almacen->nombre . ($user->almacen->ciudad ? ' - ' . $user->almacen->ciudad : '') : '-' }}
                                 @endif
@@ -135,6 +137,8 @@
                                     Visualizador de Importaciones
                                 @elseif($user->rol === 'proveedor_itr')
                                     PROVEEDOR ITR (Desembalaje)
+                                @elseif($user->rol === 'placas')
+                                    Placas (Liquidación de Viajes)
                                 @else
                                     {{ ucfirst($user->rol) }}
                                 @endif

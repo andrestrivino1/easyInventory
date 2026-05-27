@@ -5,7 +5,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Liquidaciones de Viaje</h1>
         <div>
-            <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-outline-secondary"><i class="bi bi-signpost-split"></i> Rutas</a>
+            @can('viewAny', App\Models\LiquidacionRoute::class)
+                <a href="{{ route('liquidaciones.routes.index') }}" class="btn btn-outline-secondary"><i class="bi bi-signpost-split"></i> Rutas</a>
+            @endcan
             <a href="{{ route('liquidaciones.create') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nueva</a>
         </div>
     </div>

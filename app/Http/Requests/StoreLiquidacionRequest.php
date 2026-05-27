@@ -14,8 +14,15 @@ class StoreLiquidacionRequest extends FormRequest
 
     public function rules(): array
     {
+        // El rol placas solo puede operar sobre sus conductores asignados.
+        $user = $this->user();
+        $driverRules = ['required', 'integer', Rule::exists('drivers', 'id')->where('active', 1)];
+        if ($user && $user->isPlacas()) {
+            $driverRules[] = Rule::in($user->assignedDriverIds());
+        }
+
         return [
-            'driver_id' => ['required', 'integer', Rule::exists('drivers', 'id')->where('active', 1)],
+            'driver_id' => $driverRules,
             'vehicle_plate' => ['required', 'string', 'max:20'],
             'route_id' => ['nullable', 'integer', Rule::exists('liquidacion_routes', 'id')->where('active', 1)],
             'transportadora' => ['required', 'string', 'max:150'],
@@ -40,6 +47,7 @@ class StoreLiquidacionRequest extends FormRequest
             'tolls.*.route_toll_id' => ['nullable', 'integer', 'exists:liquidacion_route_tolls,id'],
             'tolls.*.is_adhoc' => ['nullable', 'boolean'],
             'tolls.*.is_used' => ['nullable', 'boolean'],
+            'tolls.*.paid_by' => ['nullable', Rule::in(['empresa', 'conductor'])],
         ];
     }
 

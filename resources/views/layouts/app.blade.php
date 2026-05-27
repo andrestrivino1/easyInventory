@@ -38,9 +38,12 @@
                 $isImporter = $user && $user->rol === 'importer';
                 $isImportViewer = $user && $user->rol === 'import_viewer';
                 $isProveedorItr = $user && $user->rol === 'proveedor_itr';
+                $isPlacas = $user && $user->rol === 'placas';
             @endphp
             @if($isProveedorItr)
                 <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
+            @elseif($isPlacas)
+                <li><a class="nav-link {{ request()->routeIs('liquidaciones.*') ? 'active' : '' }}" href="{{ route('liquidaciones.index') }}"><i class="bi bi-cash-coin"></i> Liquidación de Viajes</a></li>
             @elseif(!$isImporter && !$isImportViewer)
                 <li><a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('home') }}"><i
                             class="bi bi-bar-chart"></i> {{ __('common.movimientos') }}</a></li>
