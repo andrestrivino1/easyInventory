@@ -57,54 +57,44 @@ class LiquidacionCalculator
         return $total;
     }
 
-    public static function computeTotalAnticipos(int $anticipoEmpresa, int $anticipoConductor): int
+    /**
+     * Total de anticipos del viaje = empresa + conductor + sobre anticipo.
+     * Se persiste en total_anticipos (lo usa el consolidado del índice).
+     */
+    public static function computeTotalAnticipos(int $anticipoEmpresa, int $anticipoConductor, int $sobreanticipo = 0): int
     {
-        return $anticipoEmpresa + $anticipoConductor;
+        return $anticipoEmpresa + $anticipoConductor + $sobreanticipo;
     }
 
     /**
-     * Saldo pendiente = anticipo de la empresa − descuentos aplicados por la transportadora.
-     * Puede ser negativo si los descuentos superan el anticipo empresa.
+     * Anticipos del conductor = anticipo del conductor + sobre anticipo.
      */
-    public static function computeSaldoPendiente(int $anticipoEmpresa, int $descuentos): int
+    public static function anticiposConductor(int $anticipoConductor, int $sobreanticipo): int
     {
-        return $anticipoEmpresa - $descuentos;
+        return $anticipoConductor + $sobreanticipo;
     }
 
     /**
-     * Saldo viaje = total_anticipos − gastos_operativos − peajes pagados por el conductor.
-     * Los peajes de empresa (GoPass) NO tocan el saldo; los del conductor sí (salen de su anticipo).
+     * A favor de, según el signo de "Ant - gastos" (= gastos − anticipos conductor):
+     *  - 'conductor' si > 0 (el conductor gastó más de lo anticipado: la empresa le debe)
+     *  - 'empresa'   si < 0 (le anticiparon de más: debe devolver el excedente)
+     *  - 'ninguno'   si = 0
      */
-    public static function computeSaldoViaje(int $totalAnticipos, int $sumatoriaGastosOperativos, int $peajesConductor = 0): int
+    public static function aFavorDe(int $antGastos): string
     {
-        return $totalAnticipos - $sumatoriaGastosOperativos - $peajesConductor;
-    }
-
-    /**
-     * Ganancia viaje = valor_flete − costo de empresa.
-     * Costo de empresa = gastos_operativos + peajes de empresa (los del conductor los absorbe él,
-     * por eso NO entran en la ganancia).
-     */
-    public static function computeGananciaViaje(int $valorFlete, int $costoEmpresa): int
-    {
-        return $valorFlete - $costoEmpresa;
-    }
-
-    /**
-     * A favor de:
-     *  - 'empresa'    si saldo > 0 (el conductor debe devolver excedente)
-     *  - 'conductor'  si saldo < 0 (la empresa le debe al conductor)
-     *  - 'ninguno'    si saldo = 0
-     */
-    public static function aFavorDe(int $saldo): string
-    {
-        if ($saldo > 0) return Liquidacion::AFAVOR_EMPRESA;
-        if ($saldo < 0) return Liquidacion::AFAVOR_CONDUCTOR;
+        if ($antGastos > 0) return Liquidacion::AFAVOR_CONDUCTOR;
+        if ($antGastos < 0) return Liquidacion::AFAVOR_EMPRESA;
         return Liquidacion::AFAVOR_NINGUNO;
     }
 
     /**
-     * Recalcula y persiste todos los cached totals en la liquidación.
+     * Recalcula y persiste los cached totals con las fórmulas del panel (feature 005).
+     *
+     * Significado de columnas (algunas repurposadas):
+     *  - sumatoria_gastos_totales = gastos_op + descuentos + peajes ("Suma de gastos total de viaje")
+     *  - saldo_pendiente          = valor_flete − anticipo_empresa ("Saldo adeudado empresa de transporte")
+     *  - saldo_viaje              = (gastos_op + descuentos) − (anticipo_conductor + sobreanticipo) ("Ant - gastos")
+     *  - ganancia_viaje           = valor_flete − sumatoria_gastos_totales ("Ganancia final de viaje")
      */
     public static function recalcAndSave(Liquidacion $liq): void
     {
@@ -114,22 +104,30 @@ class LiquidacionCalculator
         $gastosOp = self::computeSumatoriaGastos($expenses);
         $peajes = self::computeSumatoriaPeajes($tolls);                       // todos los usados
         $peajesConductor = self::computeSumatoriaPeajesConductor($tolls);     // subconjunto que paga el conductor
-        $peajesEmpresa = $peajes - $peajesConductor;
-        $gastosTot = $gastosOp + $peajes;                                     // total del viaje (incluye ambos)
-        $totalAnt = self::computeTotalAnticipos((int) $liq->anticipo_empresa, (int) $liq->anticipo_conductor);
-        $saldo = self::computeSaldoViaje($totalAnt, $gastosOp, $peajesConductor);
-        $saldoPendiente = self::computeSaldoPendiente((int) $liq->anticipo_empresa, (int) $liq->descuentos);
-        $ganancia = self::computeGananciaViaje((int) $liq->valor_flete, $gastosOp + $peajesEmpresa);
+
+        $descuentos = (int) $liq->descuentos;
+        $anticipoEmpresa = (int) $liq->anticipo_empresa;
+        $anticipoConductor = (int) $liq->anticipo_conductor;
+        $sobreanticipo = (int) $liq->sobreanticipo;
+        $valorFlete = (int) $liq->valor_flete;
+
+        $sumGastos = $gastosOp + $descuentos;                                 // "Sumatoria de gastos"
+        $gastosTot = $sumGastos + $peajes;                                    // "Suma de gastos total de viaje"
+        $anticiposCond = self::anticiposConductor($anticipoConductor, $sobreanticipo);
+        $antGastos = $sumGastos - $anticiposCond;                            // "Ant - gastos" -> saldo_viaje
+        $saldoAdeudadoEmpresa = $valorFlete - $anticipoEmpresa;              // "Saldo adeudado empresa" -> saldo_pendiente
+        $ganancia = $valorFlete - $gastosTot;                                // "Ganancia final de viaje"
+        $totalAnt = self::computeTotalAnticipos($anticipoEmpresa, $anticipoConductor, $sobreanticipo);
 
         $liq->sumatoria_gastos_operativos = $gastosOp;
         $liq->sumatoria_peajes = $peajes;
         $liq->sumatoria_peajes_conductor = $peajesConductor;
         $liq->sumatoria_gastos_totales = $gastosTot;
         $liq->total_anticipos = $totalAnt;
-        $liq->saldo_pendiente = $saldoPendiente;
-        $liq->saldo_viaje = $saldo;
+        $liq->saldo_pendiente = $saldoAdeudadoEmpresa;
+        $liq->saldo_viaje = $antGastos;
         $liq->ganancia_viaje = $ganancia;
-        $liq->a_favor_de = self::aFavorDe($saldo);
+        $liq->a_favor_de = self::aFavorDe($antGastos);
         $liq->save();
     }
 

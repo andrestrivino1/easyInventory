@@ -12,6 +12,7 @@ window.liquidacionForm = function (config) {
         // Estado reactivo
         anticipoEmpresa: parseInt(config.initialAnticipoEmpresa || 0, 10),
         anticipoConductor: parseInt(config.initialAnticipoConductor || 0, 10),
+        sobreanticipo: parseInt(config.initialSobreanticipo || 0, 10),
         descuentos: parseInt(config.initialDescuentos || 0, 10),
         valorFlete: parseInt(config.initialFlete || 0, 10),
         expenses: [],
@@ -61,28 +62,40 @@ window.liquidacionForm = function (config) {
                 .filter(t => t.is_used && t.paid_by === 'conductor')
                 .reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
         },
-        get sumPeajesEmpresa() {
-            return this.sumPeajes - this.sumPeajesConductor;
+        // "Sumatoria de gastos" = gastos operativos + descuento empresa
+        get sumGastos() {
+            return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0);
         },
+        // "Suma de gastos total de viaje" = sumatoria de gastos + peajes
         get sumGastosTotales() {
-            return this.sumGastosOperativos + this.sumPeajes;
+            return this.sumGastos + this.sumPeajes;
+        },
+        // "Anticipos conductor" = anticipo conductor + sobre anticipo
+        get anticiposConductor() {
+            return (parseInt(this.anticipoConductor, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
         },
         get totalAnticipos() {
-            return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0);
+            return (parseInt(this.anticipoEmpresa, 10) || 0)
+                + (parseInt(this.anticipoConductor, 10) || 0)
+                + (parseInt(this.sobreanticipo, 10) || 0);
         },
-        get saldoPendiente() {
-            return (parseInt(this.anticipoEmpresa, 10) || 0) - (parseInt(this.descuentos, 10) || 0);
+        // "Saldo adeudado empresa de transporte" = valor flete − anticipo empresa
+        get saldoAdeudadoEmpresa() {
+            return (parseInt(this.valorFlete, 10) || 0) - (parseInt(this.anticipoEmpresa, 10) || 0);
         },
-        get saldoViaje() {
-            return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor;
+        // "Ant - gastos" = sumatoria de gastos − anticipos conductor
+        get antGastos() {
+            return this.sumGastos - this.anticiposConductor;
         },
+        // "Ganancia final de viaje" = valor flete − suma de gastos total
         get gananciaViaje() {
-            return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosOperativos - this.sumPeajesEmpresa;
+            return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosTotales;
         },
+        // "A favor de" según el signo de Ant - gastos (gastos − anticipos conductor)
         get aFavorDeLabel() {
-            const s = this.saldoViaje;
-            if (s > 0) return 'EMPRESA';
-            if (s < 0) return 'CONDUCTOR';
+            const s = this.antGastos;
+            if (s > 0) return 'CONDUCTOR';
+            if (s < 0) return 'EMPRESA';
             return 'NINGUNO';
         },
 

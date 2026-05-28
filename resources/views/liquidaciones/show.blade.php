@@ -69,8 +69,8 @@
 
                 <div class="col-md-3 mt-3"><strong>ANTICIPO EMPRESA:</strong><br>{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</div>
                 <div class="col-md-3 mt-3"><strong>ANTICIPO CONDUCTOR:</strong><br>{{ number_format($liq->anticipo_conductor, 0, ',', '.') }}</div>
-                <div class="col-md-3 mt-3"><strong>DESCUENTOS:</strong><br>{{ number_format($liq->descuentos, 0, ',', '.') }}</div>
-                <div class="col-md-3 mt-3"><strong>SALDO PENDIENTE:</strong><br><span class="{{ $liq->saldo_pendiente >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</span></div>
+                <div class="col-md-3 mt-3"><strong>SOBRE ANTICIPO:</strong><br>{{ number_format($liq->sobreanticipo, 0, ',', '.') }}</div>
+                <div class="col-md-3 mt-3"><strong>DESCUENTOS (empresa):</strong><br>{{ number_format($liq->descuentos, 0, ',', '.') }}</div>
 
                 <div class="col-md-3 mt-3"><strong>FECHA INICIO:</strong><br>{{ $liq->fecha_inicio?->format('Y-m-d') }}</div>
                 <div class="col-md-3 mt-3"><strong>FECHA FIN:</strong><br>{{ $liq->fecha_fin?->format('Y-m-d') }}</div>
@@ -128,20 +128,34 @@
     </div>
 
     {{-- Totales calculados --}}
+    @php
+        $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos;
+        $anticiposConductor = $liq->anticipo_conductor + $liq->sobreanticipo;
+    @endphp
     <div class="card mb-3">
         <div class="card-header bg-secondary text-white">Totales</div>
         <div class="card-body">
-            <div class="row text-end">
-                <div class="col-md-3"><strong>SUMATORIA DE GASTOS</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_gastos_operativos, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>SUMATORIA DE PEAJES</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>PEAJES (CONDUCTOR)</strong><br><span class="fs-5 {{ $liq->sumatoria_peajes_conductor > 0 ? 'text-danger' : '' }}">{{ number_format($liq->sumatoria_peajes_conductor, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>SUMATORIA DE GASTOS (TOTAL)</strong><br><span class="fs-5">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>TOTAL ANTICIPOS</strong><br><span class="fs-5">{{ number_format($liq->total_anticipos, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>DESCUENTOS (EMPRESA)</strong><br><span class="fs-5 {{ $liq->descuentos > 0 ? 'text-danger' : '' }}">{{ number_format($liq->descuentos, 0, ',', '.') }}</span></div>
-                <div class="col-md-3"><strong>SALDO PENDIENTE</strong><br><span class="fs-5 fw-bold {{ $liq->saldo_pendiente >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</span></div>
-                <div class="col-md-4 mt-3"><strong>SALDO VIAJE</strong><br><span class="fs-4 fw-bold {{ $liq->saldo_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</span></div>
-                <div class="col-md-4 mt-3"><strong>GANANCIA VIAJE</strong><br><span class="fs-4 fw-bold {{ $liq->ganancia_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</span></div>
-                <div class="col-md-4 mt-3"><strong>A FAVOR DE</strong><br><span class="badge bg-warning text-dark fs-5">{{ strtoupper($liq->a_favor_de) }}</span></div>
+            <div class="row">
+                {{-- Columna izquierda: costos y relación con la empresa de transporte --}}
+                <div class="col-md-6">
+                    <table class="table table-sm mb-0">
+                        <tr><th>Sumatoria de gastos</th><td class="text-end fs-6">{{ number_format($sumatoriaGastos, 0, ',', '.') }}</td></tr>
+                        <tr><th>Sumatoria de peajes</th><td class="text-end fs-6">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</td></tr>
+                        <tr><th>Suma de gastos total de viaje</th><td class="text-end fs-6 fw-bold">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</td></tr>
+                        <tr><th>Valor flete pactado</th><td class="text-end fs-6">{{ number_format($liq->valor_flete, 0, ',', '.') }}</td></tr>
+                        <tr><th>Anticipo empresa de transporte</th><td class="text-end fs-6">{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</td></tr>
+                        <tr><th>Saldo adeudado empresa de transporte</th><td class="text-end fs-6 fw-bold {{ $liq->saldo_pendiente >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</td></tr>
+                    </table>
+                </div>
+                {{-- Columna derecha: relación con el conductor y rentabilidad --}}
+                <div class="col-md-6">
+                    <table class="table table-sm mb-0">
+                        <tr><th>Anticipos conductor</th><td class="text-end fs-6">{{ number_format($anticiposConductor, 0, ',', '.') }}</td></tr>
+                        <tr><th>Ant - gastos</th><td class="text-end fs-6 fw-bold {{ $liq->saldo_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</td></tr>
+                        <tr><th>A favor de</th><td class="text-end"><span class="badge bg-warning text-dark fs-6">{{ strtoupper($liq->a_favor_de) }}</span></td></tr>
+                        <tr><th>Ganancia final de viaje</th><td class="text-end fs-4 fw-bold {{ $liq->ganancia_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</td></tr>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

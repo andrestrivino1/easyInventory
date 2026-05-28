@@ -1,6 +1,17 @@
 <div class="card mb-3">
     <div class="card-header bg-light"><strong>Gastos del viaje</strong></div>
     <div class="card-body p-0">
+        <div class="p-2 border-bottom bg-light-subtle">
+            <div class="row g-2 align-items-center">
+                <label class="col-auto col-form-label col-form-label-sm fw-bold mb-0">Descuentos (empresa)</label>
+                <div class="col-auto">
+                    <input type="number" name="descuentos" class="form-control form-control-sm text-end" min="0"
+                           x-model.number="descuentos" x-on:input="recalc()"
+                           value="{{ old('descuentos', $liq->descuentos ?? 0) }}" style="max-width:160px">
+                </div>
+                <div class="col-auto small text-muted">Suma a la sumatoria de gastos del viaje.</div>
+            </div>
+        </div>
         <table class="table table-sm table-bordered m-0">
             <thead class="table-light">
                 <tr>

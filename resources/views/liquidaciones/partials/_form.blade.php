@@ -22,6 +22,7 @@ document.addEventListener('alpine:init', function () {
             driverInfoUrlTpl: config.driverInfoUrlTpl,
             anticipoEmpresa: parseInt(config.initialAnticipoEmpresa || 0, 10),
             anticipoConductor: parseInt(config.initialAnticipoConductor || 0, 10),
+            sobreanticipo: parseInt(config.initialSobreanticipo || 0, 10),
             descuentos: parseInt(config.initialDescuentos || 0, 10),
             valorFlete: parseInt(config.initialFlete || 0, 10),
             expenses: [],
@@ -59,20 +60,19 @@ document.addEventListener('alpine:init', function () {
             get sumPeajesConductor() {
                 return this.tolls.filter(t => t.is_used && t.paid_by === 'conductor').reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
             },
-            get sumPeajesEmpresa() { return this.sumPeajes - this.sumPeajesConductor; },
-            get sumGastosTotales() { return this.sumGastosOperativos + this.sumPeajes; },
+            get sumGastos() { return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0); },
+            get sumGastosTotales() { return this.sumGastos + this.sumPeajes; },
+            get anticiposConductor() { return (parseInt(this.anticipoConductor, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0); },
             get totalAnticipos() {
-                return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0);
+                return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);
             },
-            get saldoPendiente() {
-                return (parseInt(this.anticipoEmpresa, 10) || 0) - (parseInt(this.descuentos, 10) || 0);
-            },
-            get saldoViaje() { return this.totalAnticipos - this.sumGastosOperativos - this.sumPeajesConductor; },
-            get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosOperativos - this.sumPeajesEmpresa; },
+            get saldoAdeudadoEmpresa() { return (parseInt(this.valorFlete, 10) || 0) - (parseInt(this.anticipoEmpresa, 10) || 0); },
+            get antGastos() { return this.sumGastos - this.anticiposConductor; },
+            get gananciaViaje() { return (parseInt(this.valorFlete, 10) || 0) - this.sumGastosTotales; },
             get aFavorDeLabel() {
-                const s = this.saldoViaje;
-                if (s > 0) return 'EMPRESA';
-                if (s < 0) return 'CONDUCTOR';
+                const s = this.antGastos;
+                if (s > 0) return 'CONDUCTOR';
+                if (s < 0) return 'EMPRESA';
                 return 'NINGUNO';
             },
             recalc() {},
@@ -135,6 +135,7 @@ document.addEventListener('alpine:init', function () {
     "existingTolls" => $existingTolls->map(fn($t) => ["name" => $t->name, "valor" => (int)$t->valor, "sort_order" => (int)$t->sort_order, "direction" => $t->direction, "route_toll_id" => $t->route_toll_id, "is_adhoc" => (bool)$t->is_adhoc, "is_used" => (bool)$t->is_used, "paid_by" => $t->paid_by])->values()->all(),
     "initialAnticipoEmpresa" => (int)($liq->anticipo_empresa ?? 0),
     "initialAnticipoConductor" => (int)($liq->anticipo_conductor ?? 0),
+    "initialSobreanticipo" => (int)($liq->sobreanticipo ?? 0),
     "initialDescuentos" => (int)($liq->descuentos ?? 0),
     "initialFlete" => (int)($liq->valor_flete ?? 0),
     "routePeajesUrlTpl" => url("/liquidaciones/rutas/__ID__/peajes"),
@@ -209,16 +210,16 @@ document.addEventListener('alpine:init', function () {
                            value="{{ old('anticipo_conductor', $liq->anticipo_conductor ?? 0) }}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">DESCUENTOS (empresa transporte)</label>
-                    <input type="number" name="descuentos" class="form-control" min="0"
-                           x-model.number="descuentos"
-                           value="{{ old('descuentos', $liq->descuentos ?? 0) }}">
+                    <label class="form-label">SOBRE ANTICIPO</label>
+                    <input type="number" name="sobreanticipo" class="form-control" min="0"
+                           x-model.number="sobreanticipo"
+                           value="{{ old('sobreanticipo', $liq->sobreanticipo ?? 0) }}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">SALDO PENDIENTE</label>
+                    <label class="form-label">SALDO ADEUDADO EMPRESA</label>
                     <input type="text" class="form-control fw-bold" readonly
-                           x-bind:value="formatMoney(saldoPendiente)"
-                           x-bind:class="saldoPendiente >= 0 ? 'text-success' : 'text-danger'">
+                           x-bind:value="formatMoney(saldoAdeudadoEmpresa)"
+                           x-bind:class="saldoAdeudadoEmpresa >= 0 ? 'text-success' : 'text-danger'">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">FECHA INICIO</label>
@@ -283,38 +284,38 @@ document.addEventListener('alpine:init', function () {
                 <div class="col-md-9">
                     <div class="row text-center small">
                         <div class="col">
-                            <div class="text-muted">Σ GASTOS</div>
-                            <strong x-text="formatMoney(sumGastosOperativos)" class="fs-6"></strong>
+                            <div class="text-muted" title="Gastos operativos + descuento empresa">Σ GASTOS</div>
+                            <strong x-text="formatMoney(sumGastos)" class="fs-6"></strong>
                         </div>
                         <div class="col">
                             <div class="text-muted">Σ PEAJES</div>
                             <strong x-text="formatMoney(sumPeajes)" class="fs-6"></strong>
                         </div>
                         <div class="col">
-                            <div class="text-muted" title="Peajes que paga el conductor: se descuentan de su saldo y no entran en la ganancia.">PEAJES COND.</div>
-                            <strong x-text="formatMoney(sumPeajesConductor)" class="fs-6" :class="sumPeajesConductor > 0 ? 'text-danger' : ''"></strong>
-                        </div>
-                        <div class="col">
                             <div class="text-muted">Σ TOTAL</div>
                             <strong x-text="formatMoney(sumGastosTotales)" class="fs-6"></strong>
                         </div>
                         <div class="col">
-                            <div class="text-muted">ANTICIPOS</div>
-                            <strong x-text="formatMoney(totalAnticipos)" class="fs-6"></strong>
+                            <div class="text-muted">FLETE</div>
+                            <strong x-text="formatMoney(valorFlete)" class="fs-6"></strong>
                         </div>
                         <div class="col">
-                            <div class="text-muted">DESCUENTOS</div>
-                            <strong x-text="formatMoney(descuentos)" class="fs-6" :class="descuentos > 0 ? 'text-danger' : ''"></strong>
+                            <div class="text-muted">ANT. EMPRESA</div>
+                            <strong x-text="formatMoney(anticipoEmpresa)" class="fs-6"></strong>
                         </div>
                         <div class="col">
-                            <div class="text-muted" title="Anticipo empresa − descuentos">SALDO PEND.</div>
-                            <strong x-text="formatMoney(saldoPendiente)" class="fs-6"
-                                    :class="saldoPendiente >= 0 ? 'text-success' : 'text-danger'"></strong>
+                            <div class="text-muted" title="Valor flete − anticipo empresa">SALDO ADEUD. EMP.</div>
+                            <strong x-text="formatMoney(saldoAdeudadoEmpresa)" class="fs-6"
+                                    :class="saldoAdeudadoEmpresa >= 0 ? 'text-success' : 'text-danger'"></strong>
                         </div>
                         <div class="col border-start">
-                            <div class="text-muted">SALDO</div>
-                            <strong x-text="formatMoney(saldoViaje)" class="fs-5"
-                                    :class="saldoViaje >= 0 ? 'text-success' : 'text-danger'"></strong>
+                            <div class="text-muted" title="Anticipo conductor + sobre anticipo">ANT. CONDUCTOR</div>
+                            <strong x-text="formatMoney(anticiposConductor)" class="fs-6"></strong>
+                        </div>
+                        <div class="col">
+                            <div class="text-muted" title="Sumatoria de gastos − anticipos conductor">ANT - GASTOS</div>
+                            <strong x-text="formatMoney(antGastos)" class="fs-5"
+                                    :class="antGastos >= 0 ? 'text-success' : 'text-danger'"></strong>
                         </div>
                         <div class="col">
                             <div class="text-muted">GANANCIA</div>

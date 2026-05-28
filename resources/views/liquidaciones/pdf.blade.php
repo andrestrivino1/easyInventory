@@ -144,14 +144,14 @@
         <td>{{ $liq->driver->name ?? '—' }}</td>
     </tr>
     <tr>
-        <td class="label-cell">ANTICIPO EMPRESA</td>
-        <td class="right">{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</td>
+        <td class="label-cell">ANTICIPO CONDUCTOR</td>
+        <td class="right">{{ number_format($liq->anticipo_conductor, 0, ',', '.') }}</td>
         <td class="label-cell">FECHA INICIO</td>
         <td>{{ $liq->fecha_inicio?->format('d/m/Y') }}</td>
     </tr>
     <tr>
-        <td class="label-cell">ANTICIPO CONDUCTOR</td>
-        <td class="right">{{ number_format($liq->anticipo_conductor, 0, ',', '.') }}</td>
+        <td class="label-cell">SOBRE ANTICIPO</td>
+        <td class="right">{{ number_format($liq->sobreanticipo, 0, ',', '.') }}</td>
         <td class="label-cell">FECHA FIN</td>
         <td>{{ $liq->fecha_fin?->format('d/m/Y') }}</td>
     </tr>
@@ -196,61 +196,50 @@
     </div>
 </div>
 
+@php
+    $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos;
+    $anticiposConductor = $liq->anticipo_conductor + $liq->sobreanticipo;
+    $aFavorLabel = $liq->a_favor_de === 'empresa' ? 'VIDRIOS J&P' : ($liq->a_favor_de === 'conductor' ? 'CONDUCTOR' : '—');
+@endphp
 <table class="data-table" style="margin-top:8px;">
     <tr>
         <td class="label-cell" style="width:30%">SUMATORIA DE GASTOS</td>
-        <td class="right" style="width:20%">{{ number_format($liq->sumatoria_gastos_operativos, 0, ',', '.') }}</td>
-        <td class="label-cell" style="width:30%">TOTAL PEAJES</td>
-        <td class="right" style="width:20%">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</td>
+        <td class="right" style="width:20%">{{ number_format($sumatoriaGastos, 0, ',', '.') }}</td>
+        <td class="label-cell" style="width:30%">ANTICIPOS CONDUCTOR</td>
+        <td class="right" style="width:20%">{{ number_format($anticiposConductor, 0, ',', '.') }}</td>
     </tr>
     <tr>
         <td class="label-cell">SUMATORIA DE PEAJES</td>
         <td class="right">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</td>
-        <td class="label-cell">A FAVOR DE</td>
-        <td class="right bold" style="background:#fff3cd;">
-            {{ $liq->a_favor_de === 'empresa' ? 'VIDRIOS J&P' : ($liq->a_favor_de === 'conductor' ? 'CONDUCTOR' : '—') }}
-        </td>
-    </tr>
-    <tr>
-        <td class="label-cell">SUMATORIA DE GASTOS (TOTAL)</td>
-        <td class="right">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</td>
-        <td></td><td></td>
-    </tr>
-    <tr>
-        <td class="label-cell">PEAJES (CONDUCTOR)</td>
-        <td class="right">{{ number_format($liq->sumatoria_peajes_conductor, 0, ',', '.') }}</td>
-        <td></td><td></td>
-    </tr>
-    <tr>
-        <td class="label-cell">TOTAL ANTICIPOS</td>
-        <td class="right">{{ number_format($liq->total_anticipos, 0, ',', '.') }}</td>
-        <td class="label-cell">DESCUENTOS (EMPRESA)</td>
-        <td class="right">{{ number_format($liq->descuentos, 0, ',', '.') }}</td>
-    </tr>
-    <tr>
-        <td class="label-cell">SALDO PENDIENTE</td>
-        <td class="right bold" style="background:#fff3cd;">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</td>
-        <td></td><td></td>
-    </tr>
-    <tr>
-        <td class="label-cell">SALDO VIAJE</td>
+        <td class="label-cell">ANT - GASTOS</td>
         <td class="right bold" style="background:#fff3cd;">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</td>
-        <td></td><td></td>
     </tr>
     <tr>
-        <td class="label-cell">VALOR FLETE</td>
+        <td class="label-cell">SUMA DE GASTOS TOTAL DE VIAJE</td>
+        <td class="right bold">{{ number_format($liq->sumatoria_gastos_totales, 0, ',', '.') }}</td>
+        <td class="label-cell">A FAVOR DE</td>
+        <td class="right bold" style="background:#fff3cd;">{{ $aFavorLabel }}</td>
+    </tr>
+    <tr>
+        <td class="label-cell">VALOR FLETE PACTADO</td>
         <td class="right">{{ number_format($liq->valor_flete, 0, ',', '.') }}</td>
+        <td class="label-cell">GANANCIA FINAL DE VIAJE</td>
+        <td class="right bold">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</td>
+    </tr>
+    <tr>
+        <td class="label-cell">ANTICIPO EMPRESA DE TRANSPORTE</td>
+        <td class="right">{{ number_format($liq->anticipo_empresa, 0, ',', '.') }}</td>
         <td></td><td></td>
     </tr>
     <tr>
-        <td class="label-cell">GANANCIA VIAJE</td>
-        <td class="right bold">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</td>
+        <td class="label-cell">SALDO ADEUDADO EMPRESA DE TRANSPORTE</td>
+        <td class="right bold" style="background:#fff3cd;">{{ number_format($liq->saldo_pendiente, 0, ',', '.') }}</td>
         <td></td><td></td>
     </tr>
 </table>
 
 <div class="firma-box">
-    FIRMA CONDUCTOR
+    FIRMA FUNCIONARIO REVISÓ
 </div>
 
 </body>

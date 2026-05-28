@@ -16,7 +16,7 @@ class Liquidacion extends Model
     protected $fillable = [
         'driver_id', 'vehicle_plate', 'route_id',
         'transportadora', 'telefono_empresa',
-        'anticipo_empresa', 'anticipo_conductor', 'descuentos',
+        'anticipo_empresa', 'anticipo_conductor', 'sobreanticipo', 'descuentos',
         'fecha_inicio', 'fecha_fin',
         'numero_mfto', 'manifiesto_pdf_path', 'valor_flete',
         'estado', 'motivo_anulacion',
@@ -30,6 +30,7 @@ class Liquidacion extends Model
         'fecha_fin' => 'date',
         'anticipo_empresa' => 'integer',
         'anticipo_conductor' => 'integer',
+        'sobreanticipo' => 'integer',
         'descuentos' => 'integer',
         'valor_flete' => 'integer',
         'sumatoria_gastos_operativos' => 'integer',

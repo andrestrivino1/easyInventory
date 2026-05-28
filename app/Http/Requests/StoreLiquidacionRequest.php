@@ -29,6 +29,7 @@ class StoreLiquidacionRequest extends FormRequest
             'telefono_empresa' => ['nullable', 'string', 'max:40'],
             'anticipo_empresa' => ['required', 'integer', 'min:0'],
             'anticipo_conductor' => ['nullable', 'integer', 'min:0'],
+            'sobreanticipo' => ['nullable', 'integer', 'min:0'],
             'descuentos' => ['nullable', 'integer', 'min:0'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio'],
@@ -57,6 +58,7 @@ class StoreLiquidacionRequest extends FormRequest
     {
         $this->merge([
             'anticipo_conductor' => $this->blankToZero($this->input('anticipo_conductor')),
+            'sobreanticipo' => $this->blankToZero($this->input('sobreanticipo')),
             'descuentos' => $this->blankToZero($this->input('descuentos')),
         ]);
     }

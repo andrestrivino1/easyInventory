@@ -44,30 +44,34 @@ class LiquidacionAnticiposDescuentosTest extends TestCase
     }
 
     /** @test */
-    public function saldo_pendiente_and_total_anticipos_are_computed_on_store(): void
+    public function saldo_adeudado_empresa_and_total_anticipos_are_computed_on_store(): void
     {
         $admin = $this->admin();
         $driver = $this->driver();
 
-        $this->actingAs($admin)->post(route('liquidaciones.store'), $this->payload($driver))->assertRedirect();
+        // sobreanticipo entra en total_anticipos (feature 005)
+        $this->actingAs($admin)->post(route('liquidaciones.store'), $this->payload($driver, [
+            'sobreanticipo' => 50000,
+        ]))->assertRedirect();
 
         $liq = Liquidacion::first();
-        $this->assertSame(1200000, (int) $liq->total_anticipos);          // empresa + conductor
-        $this->assertSame(700000, (int) $liq->saldo_pendiente);           // empresa - descuentos
+        $this->assertSame(1250000, (int) $liq->total_anticipos);          // empresa + conductor + sobreanticipo
+        $this->assertSame(4000000, (int) $liq->saldo_pendiente);          // saldo adeudado empresa = flete - anticipo empresa
         $this->assertSame(300000, (int) $liq->descuentos);
     }
 
     /** @test */
-    public function saldo_pendiente_can_be_negative_when_descuentos_exceed_anticipo_empresa(): void
+    public function saldo_adeudado_empresa_can_be_negative_when_anticipo_exceeds_flete(): void
     {
         $admin = $this->admin();
         $driver = $this->driver();
 
+        // anticipo empresa (6.000.000) > valor flete (5.000.000) -> saldo adeudado negativo
         $this->actingAs($admin)->post(route('liquidaciones.store'), $this->payload($driver, [
-            'anticipo_empresa' => 100000, 'descuentos' => 250000,
+            'anticipo_empresa' => 6000000,
         ]))->assertRedirect();
 
-        $this->assertSame(-150000, (int) Liquidacion::first()->saldo_pendiente);
+        $this->assertSame(-1000000, (int) Liquidacion::first()->saldo_pendiente);
     }
 
     /** @test */
@@ -81,8 +85,8 @@ class LiquidacionAnticiposDescuentosTest extends TestCase
         ]))->assertRedirect();
 
         $liq = Liquidacion::first();
-        $this->assertSame(700000, (int) $liq->saldo_pendiente);
-        $this->assertSame(1200000, (int) $liq->total_anticipos);
+        $this->assertSame(4000000, (int) $liq->saldo_pendiente);          // flete - anticipo empresa
+        $this->assertSame(1200000, (int) $liq->total_anticipos);          // empresa + conductor (sobreanticipo 0)
     }
 
     /** @test */
