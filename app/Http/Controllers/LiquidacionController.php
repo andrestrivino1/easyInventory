@@ -49,6 +49,27 @@ class LiquidacionController extends Controller
             ? \App\Services\LiquidacionCalculator::aggregateByMonth(clone $base)
             : null;
 
+        // Gastos mensuales (costos fijos) que afectan el consolidado -> Utilidad final.
+        // Solo admin: es dato sensible (sueldos) y exclusivo del rol admin.
+        if ($user->rol === 'admin') {
+            $gastosMensuales = LiquidacionCalculator::monthlyExpensesTotalFor(
+                LiquidacionCalculator::tripPeriods(clone $base)
+            );
+            $consolidado['sum_gastos_mensuales'] = $gastosMensuales;
+            $consolidado['utilidad_final'] = $consolidado['sum_ganancia'] - $gastosMensuales;
+
+            if ($consolidadoMensual) {
+                $tuplasPorMes = LiquidacionCalculator::tripPeriodsByMonth(clone $base);
+                $consolidadoMensual = $consolidadoMensual->map(function ($m) use ($tuplasPorMes) {
+                    $gm = LiquidacionCalculator::monthlyExpensesTotalFor($tuplasPorMes->get($m['periodo'], collect()));
+                    $m['sum_gastos_mensuales'] = $gm;
+                    $m['utilidad_final'] = $m['sum_ganancia'] - $gm;
+
+                    return $m;
+                });
+            }
+        }
+
         $drivers = Driver::where('active', 1)
             ->when($assignedIds !== null, fn ($q) => $q->whereIn('id', $assignedIds))
             ->orderBy('name')->get(['id', 'name']);

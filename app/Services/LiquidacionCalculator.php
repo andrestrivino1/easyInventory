@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Liquidacion;
+use App\Models\MonthlyExpense;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -219,5 +220,56 @@ class LiquidacionCalculator
                 'margen_pct' => $sumFlete > 0 ? round(($sumGanancia / $sumFlete) * 100, 2) : 0,
             ];
         });
+    }
+
+    // --- Gastos mensuales que afectan el consolidado (utilidad final) ---
+
+    /**
+     * Tuplas (driver_id, anio, mes) de los viajes del conjunto filtrado,
+     * usando el mes/año de la fecha de inicio. Cada conductor/mes aparece una vez.
+     */
+    public static function tripPeriods(Builder $query): Collection
+    {
+        return (clone $query)->activas()
+            ->selectRaw('DISTINCT driver_id, YEAR(fecha_inicio) as anio, MONTH(fecha_inicio) as mes')
+            ->get()
+            ->map(fn ($r) => ['driver_id' => (int) $r->driver_id, 'anio' => (int) $r->anio, 'mes' => (int) $r->mes]);
+    }
+
+    /**
+     * Igual que tripPeriods pero agrupado por periodo calendario 'YYYY-MM'.
+     */
+    public static function tripPeriodsByMonth(Builder $query): Collection
+    {
+        return (clone $query)->activas()
+            ->selectRaw("DATE_FORMAT(fecha_inicio, '%Y-%m') as periodo, driver_id, YEAR(fecha_inicio) as anio, MONTH(fecha_inicio) as mes")
+            ->distinct()
+            ->get()
+            ->groupBy('periodo')
+            ->map(fn ($rows) => $rows->map(fn ($r) => ['driver_id' => (int) $r->driver_id, 'anio' => (int) $r->anio, 'mes' => (int) $r->mes]));
+    }
+
+    /**
+     * Suma de los gastos mensuales (7 conceptos) para un conjunto de tuplas
+     * (driver_id, anio, mes). Cada conductor/mes se cuenta una sola vez.
+     */
+    public static function monthlyExpensesTotalFor($tuples): int
+    {
+        $tuples = collect($tuples);
+        if ($tuples->isEmpty()) {
+            return 0;
+        }
+
+        return (int) MonthlyExpense::query()
+            ->where(function ($w) use ($tuples) {
+                foreach ($tuples as $t) {
+                    $w->orWhere(fn ($x) => $x
+                        ->where('driver_id', $t['driver_id'])
+                        ->where('anio', $t['anio'])
+                        ->where('mes', $t['mes']));
+                }
+            })
+            ->selectRaw('COALESCE(SUM(sueldo_conductor+seguridad_social+cuota_banco+cuota_tercero+satelital+seguro_vehiculo+otro_valor),0) as s')
+            ->value('s');
     }
 }

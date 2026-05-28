@@ -20,6 +20,8 @@
         }
         $alpineMeses[] = $row;
     }
+    $plantillaInit = array_fill_keys(array_keys($conceptos), 0);
+    $plantillaInit['otro_descripcion'] = '';
 @endphp
 
 @section('content')
@@ -30,7 +32,20 @@
         rowTotal(r) { return this.conceptos.reduce((s, c) => s + (parseInt(r[c], 10) || 0), 0); },
         get yearTotal() { return this.meses.reduce((s, r) => s + (r.registrar ? this.rowTotal(r) : 0), 0); },
         touch(r) { r.registrar = true; },
-        fmt(n) { return (Math.round(parseFloat(n)) || 0).toLocaleString('es-CO'); }
+        fmt(n) { return (Math.round(parseFloat(n)) || 0).toLocaleString('es-CO'); },
+        plantilla: {{ \Illuminate\Support\Js::from($plantillaInit) }},
+        selMeses: [],
+        marcarTodos() { this.selMeses = this.meses.map(r => r.mes); },
+        limpiarSeleccion() { this.selMeses = []; },
+        aplicar() {
+            this.selMeses.forEach(m => {
+                const r = this.meses.find(x => x.mes === m);
+                if (! r) return;
+                this.conceptos.forEach(c => { r[c] = parseInt(this.plantilla[c], 10) || 0; });
+                r.otro_descripcion = this.plantilla.otro_descripcion;
+                r.registrar = true;
+            });
+        }
      }">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -45,6 +60,50 @@
     @if ($errors->any())
         <div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
     @endif
+
+    {{-- Aplicar los mismos valores a varios meses (atajo; no se envía, solo rellena la grilla) --}}
+    <div class="card mb-3 border-primary">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-magic"></i> Aplicar los mismos valores a varios meses
+        </div>
+        <div class="card-body">
+            <div class="row g-2 mb-3">
+                @foreach ($conceptos as $code => $label)
+                    <div class="col-md-3">
+                        <label class="form-label mb-0 small">{{ $label }}</label>
+                        <input type="number" min="0" class="form-control form-control-sm text-end"
+                               x-model.number="plantilla.{{ $code }}">
+                    </div>
+                @endforeach
+                <div class="col-md-3">
+                    <label class="form-label mb-0 small">Otro (descripción)</label>
+                    <input type="text" maxlength="150" class="form-control form-control-sm"
+                           x-model="plantilla.otro_descripcion">
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                <span class="small text-muted me-1">Meses:</span>
+                <template x-for="r in meses" :key="'sel' + r.mes">
+                    <label class="btn btn-sm btn-outline-secondary mb-0"
+                           :class="selMeses.includes(r.mes) ? 'active' : ''">
+                        <input type="checkbox" class="d-none" :value="r.mes" x-model.number="selMeses">
+                        <span x-text="r.nombre.substring(0, 3)"></span>
+                    </label>
+                </template>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" class="btn btn-sm btn-link p-0" x-on:click="marcarTodos()">Todos</button>
+                <button type="button" class="btn btn-sm btn-link p-0" x-on:click="limpiarSeleccion()">Ninguno</button>
+                <button type="button" class="btn btn-sm btn-primary ms-auto" x-on:click="aplicar()"
+                        x-bind:disabled="selMeses.length === 0">
+                    <i class="bi bi-check2-all"></i> Aplicar a <span x-text="selMeses.length"></span> mes(es)
+                </button>
+            </div>
+            <small class="text-muted">Rellena los meses seleccionados con estos valores y los marca como "Registrar". Luego puedes ajustar cualquiera en la grilla antes de guardar.</small>
+        </div>
+    </div>
 
     <form method="POST" action="{{ route('liquidaciones.gastos.year.save') }}">
         @csrf

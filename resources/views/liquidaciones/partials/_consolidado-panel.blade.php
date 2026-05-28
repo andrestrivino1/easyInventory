@@ -17,8 +17,17 @@
             <div class="col-md-3 mt-2"><span class="text-muted">Flete:</span><br><strong>{{ number_format($c['sum_flete'], 0, ',', '.') }}</strong></div>
             <div class="col-md-3 mt-2"><span class="text-muted">Saldo:</span><br><strong class="{{ $c['sum_saldo'] >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($c['sum_saldo'], 0, ',', '.') }}</strong></div>
             <div class="col-md-3 mt-2"><span class="text-muted">Ganancia:</span><br><strong class="{{ $c['sum_ganancia'] >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($c['sum_ganancia'], 0, ',', '.') }}</strong></div>
+            @isset($c['sum_gastos_mensuales'])
+                <div class="col-md-3 mt-2"><span class="text-muted">Gastos mensuales:</span><br><strong class="{{ $c['sum_gastos_mensuales'] > 0 ? 'text-danger' : '' }}">{{ number_format($c['sum_gastos_mensuales'], 0, ',', '.') }}</strong></div>
+            @endisset
             <div class="col-md-3 mt-2"><span class="text-muted">Promedio ganancia/viaje:</span><br><strong>{{ number_format($c['avg_ganancia'], 0, ',', '.') }}</strong></div>
             <div class="col-md-12 mt-2"><span class="text-muted">Margen del periodo:</span> <strong>{{ $c['margen_pct'] }} %</strong></div>
+            @isset($c['utilidad_final'])
+                <div class="col-md-12 mt-2 pt-2 border-top">
+                    <span class="text-muted">UTILIDAD FINAL (ganancia &minus; gastos mensuales):</span>
+                    <strong class="fs-5 {{ $c['utilidad_final'] >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($c['utilidad_final'], 0, ',', '.') }}</strong>
+                </div>
+            @endisset
         </div>
     </div>
 </div>
