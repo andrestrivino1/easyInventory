@@ -50,9 +50,10 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
-        // Manejar errores 403 (Forbidden) - redirigir al login si la sesión expiró
-        if ($exception instanceof \Illuminate\Auth\AuthenticationException || 
-            ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $exception->getStatusCode() == 403)) {
+        // Solo el estado "no autenticado" se trata como sesión expirada.
+        // Un 403 (Forbidden) es un permiso denegado legítimo y NO debe convertirse
+        // en 401/logout: se deja pasar para que se maneje como 403 normal.
+        if ($exception instanceof \Illuminate\Auth\AuthenticationException) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Sesión expirada. Por favor, inicia sesión nuevamente.'], 401);
             }

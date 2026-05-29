@@ -60,11 +60,9 @@
                         // 419: Token CSRF expirado
                         showSessionExpiredAlert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
                         return Promise.reject(new Error('Session expired'));
-                    } else if (response.status === 403) {
-                        // 403: Forbidden (puede ser por sesión expirada)
-                        showSessionExpiredAlert('No tienes permisos o tu sesión ha expirado.');
-                        return Promise.reject(new Error('Forbidden'));
                     }
+                    // 403 (Forbidden) NO cierra la sesión: es un permiso denegado legítimo,
+                    // no una sesión expirada. Se deja pasar para que lo maneje quien llamó.
                     return response;
                 }).catch(function (error) {
                     // Si hay error de red y no se ha mostrado alerta, podría ser sesión expirada
@@ -96,8 +94,6 @@
             xhr.addEventListener('load', function () {
                 if (xhr.status === 401 || xhr.status === 419) {
                     showSessionExpiredAlert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
-                } else if (xhr.status === 403) {
-                    showSessionExpiredAlert('No tienes permisos o tu sesión ha expirado.');
                 } else if (xhr.status === 500) {
                     // Verificar si el error 500 es por sesión expirada
                     try {

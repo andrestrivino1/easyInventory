@@ -79,6 +79,8 @@ class User extends Authenticatable
      */
     public function assignedDriverIds(): array
     {
-        return $this->assignedDrivers()->pluck('drivers.id')->all();
+        // Forzar enteros: en algunos entornos (PDO emulated prepares) pluck() devuelve
+        // los IDs como strings, lo que rompe comparaciones estrictas in_array(..., true).
+        return $this->assignedDrivers()->pluck('drivers.id')->map(fn ($id) => (int) $id)->all();
     }
 }

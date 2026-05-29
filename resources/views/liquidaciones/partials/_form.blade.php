@@ -138,8 +138,10 @@ document.addEventListener('alpine:init', function () {
     "initialSobreanticipo" => (int)($liq->sobreanticipo ?? 0),
     "initialDescuentos" => (int)($liq->descuentos ?? 0),
     "initialFlete" => (int)($liq->valor_flete ?? 0),
-    "routePeajesUrlTpl" => url("/liquidaciones/rutas/__ID__/peajes"),
-    "driverInfoUrlTpl" => url("/liquidaciones/drivers/__ID__/info"),
+    {{-- Solo la ruta (sin esquema/host) para que el fetch sea siempre same-origin
+         y la cookie de sesión viaje. Conserva el subdirectorio base (p.ej. /inventory). --}}
+    "routePeajesUrlTpl" => parse_url(url("/liquidaciones/rutas/__ID__/peajes"), PHP_URL_PATH),
+    "driverInfoUrlTpl" => parse_url(url("/liquidaciones/drivers/__ID__/info"), PHP_URL_PATH),
 ]) !!})'>
 
     @csrf
