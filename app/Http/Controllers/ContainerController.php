@@ -177,6 +177,7 @@ class ContainerController extends Controller
         $data = $request->validate([
             'reference' => 'required|string|max:100|unique:containers,reference,' . $container->id,
             'note' => 'nullable|string|max:255',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.boxes' => 'required|integer|min:0',
@@ -184,10 +185,16 @@ class ContainerController extends Controller
             'products.*.weight_per_box' => 'required|numeric|min:0',
         ]);
 
+        // Validar que la bodega seleccionada recibe contenedores
+        if (!Warehouse::bodegaRecibeContenedores($data['warehouse_id'])) {
+            return back()->withInput()->with('error', 'Solo se pueden asignar contenedores a bodegas que reciben contenedores (Buenaventura/Pablo Rojas).');
+        }
+
         // Actualizar contenedor
         $container->update([
             'reference' => $data['reference'],
             'note' => $data['note'] ?? null,
+            'warehouse_id' => $data['warehouse_id'],
         ]);
 
         // Asociar nuevos productos
