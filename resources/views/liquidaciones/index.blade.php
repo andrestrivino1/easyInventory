@@ -111,7 +111,8 @@
                             <td>{{ $liq->fecha_inicio?->format('Y-m-d') }}</td>
                             <td>{{ $liq->fecha_fin?->format('Y-m-d') }}</td>
                             <td>{{ $liq->transportadora }}</td>
-                            <td class="text-end">{{ number_format($liq->sumatoria_gastos_operativos, 0, ',', '.') }}</td>
+                            {{-- "Gastos" = igual que "Sumatoria de gastos" del detalle: operativos + descuento + peaje que paga el conductor --}}
+                            <td class="text-end">{{ number_format($liq->sumatoria_gastos_operativos + $liq->descuentos + $liq->sumatoria_peajes_conductor, 0, ',', '.') }}</td>
                             <td class="text-end">{{ number_format($liq->sumatoria_peajes, 0, ',', '.') }}</td>
                             <td class="text-end {{ $liq->saldo_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->saldo_viaje, 0, ',', '.') }}</td>
                             <td class="text-end {{ $liq->ganancia_viaje >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($liq->ganancia_viaje, 0, ',', '.') }}</td>

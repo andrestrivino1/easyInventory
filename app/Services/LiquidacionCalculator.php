@@ -93,7 +93,7 @@ class LiquidacionCalculator
      * Significado de columnas (algunas repurposadas):
      *  - sumatoria_gastos_totales = gastos_op + descuentos + peajes ("Suma de gastos total de viaje")
      *  - saldo_pendiente          = valor_flete − anticipo_empresa ("Saldo adeudado empresa de transporte")
-     *  - saldo_viaje              = (gastos_op + descuentos) − (anticipo_conductor + sobreanticipo) ("Ant - gastos")
+     *  - saldo_viaje              = (gastos_op + descuentos + peajes_conductor) − (anticipo_conductor + sobreanticipo) ("Ant - gastos")
      *  - ganancia_viaje           = valor_flete − sumatoria_gastos_totales ("Ganancia final de viaje")
      */
     public static function recalcAndSave(Liquidacion $liq): void
@@ -114,7 +114,9 @@ class LiquidacionCalculator
         $sumGastos = $gastosOp + $descuentos;                                 // "Sumatoria de gastos"
         $gastosTot = $sumGastos + $peajes;                                    // "Suma de gastos total de viaje"
         $anticiposCond = self::anticiposConductor($anticipoConductor, $sobreanticipo);
-        $antGastos = $sumGastos - $anticiposCond;                            // "Ant - gastos" -> saldo_viaje
+        // "Ant - gastos": el peaje que paga el conductor sale de su bolsillo, así que cuenta
+        // como gasto suyo y se suma a la base antes de descontar lo que se le anticipó.
+        $antGastos = $sumGastos + $peajesConductor - $anticiposCond;         // -> saldo_viaje
         $saldoAdeudadoEmpresa = $valorFlete - $anticipoEmpresa;              // "Saldo adeudado empresa" -> saldo_pendiente
         $ganancia = $valorFlete - $gastosTot;                                // "Ganancia final de viaje"
         $totalAnt = self::computeTotalAnticipos($anticipoEmpresa, $anticipoConductor, $sobreanticipo);

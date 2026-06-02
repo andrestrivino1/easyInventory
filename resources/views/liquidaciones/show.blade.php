@@ -129,7 +129,9 @@
 
     {{-- Totales calculados --}}
     @php
-        $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos;
+        // El peaje que paga el conductor sale de su bolsillo: cuenta como gasto suyo.
+        // Se suma aquí, pero NO se resta de "Sumatoria de peajes" (que sigue mostrando todos los peajes).
+        $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos + $liq->sumatoria_peajes_conductor;
         $anticiposConductor = $liq->anticipo_conductor + $liq->sobreanticipo;
     @endphp
     <div class="card mb-3">

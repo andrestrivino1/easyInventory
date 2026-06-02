@@ -62,13 +62,14 @@ window.liquidacionForm = function (config) {
                 .filter(t => t.is_used && t.paid_by === 'conductor')
                 .reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
         },
-        // "Sumatoria de gastos" = gastos operativos + descuento empresa
+        // "Sumatoria de gastos" = gastos operativos + descuento empresa + peajes que paga el conductor
+        // (el peaje del conductor sale de su bolsillo y cuenta como gasto suyo)
         get sumGastos() {
-            return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0);
+            return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0) + this.sumPeajesConductor;
         },
-        // "Suma de gastos total de viaje" = sumatoria de gastos + peajes
+        // "Suma de gastos total de viaje" = gastos op + descuento + TODOS los peajes (el del conductor se cuenta una sola vez)
         get sumGastosTotales() {
-            return this.sumGastos + this.sumPeajes;
+            return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0) + this.sumPeajes;
         },
         // "Anticipos conductor" = anticipo conductor + sobre anticipo
         get anticiposConductor() {

@@ -60,8 +60,8 @@ document.addEventListener('alpine:init', function () {
             get sumPeajesConductor() {
                 return this.tolls.filter(t => t.is_used && t.paid_by === 'conductor').reduce((s, t) => s + (parseInt(t.valor, 10) || 0), 0);
             },
-            get sumGastos() { return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0); },
-            get sumGastosTotales() { return this.sumGastos + this.sumPeajes; },
+            get sumGastos() { return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0) + this.sumPeajesConductor; },
+            get sumGastosTotales() { return this.sumGastosOperativos + (parseInt(this.descuentos, 10) || 0) + this.sumPeajes; },
             get anticiposConductor() { return (parseInt(this.anticipoConductor, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0); },
             get totalAnticipos() {
                 return (parseInt(this.anticipoEmpresa, 10) || 0) + (parseInt(this.anticipoConductor, 10) || 0) + (parseInt(this.sobreanticipo, 10) || 0);

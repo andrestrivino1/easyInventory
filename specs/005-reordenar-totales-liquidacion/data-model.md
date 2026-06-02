@@ -28,7 +28,7 @@ No se agregan columnas para los derivados; se **repurposan** las existentes. Bas
 | `sumatoria_gastos_totales` | `gastos_op + peajes` | **+ descuentos** | `gastos_op + descuentos + peajes` |
 | `total_anticipos` | `anticipo_empresa + anticipo_conductor` | **+ sobreanticipo** | `anticipo_empresa + anticipo_conductor + sobreanticipo` |
 | `saldo_pendiente` | `anticipo_empresa − descuentos` | **"Saldo adeudado empresa"** | `valor_flete − anticipo_empresa` |
-| `saldo_viaje` | `total_anticipos − gastos_op − peajes_conductor` | **"Ant - gastos"** | `(gastos_op + descuentos) − (anticipo_conductor + sobreanticipo)` |
+| `saldo_viaje` | `total_anticipos − gastos_op − peajes_conductor` | **"Ant - gastos"** | `(gastos_op + descuentos + peajes_conductor) − (anticipo_conductor + sobreanticipo)` |
 | `ganancia_viaje` | `valor_flete − (gastos_op + peajes_empresa)` | **"Ganancia final"** | `valor_flete − (gastos_op + descuentos + peajes)` |
 | `a_favor_de` | signo de `saldo_viaje` (viejo) | signo de `saldo_viaje` (=ant-gastos) | `>0→conductor, <0→empresa, =0→ninguno` |
 
@@ -38,7 +38,7 @@ No se agregan columnas para los derivados; se **repurposan** las existentes. Bas
 
 | Celda | Fórmula | Dónde se calcula |
 |---|---|---|
-| Sumatoria de gastos | `sumatoria_gastos_operativos + descuentos` | accessor/helper + JS `sumGastos` |
+| Sumatoria de gastos | `sumatoria_gastos_operativos + descuentos + sumatoria_peajes_conductor` (el peaje del conductor sale de su bolsillo; no se resta de "Sumatoria de peajes") | accessor/helper + JS `sumGastos` |
 | Anticipos conductor | `anticipo_conductor + sobreanticipo` | helper + JS `anticiposConductor` |
 
 ## Reglas de validación (Form Request)

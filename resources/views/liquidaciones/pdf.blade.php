@@ -197,7 +197,8 @@
 </div>
 
 @php
-    $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos;
+    // El peaje que paga el conductor cuenta como gasto suyo (no se resta de la sumatoria de peajes).
+    $sumatoriaGastos = $liq->sumatoria_gastos_operativos + $liq->descuentos + $liq->sumatoria_peajes_conductor;
     $anticiposConductor = $liq->anticipo_conductor + $liq->sobreanticipo;
     $aFavorLabel = $liq->a_favor_de === 'empresa' ? 'VIDRIOS J&P' : ($liq->a_favor_de === 'conductor' ? 'CONDUCTOR' : '—');
 @endphp
