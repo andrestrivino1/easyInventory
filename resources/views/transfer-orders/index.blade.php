@@ -141,7 +141,7 @@
                 if (!isset($user)) {
                     $user = Auth::user();
                     // Si es funcionario o cliente, cargar la relación almacenes
-                    if ($user && in_array($user->rol, ['funcionario', 'clientes']) && !$user->relationLoaded('almacenes')) {
+                    if ($user && in_array($user->rol, ['funcionario', 'clientes', 'cliente_funcionario']) && !$user->relationLoaded('almacenes')) {
                         $user->load('almacenes');
                     }
                 }
@@ -150,7 +150,7 @@
                 $canCreateTransfer = $user &&
                     (in_array($user->rol, ['admin', 'funcionario']) || 
                      $user->almacen_id == $ID_PABLO_ROJAS ||
-                     ($user->rol === 'clientes' && $user->almacenes->count() > 0));
+                     ($user->isCliente() && $user->almacenes->count() > 0));
               @endphp
             @if($canCreateTransfer)
                 <div class="d-flex justify-content-end align-items-center mb-3" style="gap:10px;">
@@ -273,7 +273,7 @@
                                                     if ($user->rol !== 'funcionario' && in_array($transfer->status, ['en_transito', 'Pending', 'pending'])) {
                                                         if ($user->rol == 'admin' || $user->almacen_id == $transfer->warehouse_from_id) {
                                                             $canEditTransfer = true;
-                                                        } elseif ($user->rol === 'clientes') {
+                                                        } elseif ($user->isCliente()) {
                                                             $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
                                                             $canEditTransfer = in_array($transfer->warehouse_from_id, $bodegasAsignadasIds);
                                                         }
@@ -297,7 +297,7 @@
                                                         // Admin y funcionario pueden confirmar desde cualquier lugar
                                                         if (in_array($user->rol, ['admin', 'funcionario'])) {
                                                             $canConfirmTransfer = true;
-                                                        } elseif ($user->rol === 'clientes') {
+                                                        } elseif ($user->isCliente()) {
                                                             // Clientes pueden confirmar si la bodega destino está en sus bodegas asignadas
                                                             if (!$user->relationLoaded('almacenes')) {
                                                                 $user->load('almacenes');

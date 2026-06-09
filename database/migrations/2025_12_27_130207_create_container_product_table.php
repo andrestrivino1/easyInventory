@@ -19,6 +19,10 @@ class CreateContainerProductTable extends Migration
             $table->unsignedBigInteger('product_id');
             $table->integer('boxes')->default(0);
             $table->integer('sheets_per_box')->default(0);
+            // weight_per_box existe en producción (agregada fuera de migración); se
+            // declara aquí para que migrate:fresh (tests / instalaciones nuevas) cree
+            // la columna que usan Container::products() y ContainerController.
+            $table->decimal('weight_per_box', 10, 2)->default(0);
             $table->timestamps();
             
             $table->foreign('container_id')->references('id')->on('containers')->onDelete('cascade');

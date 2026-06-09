@@ -117,7 +117,7 @@
                             <td>{{ $user->email }}</td>
                             <td>{{ $user->telefono ?? '-' }}</td>
                             <td>
-                                @if($user->rol === 'funcionario' || $user->rol === 'clientes')
+                                @if($user->rol === 'funcionario' || $user->isCliente())
                                     @if($user->almacenes->count() > 0)
                                                 {{ $user->almacenes->map(function ($almacen) {
                                         return $almacen->nombre . ($almacen->ciudad ? ' - ' . $almacen->ciudad : ''); })->join(', ') }}
@@ -139,6 +139,8 @@
                                     PROVEEDOR ITR (Desembalaje)
                                 @elseif($user->rol === 'placas')
                                     Placas (Liquidación de Viajes)
+                                @elseif($user->rol === 'cliente_funcionario')
+                                    Cliente Funcionario
                                 @else
                                     {{ ucfirst($user->rol) }}
                                 @endif

@@ -236,12 +236,14 @@
                                         style="display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap;">
                                         @if($user->rol !== 'funcionario')
                                             <a href="{{ route('containers.edit', $container) }}" class="btn-edit">Editar</a>
-                                            <form action="{{ route('containers.destroy', $container) }}" method="POST"
-                                                style="display:inline; margin:0;">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn-delete"
-                                                    onclick="return confirm('¿Estás seguro de eliminar este contenedor?')">Eliminar</button>
-                                            </form>
+                                            @unless($user->isClienteFuncionario())
+                                                <form action="{{ route('containers.destroy', $container) }}" method="POST"
+                                                    style="display:inline; margin:0;">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn-delete"
+                                                        onclick="return confirm('¿Estás seguro de eliminar este contenedor?')">Eliminar</button>
+                                                </form>
+                                            @endunless
                                         @endif
                                         <a href="{{ route('containers.print', $container) }}" class="btn btn-outline-secondary"
                                             title="Imprimir" style="padding: 5px 9px; vertical-align:middle;" target="_blank"><i

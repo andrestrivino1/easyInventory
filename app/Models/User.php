@@ -73,6 +73,37 @@ class User extends Authenticatable
     }
 
     /**
+     * ¿El usuario pertenece al "alcance cliente"? Cubre tanto el rol "clientes"
+     * como "cliente_funcionario" (que hereda íntegramente el alcance de clientes).
+     * Usar en los chequeos de scoping por bodegas asignadas.
+     */
+    public function isCliente(): bool
+    {
+        return in_array($this->rol, ['clientes', 'cliente_funcionario'], true);
+    }
+
+    /**
+     * ¿El usuario tiene el rol "cliente_funcionario"? Gobierna la diferencia
+     * respecto a "clientes": acceso operativo al módulo de Contenedores.
+     */
+    public function isClienteFuncionario(): bool
+    {
+        return $this->rol === 'cliente_funcionario';
+    }
+
+    /**
+     * IDs de las bodegas asignadas (para whereIn / Rule::in).
+     *
+     * @return array<int, int>
+     */
+    public function assignedWarehouseIds(): array
+    {
+        // Forzar enteros por consistencia con assignedDriverIds() (PDO emulated
+        // prepares puede devolver IDs como strings y romper comparaciones estrictas).
+        return $this->almacenes()->pluck('warehouses.id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
      * IDs de los conductores asignados (para whereIn / Rule::in).
      *
      * @return array<int, int>

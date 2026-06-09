@@ -46,6 +46,7 @@
           <label for="rol">Rol *</label>
           <select id="rol" name="rol" required>
               <option value="clientes" {{ old('rol')=='clientes' ? 'selected':'' }}>Clientes</option>
+              <option value="cliente_funcionario" {{ old('rol')=='cliente_funcionario' ? 'selected':'' }}>Cliente Funcionario (Clientes + Contenedores)</option>
               <option value="funcionario" {{ old('rol')=='funcionario' ? 'selected':'' }}>Funcionario</option>
               <option value="importer" {{ old('rol')=='importer' ? 'selected':'' }}>Proveedor/Importer</option>
               <option value="import_viewer" {{ old('rol')=='import_viewer' ? 'selected':'' }}>Visualizador de Importaciones</option>
@@ -145,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             form.addEventListener('submit', validationHandler);
-        } else if (rol === 'clientes') {
+        } else if (rol === 'clientes' || rol === 'cliente_funcionario') {
             bodegaMultipleGroup.style.display = 'block';
             document.getElementById('bodega-multiple-label').textContent = 'Bodegas *';
             // Validar que al menos un checkbox esté seleccionado

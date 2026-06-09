@@ -181,6 +181,9 @@
                         </option>
                     @endforeach
                 </select>
+                @if($warehouses->isEmpty())
+                    <div style="color:#b30000;font-size:13px;margin-top:6px;">No tienes bodegas asignadas habilitadas para recibir contenedores.</div>
+                @endif
                 @error('warehouse_id') <div class="invalid-feedback">{{ $message }}</div>@enderror
 
                 <label for="note">Observación</label>

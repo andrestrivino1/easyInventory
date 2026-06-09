@@ -39,7 +39,7 @@ class StockController extends Controller
             if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasBuenaventuraIds)) {
                 $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
             }
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven sus bodegas asignadas + bodegas de Buenaventura que les hicieron transferencias
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
@@ -547,7 +547,7 @@ class StockController extends Controller
             if ($selectedWarehouseId && !in_array($selectedWarehouseId, $bodegasBuenaventuraIds)) {
                 $selectedWarehouseId = $warehouses->count() > 0 ? $warehouses->first()->id : null;
             }
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven sus bodegas asignadas + bodegas de Buenaventura que les hicieron transferencias
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();

@@ -23,7 +23,7 @@ class WelcomeController extends Controller
         } elseif ($user->rol === 'funcionario') {
             // Funcionario ve todos los productos (como secretaria)
             $productos = Product::all();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven productos de sus bodegas asignadas
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
@@ -42,7 +42,7 @@ class WelcomeController extends Controller
         } elseif ($user->rol === 'funcionario') {
             // Funcionario ve todas las bodegas (como secretaria)
             $totalBodegas = Warehouse::count();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven sus bodegas asignadas
             $totalBodegas = $user->almacenes()->count();
         } else {
@@ -54,7 +54,7 @@ class WelcomeController extends Controller
         } elseif ($user->rol === 'funcionario') {
             // Funcionario ve todas las transferencias (como secretaria)
             $transito = TransferOrder::where('status','en_transito')->count();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven transferencias relacionadas con sus bodegas asignadas
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();

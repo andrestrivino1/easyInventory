@@ -12,7 +12,13 @@ class ContainerController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
         $query = Container::with(['products', 'warehouse']);
+
+        // cliente_funcionario: solo ve contenedores de sus bodegas asignadas
+        if ($user->isClienteFuncionario()) {
+            $query->whereIn('warehouse_id', $user->assignedWarehouseIds());
+        }
 
         // Búsqueda global
         if ($request->has('search') && $request->search != '') {
@@ -48,8 +54,8 @@ class ContainerController extends Controller
         $products = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
             ->get();
-        // Mostrar solo bodegas que reciben contenedores
-        $warehouses = Warehouse::whereIn('id', Warehouse::getBodegasQueRecibenContenedores())
+        // Mostrar solo bodegas que reciben contenedores (acotadas a las asignadas si es cliente_funcionario)
+        $warehouses = Warehouse::whereIn('id', $this->allowedWarehouseIdsForCreate($user))
             ->orderBy('nombre')
             ->get();
         return view('containers.create', compact('products', 'warehouses'));
@@ -77,6 +83,11 @@ class ContainerController extends Controller
         // Validar que la bodega seleccionada recibe contenedores
         if (!Warehouse::bodegaRecibeContenedores($data['warehouse_id'])) {
             return back()->withInput()->with('error', 'Solo se pueden asignar contenedores a bodegas que reciben contenedores (Buenaventura/Pablo Rojas).');
+        }
+
+        // cliente_funcionario: la bodega destino debe estar entre sus bodegas asignadas
+        if ($user->isClienteFuncionario() && !in_array((int) $data['warehouse_id'], $this->allowedWarehouseIdsForCreate($user), true)) {
+            return back()->withInput()->with('error', 'Solo puedes asignar contenedores a tus bodegas asignadas.');
         }
 
         // Crear el contenedor
@@ -121,6 +132,11 @@ class ContainerController extends Controller
             return redirect()->route('containers.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
 
+        // cliente_funcionario: solo contenedores de sus bodegas asignadas
+        if ($redirect = $this->denyIfContainerOutOfScope($user, $container)) {
+            return $redirect;
+        }
+
         $container->load('products');
 
         // Para cada producto con 0 cajas, buscar de qué transferencia o salida provino
@@ -159,8 +175,8 @@ class ContainerController extends Controller
         $products = \App\Models\Product::whereNull('almacen_id')
             ->orderBy('nombre')
             ->get();
-        // Mostrar solo bodegas que reciben contenedores
-        $warehouses = Warehouse::whereIn('id', Warehouse::getBodegasQueRecibenContenedores())
+        // Mostrar solo bodegas que reciben contenedores (acotadas a las asignadas si es cliente_funcionario)
+        $warehouses = Warehouse::whereIn('id', $this->allowedWarehouseIdsForCreate($user))
             ->orderBy('nombre')
             ->get();
         return view('containers.edit', compact('container', 'products', 'warehouses', 'productOrigin'));
@@ -188,6 +204,16 @@ class ContainerController extends Controller
         // Validar que la bodega seleccionada recibe contenedores
         if (!Warehouse::bodegaRecibeContenedores($data['warehouse_id'])) {
             return back()->withInput()->with('error', 'Solo se pueden asignar contenedores a bodegas que reciben contenedores (Buenaventura/Pablo Rojas).');
+        }
+
+        // cliente_funcionario: el contenedor original y el nuevo destino deben estar entre sus bodegas asignadas
+        if ($user->isClienteFuncionario()) {
+            if ($redirect = $this->denyIfContainerOutOfScope($user, $container)) {
+                return $redirect;
+            }
+            if (!in_array((int) $data['warehouse_id'], $this->allowedWarehouseIdsForCreate($user), true)) {
+                return back()->withInput()->with('error', 'Solo puedes asignar contenedores a tus bodegas asignadas.');
+            }
         }
 
         // Actualizar contenedor
@@ -232,6 +258,11 @@ class ContainerController extends Controller
             return redirect()->route('containers.index')->with('error', 'No tienes permiso para realizar esta acción. Solo lectura permitida.');
         }
 
+        // cliente_funcionario no puede eliminar contenedores
+        if ($user->isClienteFuncionario()) {
+            return redirect()->route('containers.index')->with('error', 'No tienes permiso para eliminar contenedores.');
+        }
+
         // El stock se calcula dinámicamente desde contenedores, no necesitamos restaurarlo
         $container->delete();
         return redirect()->route('containers.index')->with('success', 'Contenedor eliminado correctamente. El stock se actualizará automáticamente.');
@@ -239,6 +270,9 @@ class ContainerController extends Controller
 
     public function export(Container $container)
     {
+        if ($redirect = $this->denyIfContainerOutOfScope(Auth::user(), $container)) {
+            return $redirect;
+        }
         $container->load('products');
         $isExport = true;
         $pdf = Pdf::loadView('containers.pdf', compact('container', 'isExport'));
@@ -248,8 +282,47 @@ class ContainerController extends Controller
 
     public function print(Container $container)
     {
+        if ($redirect = $this->denyIfContainerOutOfScope(Auth::user(), $container)) {
+            return $redirect;
+        }
         $container->load('products');
         $isExport = false; // Indicar que es para visualizar en navegador
         return view('containers.pdf', compact('container', 'isExport'));
+    }
+
+    /**
+     * IDs de bodegas válidas como destino de un contenedor para el usuario actual.
+     * Para cliente_funcionario: intersección de sus bodegas asignadas con las que reciben
+     * contenedores. Para el resto (admin): todas las bodegas que reciben contenedores.
+     *
+     * @return array<int, int>
+     */
+    private function allowedWarehouseIdsForCreate($user): array
+    {
+        $recibenContenedores = Warehouse::getBodegasQueRecibenContenedores();
+
+        if ($user->isClienteFuncionario()) {
+            return array_values(array_intersect(
+                array_map('intval', $recibenContenedores),
+                $user->assignedWarehouseIds()
+            ));
+        }
+
+        return array_map('intval', $recibenContenedores);
+    }
+
+    /**
+     * Bloquea a un cliente_funcionario que intente operar un contenedor de una bodega
+     * no asignada. Devuelve un RedirectResponse cuando debe bloquearse, o null si procede.
+     */
+    private function denyIfContainerOutOfScope($user, Container $container)
+    {
+        if ($user->isClienteFuncionario()
+            && !in_array((int) $container->warehouse_id, $user->assignedWarehouseIds(), true)) {
+            return redirect()->route('containers.index')
+                ->with('error', 'No tienes acceso a contenedores de esa bodega.');
+        }
+
+        return null;
     }
 }

@@ -93,7 +93,7 @@
                         $user = Auth::user();
                         $isAdmin = $user && $user->rol === 'admin';
                         $isFuncionario = $user && $user->rol === 'funcionario';
-                        $isCliente = $user && $user->rol === 'clientes';
+                        $isCliente = $user && $user->isCliente();
                         $canExport = $user && $user->rol === 'admin'; // Solo admin puede descargar
                     @endphp
                     @if($isAdmin)

@@ -130,7 +130,7 @@
                                 @endif
                             </td>
                             <td style="white-space:nowrap;">
-                                @if(auth()->user()->rol !== 'clientes')
+                                @if(!auth()->user()->isCliente())
                                     <a href="{{ route('products.edit', $producto->id) }}" class="btn btn-warning btn-sm"
                                         title="Editar"><i class="bi bi-pencil-square"></i></a>
                                     <form action="{{ route('products.destroy', $producto->id) }}" method="POST"

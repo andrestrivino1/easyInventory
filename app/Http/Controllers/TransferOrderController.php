@@ -24,7 +24,7 @@ class TransferOrderController extends Controller
         $user = Auth::user();
 
         // Cargar relación almacenes si es funcionario o cliente
-        if (in_array($user->rol, ['funcionario', 'clientes']) && !$user->relationLoaded('almacenes')) {
+        if (in_array($user->rol, ['funcionario', 'clientes', 'cliente_funcionario']) && !$user->relationLoaded('almacenes')) {
             $user->load('almacenes');
         }
 
@@ -40,7 +40,7 @@ class TransferOrderController extends Controller
             ])
                 ->orderByDesc('date')
                 ->paginate(10);
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven transferencias desde o hacia sus bodegas asignadas
             $bodegasAsignadasIds = $user->almacenes->pluck('id')->toArray();
             if (empty($bodegasAsignadasIds)) {
@@ -102,7 +102,7 @@ class TransferOrderController extends Controller
 
         // Admin, funcionario, clientes o usuarios de bodegas que reciben contenedores pueden crear transferencias
         if (
-            !in_array($user->rol, ['admin', 'funcionario', 'clientes']) &&
+            !in_array($user->rol, ['admin', 'funcionario', 'clientes', 'cliente_funcionario']) &&
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))
         ) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias.');
@@ -113,7 +113,7 @@ class TransferOrderController extends Controller
             // Funcionarios: solo bodegas de Buenaventura
             $warehousesFrom = Warehouse::getBodegasBuenaventura();
             $warehousesTo = Warehouse::orderBy('nombre')->get();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes: solo sus bodegas asignadas
             $user->load('almacenes');
             $warehousesFrom = $user->almacenes->sortBy('nombre');
@@ -141,7 +141,7 @@ class TransferOrderController extends Controller
 
         // Admin, funcionario, clientes o usuarios de bodegas que reciben contenedores pueden crear transferencias
         if (
-            !in_array($user->rol, ['admin', 'funcionario', 'clientes']) &&
+            !in_array($user->rol, ['admin', 'funcionario', 'clientes', 'cliente_funcionario']) &&
             !($user->almacen_id && Warehouse::bodegaRecibeContenedores($user->almacen_id))
         ) {
             return redirect()->route('transfer-orders.index')->with('error', 'No tienes permiso para crear transferencias.');
@@ -167,7 +167,7 @@ class TransferOrderController extends Controller
         ]);
 
         // Validar que clientes solo puedan crear transferencias entre sus bodegas asignadas
-        if ($user->rol === 'clientes') {
+        if ($user->isCliente()) {
             $user->load('almacenes');
             $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
 
@@ -503,7 +503,7 @@ class TransferOrderController extends Controller
         $user = Auth::user();
 
         // Validar permisos según el rol
-        if ($user->rol === 'clientes') {
+        if ($user->isCliente()) {
             $user->load('almacenes');
             $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
 
@@ -870,7 +870,7 @@ class TransferOrderController extends Controller
         $user = Auth::user();
 
         // Validar permisos según el rol
-        if ($user->rol === 'clientes') {
+        if ($user->isCliente()) {
             $user->load('almacenes');
             $bodegasPermitidas = $user->almacenes->pluck('id')->toArray();
 
@@ -940,7 +940,7 @@ class TransferOrderController extends Controller
 
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             $canConfirm = true;
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             if (!$user->relationLoaded('almacenes')) {
                 $user->load('almacenes');
             }
@@ -989,7 +989,7 @@ class TransferOrderController extends Controller
 
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             $canConfirm = true;
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             if (!$user->relationLoaded('almacenes')) {
                 $user->load('almacenes');
             }

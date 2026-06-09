@@ -39,6 +39,7 @@
                 $isImportViewer = $user && $user->rol === 'import_viewer';
                 $isProveedorItr = $user && $user->rol === 'proveedor_itr';
                 $isPlacas = $user && $user->rol === 'placas';
+                $isClienteFuncionario = $user && $user->rol === 'cliente_funcionario';
             @endphp
             @if($isProveedorItr)
                 <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
@@ -60,6 +61,8 @@
                 @if($isPabloRojas || $isFuncionario)
                     <li><a class="nav-link" href="{{ route('drivers.index') }}"><i class="bi bi-truck"></i>
                             {{ __('common.conductores') }}</a></li>
+                @endif
+                @if($isPabloRojas || $isFuncionario || $isClienteFuncionario)
                     <li><a class="nav-link" href="{{ route('containers.index') }}"><i class="bi bi-box"></i>
                             {{ __('common.contenedores') }}</a></li>
                 @endif

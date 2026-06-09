@@ -28,7 +28,7 @@ class SalidaController extends Controller
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             $salidas = Salida::with(['warehouse', 'products'])->orderByDesc('fecha')->paginate(10);
         } elseif ($user->rol === 'funcionario') {
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven salidas solo de sus bodegas asignadas
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
@@ -75,7 +75,7 @@ class SalidaController extends Controller
                 ->orderBy('nombre')
                 ->get();
             $warehouses = Warehouse::getBodegasBuenaventura();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes pueden crear salidas solo de sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
@@ -147,7 +147,7 @@ class SalidaController extends Controller
         } elseif ($user->rol === 'funcionario') {
             // Funcionario puede crear salidas en cualquier bodega (como secretaria)
             // No hay restricciones
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes solo pueden crear salidas en sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();
@@ -424,7 +424,7 @@ class SalidaController extends Controller
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden ver todas las salidas
         } elseif ($user->rol === 'funcionario') {
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes solo pueden ver salidas de sus bodegas asignadas
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
@@ -453,7 +453,7 @@ class SalidaController extends Controller
         // Validar que el usuario tenga acceso a esta salida
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden descargar todas las salidas
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes solo pueden descargar salidas de sus bodegas asignadas
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
@@ -546,7 +546,7 @@ class SalidaController extends Controller
             // Validar que el usuario tenga acceso a esta salida
             if (in_array($user->rol, ['admin', 'funcionario'])) {
                 // Admin y funcionario pueden imprimir todas las salidas
-            } elseif ($user->rol === 'clientes') {
+            } elseif ($user->isCliente()) {
                 // Clientes solo pueden imprimir salidas de sus bodegas asignadas
                 $bodegasAsignadas = $user->almacenes()->get();
                 $bodegasAsignadasIds = $bodegasAsignadas->pluck('id')->toArray();
@@ -898,7 +898,7 @@ class SalidaController extends Controller
         if (in_array($user->rol, ['admin', 'funcionario'])) {
             // Admin y funcionario pueden ver productos de cualquier bodega
         } elseif ($user->rol === 'funcionario') {
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes solo pueden ver productos de sus bodegas asignadas (excluyendo Buenaventura)
             $bodegasAsignadas = $user->almacenes()->get();
             $bodegasBuenaventuraIds = Warehouse::getBodegasBuenaventuraIds();

@@ -191,7 +191,7 @@
                 @php
                     $user = Auth::user();
                     $isAdmin = $user->rol === 'admin';
-                    $isCliente = $user->rol === 'clientes';
+                    $isCliente = $user->isCliente();
                     $isFuncionario = $user->rol === 'funcionario';
 
                     // Determinar si la bodega es de Buenaventura

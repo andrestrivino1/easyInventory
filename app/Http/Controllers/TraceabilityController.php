@@ -28,7 +28,7 @@ class TraceabilityController extends Controller
             // Admin y funcionario ven todas las bodegas
             $warehouses = Warehouse::orderBy('nombre')->get();
             $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven solo sus bodegas asignadas
             if (!$user->relationLoaded('almacenes')) {
                 $user->load('almacenes');
@@ -317,7 +317,7 @@ class TraceabilityController extends Controller
             // Admin y funcionario ven todas las bodegas
             $warehouses = Warehouse::orderBy('nombre')->get();
             $products = Product::whereNull('almacen_id')->orderBy('nombre')->get();
-        } elseif ($user->rol === 'clientes') {
+        } elseif ($user->isCliente()) {
             // Clientes ven solo sus bodegas asignadas
             if (!$user->relationLoaded('almacenes')) {
                 $user->load('almacenes');

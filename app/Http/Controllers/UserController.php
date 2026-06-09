@@ -64,7 +64,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email',
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer,proveedor_itr,placas',
+            'rol' => 'required|in:admin,clientes,cliente_funcionario,funcionario,importer,import_viewer,proveedor_itr,placas',
             'password' => 'required|string|min:6|confirmed',
         ];
 
@@ -72,7 +72,7 @@ class UserController extends Controller
         if ($request->rol === 'funcionario') {
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
-        } elseif ($request->rol === 'clientes') {
+        } elseif (in_array($request->rol, ['clientes', 'cliente_funcionario'])) {
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
         } elseif ($request->rol === 'placas') {
@@ -101,7 +101,7 @@ class UserController extends Controller
         // Guardar almacenes según el rol
         $almacenes = null;
         $drivers = null;
-        if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
+        if (in_array($request->rol, ['funcionario', 'clientes', 'cliente_funcionario'])) {
             $almacenes = $request->almacenes;
             unset($data['almacenes']);
             $data['almacen_id'] = null; // Funcionarios y clientes usan relación many-to-many
@@ -116,7 +116,7 @@ class UserController extends Controller
         $usuario = User::create($data);
 
         // Sincronizar almacenes para funcionarios y clientes
-        if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
+        if (in_array($request->rol, ['funcionario', 'clientes', 'cliente_funcionario']) && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
 
@@ -169,7 +169,7 @@ class UserController extends Controller
             'nombre_completo' => 'required|string|max:100',
             'email' => 'required|email|unique:users,email,' . $usuario->id,
             'telefono' => 'nullable|string|max:20',
-            'rol' => 'required|in:admin,clientes,funcionario,importer,import_viewer,proveedor_itr,placas',
+            'rol' => 'required|in:admin,clientes,cliente_funcionario,funcionario,importer,import_viewer,proveedor_itr,placas',
             'password' => 'nullable|string|min:6|confirmed',
         ];
 
@@ -177,7 +177,7 @@ class UserController extends Controller
         if ($request->rol === 'funcionario') {
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
-        } elseif ($request->rol === 'clientes') {
+        } elseif (in_array($request->rol, ['clientes', 'cliente_funcionario'])) {
             $rules['almacenes'] = 'required|array|min:1';
             $rules['almacenes.*'] = 'exists:warehouses,id';
         } elseif ($request->rol === 'placas') {
@@ -212,7 +212,7 @@ class UserController extends Controller
         // Guardar almacenes según el rol
         $almacenes = null;
         $drivers = null;
-        if ($request->rol === 'funcionario' || $request->rol === 'clientes') {
+        if (in_array($request->rol, ['funcionario', 'clientes', 'cliente_funcionario'])) {
             $almacenes = $request->almacenes;
             unset($data['almacenes']);
             $data['almacen_id'] = null; // Funcionarios y clientes usan relación many-to-many
@@ -234,7 +234,7 @@ class UserController extends Controller
         $usuario->update($data);
 
         // Sincronizar almacenes para funcionarios y clientes
-        if (($request->rol === 'funcionario' || $request->rol === 'clientes') && $almacenes) {
+        if (in_array($request->rol, ['funcionario', 'clientes', 'cliente_funcionario']) && $almacenes) {
             $usuario->almacenes()->sync($almacenes);
         }
 
