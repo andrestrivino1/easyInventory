@@ -1,8 +1,12 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Redirecciona todas las peticiones a index.php
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+    # Si la peticion ya apunta a public/, no reescribir (evita bucle)
+    RewriteRule ^public/ - [L]
+
+    # Redirige todas las peticiones a la carpeta public de Laravel
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
+
+# Evita el listado de directorios
+Options -Indexes

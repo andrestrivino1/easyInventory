@@ -6,6 +6,16 @@ use Illuminate\Http\Request;
 define('LARAVEL_START', microtime(true));
 
 /*
+| Ejecutar la app bajo la subcarpeta /inventory SOLO en el dominio de
+| producción. En local (XAMPP / artisan serve) y en el subdominio NO se aplica.
+*/
+$__host = $_SERVER['HTTP_HOST'] ?? '';
+if ($__host === 'vidriosjyp.com' || $__host === 'www.vidriosjyp.com') {
+    $_SERVER['SCRIPT_NAME'] = '/inventory/index.php';
+    $_SERVER['PHP_SELF']    = '/inventory/index.php';
+}
+
+/*
 |--------------------------------------------------------------------------
 | Check If The Application Is Under Maintenance
 |--------------------------------------------------------------------------
