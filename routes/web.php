@@ -144,6 +144,12 @@ Route::middleware(['auth', 'can:liquidaciones.access'])
             Route::delete('gastos/{gasto}', [App\Http\Controllers\MonthlyExpenseController::class, 'destroy'])->name('gastos.destroy');
         });
 
+        // Informes / Analítica (solo administradores) — antes del wildcard {liquidacion}
+        Route::middleware('can:liquidaciones.reportes.access')->group(function () {
+            Route::get('reportes', [App\Http\Controllers\LiquidacionReportController::class, 'index'])->name('reportes.index');
+            Route::post('reportes/pdf', [App\Http\Controllers\LiquidacionReportController::class, 'pdf'])->name('reportes.pdf');
+        });
+
         // Manifiesto PDF de la liquidación
         Route::get('{liquidacion}/manifiesto', [App\Http\Controllers\LiquidacionController::class, 'manifiesto'])->name('manifiesto');
         Route::delete('{liquidacion}/manifiesto', [App\Http\Controllers\LiquidacionController::class, 'destroyManifiesto'])->name('manifiesto.destroy');

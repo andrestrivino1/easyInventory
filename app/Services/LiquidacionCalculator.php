@@ -250,6 +250,77 @@ class LiquidacionCalculator
     }
 
     /**
+     * Desglose del gasto operativo por categoría para el conjunto filtrado.
+     * Une liquidacion_expenses → expense_categories sobre las liquidaciones
+     * activas del periodo. La suma de los totales == sum_gastos_operativos.
+     * Devuelve colección de ['code', 'name', 'total'].
+     */
+    public static function expensesByCategory(Builder $query): Collection
+    {
+        return (clone $query)->activas()
+            ->join('liquidacion_expenses as le', 'le.liquidacion_id', '=', 'liquidaciones.id')
+            ->join('expense_categories as ec', 'ec.id', '=', 'le.expense_category_id')
+            ->groupBy('ec.id', 'ec.code', 'ec.name', 'ec.sort_order')
+            ->orderBy('ec.sort_order')
+            ->selectRaw('ec.code as code, ec.name as name, COALESCE(SUM(le.valor),0) as total')
+            ->get()
+            ->map(fn ($r) => ['code' => $r->code, 'name' => $r->name, 'total' => (int) $r->total]);
+    }
+
+    /**
+     * Desglose de los 7 conceptos de gasto fijo mensual para un conjunto de
+     * tuplas (driver_id, anio, mes). Cada conductor/mes se cuenta una sola vez
+     * (la fila monthly_expenses es única por esa tupla). El 'total' coincide
+     * con monthlyExpensesTotalFor() para las mismas tuplas.
+     */
+    public static function monthlyExpensesBreakdownFor($tuples): array
+    {
+        $empty = [
+            'sueldo_conductor' => 0, 'seguridad_social' => 0, 'cuota_banco' => 0,
+            'cuota_tercero' => 0, 'satelital' => 0, 'seguro_vehiculo' => 0,
+            'otro_valor' => 0, 'total' => 0,
+        ];
+
+        $tuples = collect($tuples);
+        if ($tuples->isEmpty()) {
+            return $empty;
+        }
+
+        $row = MonthlyExpense::query()
+            ->where(function ($w) use ($tuples) {
+                foreach ($tuples as $t) {
+                    $w->orWhere(fn ($x) => $x
+                        ->where('driver_id', $t['driver_id'])
+                        ->where('anio', $t['anio'])
+                        ->where('mes', $t['mes']));
+                }
+            })
+            ->selectRaw('
+                COALESCE(SUM(sueldo_conductor),0) as sueldo_conductor,
+                COALESCE(SUM(seguridad_social),0) as seguridad_social,
+                COALESCE(SUM(cuota_banco),0) as cuota_banco,
+                COALESCE(SUM(cuota_tercero),0) as cuota_tercero,
+                COALESCE(SUM(satelital),0) as satelital,
+                COALESCE(SUM(seguro_vehiculo),0) as seguro_vehiculo,
+                COALESCE(SUM(otro_valor),0) as otro_valor
+            ')
+            ->first();
+
+        $out = [
+            'sueldo_conductor' => (int) $row->sueldo_conductor,
+            'seguridad_social' => (int) $row->seguridad_social,
+            'cuota_banco' => (int) $row->cuota_banco,
+            'cuota_tercero' => (int) $row->cuota_tercero,
+            'satelital' => (int) $row->satelital,
+            'seguro_vehiculo' => (int) $row->seguro_vehiculo,
+            'otro_valor' => (int) $row->otro_valor,
+        ];
+        $out['total'] = array_sum($out);
+
+        return $out;
+    }
+
+    /**
      * Suma de los gastos mensuales (7 conceptos) para un conjunto de tuplas
      * (driver_id, anio, mes). Cada conductor/mes se cuenta una sola vez.
      */

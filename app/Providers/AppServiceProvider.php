@@ -32,5 +32,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('liquidaciones.gastos.access', function ($user) {
             return $user->rol === 'admin';
         });
+
+        // Informes/Analítica de liquidaciones: exclusivo de administradores
+        // (dato sensible: sueldos y utilidad). El rol "placas" no accede.
+        Gate::define('liquidaciones.reportes.access', function ($user) {
+            return $user->rol === 'admin';
+        });
     }
 }

@@ -82,8 +82,10 @@
                 <li><a class="nav-link {{ request()->routeIs('itrs.*') ? 'active' : '' }}" href="{{ route('itrs.index') }}"><i class="bi bi-box-seam"></i> ITR (Desembalaje)</a></li>
             @endif
             @if($user && $user->rol === 'admin' && !$isImporter && !$isImportViewer)
-                <li><a class="nav-link {{ request()->routeIs('liquidaciones.*') ? 'active' : '' }}" href="{{ route('liquidaciones.index') }}"><i class="bi bi-cash-coin"></i>
+                <li><a class="nav-link {{ request()->routeIs('liquidaciones.index') || request()->routeIs('liquidaciones.create') || request()->routeIs('liquidaciones.edit') || request()->routeIs('liquidaciones.show') || request()->routeIs('liquidaciones.routes.*') || request()->routeIs('liquidaciones.gastos.*') ? 'active' : '' }}" href="{{ route('liquidaciones.index') }}"><i class="bi bi-cash-coin"></i>
                         Liquidación de Viajes</a></li>
+                <li><a class="nav-link {{ request()->routeIs('liquidaciones.reportes.*') ? 'active' : '' }}" href="{{ route('liquidaciones.reportes.index') }}"><i class="bi bi-bar-chart-line"></i>
+                        Informes</a></li>
                 <li><a class="nav-link" href="{{ route('users.index') }}"><i class="bi bi-person"></i>
                         {{ __('common.usuarios') }}</a></li>
             @endif
