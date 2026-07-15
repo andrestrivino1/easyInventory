@@ -26,6 +26,8 @@ class Liquidacion extends Model
     ];
 
     protected $casts = [
+        'driver_id' => 'integer',
+        'route_id' => 'integer',
         'fecha_inicio' => 'date',
         'fecha_fin' => 'date',
         'anticipo_empresa' => 'integer',
