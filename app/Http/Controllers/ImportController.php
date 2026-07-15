@@ -321,7 +321,10 @@ class ImportController extends Controller
             $year = date('y'); // Usar año actual si no hay fecha de llegada
         }
 
-        $lastImport = Import::whereRaw('SUBSTRING(do_code, 4, 2) = ?', [$year])
+        // withTrashed(): las importaciones con borrado suave siguen contando para el
+        // consecutivo, de modo que un número emitido nunca se reutiliza tras eliminarla.
+        $lastImport = Import::withTrashed()
+            ->whereRaw('SUBSTRING(do_code, 4, 2) = ?', [$year])
             ->where(function ($query) use ($year, $arrivalDate) {
                 if ($arrivalDate) {
                     $query->whereYear('arrival_date', '20' . $year);
@@ -334,6 +337,12 @@ class ImportController extends Controller
         $next = 1;
         if ($lastImport && preg_match('/VJP' . $year . '-(\d{3})/', $lastImport->do_code, $m)) {
             $next = intval($m[1]) + 1;
+        }
+        // Piso del consecutivo: nunca emitir un número por debajo del mínimo definido
+        // para el año (continuar la numeración tras una limpieza de datos).
+        $floor = Import::DO_CODE_FLOOR[$year] ?? 0;
+        if ($next < $floor) {
+            $next = $floor;
         }
         $doCode = sprintf('VJP%s-%03d', $year, $next);
 
@@ -2112,35 +2121,10 @@ class ImportController extends Controller
         $import = Import::with('containers')->findOrFail($id);
 
         try {
-            // Eliminar archivos PDF de la importación
-            $pdfFields = [
-                'proforma_pdf',
-                'proforma_invoice_low_pdf',
-                'invoice_pdf',
-                'commercial_invoice_low_pdf',
-                'bl_pdf',
-                'packing_list_pdf',
-                'apostillamiento_pdf',
-                'other_documents_pdf'
-            ];
-
-            foreach ($pdfFields as $field) {
-                if ($import->$field) {
-                    Storage::delete($import->$field);
-                }
-            }
-
-            // Eliminar archivos PDF de los contenedores
-            foreach ($import->containers as $container) {
-                if ($container->pdf_path) {
-                    Storage::delete($container->pdf_path);
-                }
-                if ($container->image_pdf_path) {
-                    Storage::delete($container->image_pdf_path);
-                }
-            }
-
-            // Eliminar la importación (esto eliminará automáticamente los contenedores por cascade delete)
+            // Borrado suave: la importación sale de los listados pero se conserva en la
+            // base de datos (recuperable) y NO se tocan sus PDFs ni sus contenedores.
+            // Además, sigue contando para el consecutivo (ver store() -> withTrashed()),
+            // por lo que su do_code nunca se reutiliza.
             $import->delete();
 
             return redirect()->route('imports.index')->with('success', 'Importación eliminada correctamente.');

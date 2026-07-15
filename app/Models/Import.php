@@ -4,11 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
 
 class Import extends Model
 {
     use HasFactory;
+    use SoftDeletes;
+
+    /**
+     * Piso del consecutivo do_code por año (yy => número mínimo del PRÓXIMO do_code).
+     *
+     * Se usa para continuar la numeración tras una limpieza/migración de datos,
+     * evitando reutilizar números ya emitidos. Solo aplica si el consecutivo
+     * calculado a partir de los registros existentes es MENOR que este piso.
+     *
+     * 2026: la próxima importación debe salir como VJP26-055.
+     */
+    public const DO_CODE_FLOOR = [
+        '26' => 55,
+    ];
 
     protected $fillable = [
         'user_id',
