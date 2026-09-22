@@ -219,12 +219,13 @@ class SalidaController extends Controller
                     // Sumar stock (del contenedor elegido o de todos si no se eligió)
                     foreach ($containerProducts as $cp) {
                         $stock += ($cp->boxes ?? 0) * ($cp->sheets_per_box ?? 0);
-                        if ($containerId === null) {
-                            $containerId = $cp->container_id;
-                        }
                     }
 
-                    // Usar el contenedor elegido por el usuario si se especificó
+                    // El contenedor SOLO se registra si el usuario lo eligió (FR-024).
+                    // Antes se tomaba el de la primera fila devuelta por una consulta
+                    // sin ORDER BY, es decir, un contenedor arbitrario según el orden
+                    // interno de MySQL. Ahora queda null y la trazabilidad lo muestra
+                    // como "sin contenedor", que es lo que realmente ocurrió.
                     if ($chosenContainerId) {
                         $containerId = $chosenContainerId;
                     }
@@ -267,10 +268,10 @@ class SalidaController extends Controller
                             }
                             $stock += $quantity;
                         }
-                        // Obtener el container_id de la primera transferencia que tenga stock y container_id
-                        if ($containerId === null && $received->container_id) {
-                            $containerId = $received->container_id;
-                        }
+                        // Antes se heredaba aquí el container_id de la primera
+                        // transferencia recibida que tuviera uno, lo que atribuía a la
+                        // salida un contenedor que el usuario nunca eligió. Se deja en
+                        // null salvo elección explícita (FR-024).
                     }
 
                     // Descontar salidas existentes

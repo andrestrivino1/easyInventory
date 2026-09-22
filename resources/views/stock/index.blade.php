@@ -281,10 +281,16 @@
                                                 @php
                                                     $containerRefs = $cantidadesPorContenedor->pluck('container_reference')->unique()->filter()->implode(', ');
                                                 @endphp
-                                                <span style="font-size: 13px;"
-                                                    title="{{ $containerRefs }}">{{ $containerRefs ?: '-' }}</span>
+                                                @if($containerRefs)
+                                                    <span style="font-size: 13px;"
+                                                        title="{{ $containerRefs }}">{{ $containerRefs }}</span>
+                                                @else
+                                                    <span style="color: #999; font-style: italic;"
+                                                        title="El movimiento se registró sin contenedor específico">Sin contenedor</span>
+                                                @endif
                                             @else
-                                                <span style="color: #999; font-style: italic;">-</span>
+                                                <span style="color: #999; font-style: italic;"
+                                                    title="El movimiento se registró sin contenedor específico">Sin contenedor</span>
                                             @endif
                                         @endif
                                     </td>
@@ -332,7 +338,8 @@
                                 <tr>
                                     <td colspan="8" class="text-center text-muted py-4">
                                         <i class="bi bi-box text-secondary" style="font-size:2.2em;"></i><br>
-                                        <div class="mt-2">No hay productos registrados.</div>
+                                        <div class="mt-2">No hay existencias registradas.</div>
+                                        <div class="small">El catálogo de productos sigue disponible; aquí sólo se muestran los que tienen stock.</div>
                                     </td>
                                 </tr>
                             @endforelse

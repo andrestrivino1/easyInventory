@@ -11,12 +11,43 @@ use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use iio\libmergepdf\Merger;
 use Illuminate\Support\Facades\File;
+use Illuminate\Database\QueryException;
 
 class ImportController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth');
+    }
+
+    /**
+     * Crea la importación reintentando si el consecutivo ya fue tomado.
+     *
+     * El do_code se calcula leyendo el máximo existente, así que dos creaciones
+     * simultáneas pueden obtener el mismo número y la segunda chocaría contra el
+     * índice único de imports.do_code. Recalcular y reintentar convierte ese
+     * error crudo en algo transparente para el usuario (FR-017).
+     */
+    private function createImportWithUniqueDoCode(array $attributes, ?string $arrivalDate, int $attempts = 5): Import
+    {
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                return Import::create($attributes);
+            } catch (QueryException $e) {
+                // 23000 / 1062 = violación de clave única.
+                $isDuplicate = ($e->errorInfo[1] ?? null) === 1062
+                    || str_contains((string) $e->getMessage(), 'do_code');
+
+                if (! $isDuplicate || $attempt === $attempts) {
+                    throw $e;
+                }
+
+                $attributes['do_code'] = Import::nextDoCode($arrivalDate);
+            }
+        }
+
+        // Inalcanzable: el bucle o devuelve o relanza.
+        throw new \RuntimeException('No se pudo asignar un consecutivo DO único.');
     }
 
     // ADMIN: Show all imports
@@ -313,38 +344,10 @@ class ImportController extends Controller
             $otherDocumentsPdfPath = $request->file('other_documents_pdf')->store('imports');
         }
 
-        // DO code calculation based on arrival_date or current year
+        // El cálculo del consecutivo vive en Import::nextDoCode() para que la
+        // creación y el comando de limpieza compartan exactamente la misma regla.
         $arrivalDate = $data['arrival_date'] ?? null;
-        if ($arrivalDate) {
-            $year = date('y', strtotime($arrivalDate));
-        } else {
-            $year = date('y'); // Usar año actual si no hay fecha de llegada
-        }
-
-        // withTrashed(): las importaciones con borrado suave siguen contando para el
-        // consecutivo, de modo que un número emitido nunca se reutiliza tras eliminarla.
-        $lastImport = Import::withTrashed()
-            ->whereRaw('SUBSTRING(do_code, 4, 2) = ?', [$year])
-            ->where(function ($query) use ($year, $arrivalDate) {
-                if ($arrivalDate) {
-                    $query->whereYear('arrival_date', '20' . $year);
-                } else {
-                    $query->whereYear('created_at', '20' . $year);
-                }
-            })
-            ->orderByDesc('do_code')
-            ->first();
-        $next = 1;
-        if ($lastImport && preg_match('/VJP' . $year . '-(\d{3})/', $lastImport->do_code, $m)) {
-            $next = intval($m[1]) + 1;
-        }
-        // Piso del consecutivo: nunca emitir un número por debajo del mínimo definido
-        // para el año (continuar la numeración tras una limpieza de datos).
-        $floor = Import::DO_CODE_FLOOR[$year] ?? 0;
-        if ($next < $floor) {
-            $next = $floor;
-        }
-        $doCode = sprintf('VJP%s-%03d', $year, $next);
+        $doCode = Import::nextDoCode($arrivalDate);
 
         // Calculate credits based on credit_time (assuming credit_time is in days)
         // You can adjust this calculation based on your business logic
@@ -361,7 +364,7 @@ class ImportController extends Controller
             $userId = $data['provider_id'];
         }
 
-        $import = Import::create([
+        $importAttributes = [
             'user_id' => $userId,
             'commercial_invoice_number' => $data['commercial_invoice_number'] ?? null,
             'proforma_invoice_number' => $data['proforma_invoice_number'] ?? null,
@@ -384,7 +387,13 @@ class ImportController extends Controller
             'credits' => $credits,
             'status' => 'pending',
             'do_code' => $doCode,
-        ]);
+        ];
+
+        // imports.do_code tiene índice único y el consecutivo se calcula leyendo
+        // el máximo actual: dos creaciones simultáneas pueden obtener el mismo
+        // número. En lugar de fallar con un error de integridad, se recalcula y
+        // se reintenta un número acotado de veces (FR-017).
+        $import = $this->createImportWithUniqueDoCode($importAttributes, $arrivalDate);
 
         // Handle multiple containers (solo si tienen referencia)
         if ($request->has('containers') && is_array($request->containers)) {

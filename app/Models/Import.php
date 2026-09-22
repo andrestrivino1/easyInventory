@@ -25,6 +25,47 @@ class Import extends Model
         '26' => 55,
     ];
 
+    /**
+     * Calcula el siguiente do_code del año que corresponda.
+     *
+     * Fuente única de la regla de numeración: la usan tanto la creación de
+     * importaciones como el comando de limpieza para informar qué número se
+     * emitirá a continuación.
+     *
+     * withTrashed() es la pieza clave: las importaciones con borrado suave
+     * siguen contando, de modo que un número emitido nunca se reutiliza aunque
+     * se haya vaciado el módulo.
+     */
+    public static function nextDoCode(?string $arrivalDate = null): string
+    {
+        $year = $arrivalDate ? date('y', strtotime($arrivalDate)) : date('y');
+
+        $last = static::withTrashed()
+            ->whereRaw('SUBSTRING(do_code, 4, 2) = ?', [$year])
+            ->where(function ($query) use ($year, $arrivalDate) {
+                if ($arrivalDate) {
+                    $query->whereYear('arrival_date', '20' . $year);
+                } else {
+                    $query->whereYear('created_at', '20' . $year);
+                }
+            })
+            ->orderByDesc('do_code')
+            ->first();
+
+        $next = 1;
+        if ($last && preg_match('/VJP' . $year . '-(\d{3})/', $last->do_code, $m)) {
+            $next = (int) $m[1] + 1;
+        }
+
+        // Piso del consecutivo: nunca emitir por debajo del mínimo del año.
+        $floor = self::DO_CODE_FLOOR[$year] ?? 0;
+        if ($next < $floor) {
+            $next = $floor;
+        }
+
+        return sprintf('VJP%s-%03d', $year, $next);
+    }
+
     protected $fillable = [
         'user_id',
         'origin',

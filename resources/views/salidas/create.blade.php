@@ -587,7 +587,7 @@
                                 <div class="stock-info" id="stock-info-${productIndex}"></div>
                             </div>
                             <div class="full-width" id="container-block-${productIndex}" style="display:none;">
-                                <label for="products[${productIndex}][container_id]">Contenedor*</label>
+                                <label for="products[${productIndex}][container_id]">Contenedor (opcional)</label>
                                 <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" onchange="updateProductInfo(${productIndex})">
                                     <option value="">Seleccione un contenedor</option>
                                 </select>

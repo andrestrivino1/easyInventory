@@ -557,9 +557,9 @@
                                         <div class="stock-info" id="stock-info-${productIndex}"></div>
                                     </div>
                                     <div>
-                                        <label for="products[${productIndex}][container_id]">Contenedor*</label>
-                                        <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" required>
-                                            <option value="">Primero seleccione un producto</option>
+                                        <label for="products[${productIndex}][container_id]">Contenedor (opcional)</label>
+                                        <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}">
+                                            <option value="">Sin contenedor específico</option>
                                         </select>
                                     </div>
                                     <div>
@@ -619,7 +619,9 @@
                 const containers = product.containers || [];
                 const cajasEnContenedor = product.cajas_en_contenedor || 0;
 
-                containerSelect.innerHTML = '<option value="">Seleccione un contenedor</option>';
+                // El contenedor es opcional: dejarlo vacío descuenta del total del
+                // producto en la bodega y la trazabilidad queda sin contenedor.
+                containerSelect.innerHTML = '<option value="">Sin contenedor específico</option>';
                 if (containers.length > 0) {
                     let hasWeight = false;
                     containers.forEach(container => {
@@ -676,7 +678,10 @@
                         const stockContenedor = cajasEnContenedor * unidadesPorCaja;
                         stockInfo.innerHTML = `Stock: ${stockContenedor} unidades (${cajasEnContenedor} cajas disponibles)`;
                     } else if (containers.length > 1) {
-                        stockInfo.innerHTML = `Seleccione un contenedor para ver el stock disponible`;
+                        // Sin contenedor elegido se descuenta del total de la bodega,
+                        // así que se informa ese total en lugar de exigir una elección.
+                        const totalCajas = containers.reduce((sum, c) => sum + (parseInt(c.boxes, 10) || 0), 0);
+                        stockInfo.innerHTML = `Stock total en la bodega: ${totalCajas} cajas (en ${containers.length} contenedores). Elija un contenedor sólo si quiere descontar de uno concreto.`;
                     } else if (tipo === 'caja' && unidadesPorCaja > 0) {
                         const cajasDisponibles = Math.floor(stock / unidadesPorCaja);
                         stockInfo.innerHTML = `Stock: ${stock} unidades (${cajasDisponibles} cajas disponibles)`;

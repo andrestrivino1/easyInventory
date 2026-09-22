@@ -152,7 +152,7 @@ class TransferOrderController extends Controller
             'warehouse_to_id' => 'required|exists:warehouses,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
-            'products.*.container_id' => 'required|exists:containers,id',
+            'products.*.container_id' => 'nullable|exists:containers,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.sheets_per_box' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:255',
@@ -197,27 +197,34 @@ class TransferOrderController extends Controller
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe.")->withInput();
                 }
 
-                // Validar contenedor
-                $container = \App\Models\Container::find($productData['container_id']);
-                if (!$container) {
-                    DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
-                }
-
-                // Validar que el producto esté en el contenedor
+                // El contenedor es OPCIONAL (FR-018). Si el usuario no elige uno,
+                // el descuento se reparte en FIFO entre los contenedores de la
+                // bodega y el movimiento queda sin contenedor (FR-020, FR-024).
+                $chosenContainerId = !empty($productData['container_id']) ? (int) $productData['container_id'] : null;
                 $sheetsPerBox = $productData['sheets_per_box'] ?? 0;
-                $productInContainerQuery = $container->products()->where('products.id', $productData['product_id']);
 
-                // Si se especificó láminas por caja, filtrar por ello
-                if ($sheetsPerBox > 0) {
-                    $productInContainerQuery->wherePivot('sheets_per_box', $sheetsPerBox);
-                }
+                if ($chosenContainerId !== null) {
+                    // Validar contenedor
+                    $container = \App\Models\Container::find($chosenContainerId);
+                    if (!$container) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
+                    }
 
-                $productInContainer = $productInContainerQuery->first();
+                    // Validar que el producto esté en el contenedor
+                    $productInContainerQuery = $container->products()->where('products.id', $productData['product_id']);
 
-                if (!$productInContainer) {
-                    DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado con esa cantidad de láminas.")->withInput();
+                    // Si se especificó láminas por caja, filtrar por ello
+                    if ($sheetsPerBox > 0) {
+                        $productInContainerQuery->wherePivot('sheets_per_box', $sheetsPerBox);
+                    }
+
+                    $productInContainer = $productInContainerQuery->first();
+
+                    if (!$productInContainer) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado con esa cantidad de láminas.")->withInput();
+                    }
                 }
 
                 // Validar que desde bodegas que reciben contenedores solo se despachen Cajas
@@ -237,29 +244,56 @@ class TransferOrderController extends Controller
 
                 // Validar stock según el tipo de bodega
                 if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
-                    // Para bodegas que reciben contenedores, validar cajas en contenedor
-                    $pivotQuery = DB::table('container_product')
-                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
-                        ->where('container_product.container_id', $productData['container_id'])
-                        ->where('container_product.product_id', $productData['product_id'])
-                        ->where('containers.warehouse_id', $data['warehouse_from_id']);
+                    if ($chosenContainerId === null) {
+                        // Sin contenedor elegido: validar contra el TOTAL del producto
+                        // en la bodega, sumando todos los contenedores (FR-020, FR-022).
+                        $allocator = app(\App\Services\ContainerAllocator::class);
+                        $available = $allocator->availableBoxes(
+                            (int) $data['warehouse_from_id'],
+                            (int) $productData['product_id'],
+                            $sheetsPerBox > 0 ? (int) $sheetsPerBox : null
+                        );
 
-                    if ($sheetsPerBox > 0) {
-                        $pivotQuery->where('container_product.sheets_per_box', $sheetsPerBox);
-                    }
+                        if ($available < $productData['quantity']) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en la bodega. Disponible: {$available} cajas.")->withInput();
+                        }
 
-                    $pivot = $pivotQuery->select('container_product.boxes', 'container_product.weight_per_box')
-                        ->lockForUpdate()
-                        ->first();
+                        // El peso por caja se toma de la primera fila disponible.
+                        $rows = $allocator->rows(
+                            (int) $data['warehouse_from_id'],
+                            (int) $productData['product_id'],
+                            $sheetsPerBox > 0 ? (int) $sheetsPerBox : null
+                        );
+                        $pivot = (object) [
+                            'boxes' => $available,
+                            'weight_per_box' => $rows ? ($rows[0]->weight_per_box ?? null) : null,
+                        ];
+                    } else {
+                        // Para bodegas que reciben contenedores, validar cajas en contenedor
+                        $pivotQuery = DB::table('container_product')
+                            ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                            ->where('container_product.container_id', $chosenContainerId)
+                            ->where('container_product.product_id', $productData['product_id'])
+                            ->where('containers.warehouse_id', $data['warehouse_from_id']);
 
-                    if (!$pivot) {
-                        DB::rollBack();
-                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
-                    }
+                        if ($sheetsPerBox > 0) {
+                            $pivotQuery->where('container_product.sheets_per_box', $sheetsPerBox);
+                        }
 
-                    if ($pivot->boxes < $productData['quantity']) {
-                        DB::rollBack();
-                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                        $pivot = $pivotQuery->select('container_product.boxes', 'container_product.weight_per_box')
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$pivot) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
+                        }
+
+                        if ($pivot->boxes < $productData['quantity']) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                        }
                     }
                 } else {
                     // Para otras bodegas, lógica existente (resumida por brevedad en este parche, pero mantenemos la lógica original donde no se toca)
@@ -370,7 +404,9 @@ class TransferOrderController extends Controller
 
                 $productsToAttach[] = [
                     'product_id' => $productData['product_id'],
-                    'container_id' => $productData['container_id'],
+                    // null cuando el usuario no eligió contenedor: así la
+                    // trazabilidad lo muestra sin contenedor (FR-024).
+                    'container_id' => $chosenContainerId,
                     'quantity' => $productData['quantity'],
                     'unidades_a_descontar' => $unidadesADescontar,
                     'sheets_per_box' => $sheetsPerBox > 0 ? $sheetsPerBox : null,
@@ -418,28 +454,51 @@ class TransferOrderController extends Controller
             foreach ($productsToAttach as $index => $item) {
                 // PASO 1: Descontar del contenedor (solo si es desde bodegas que reciben contenedores)
                 if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
-                    $query = DB::table('container_product')
-                        ->where('container_id', $item['container_id'])
-                        ->where('product_id', $item['product_id']);
+                    if ($item['container_id'] === null) {
+                        // Sin contenedor elegido: repartir en FIFO entre los
+                        // contenedores de la bodega (FR-020). El reparto valida
+                        // el total antes de descontar nada.
+                        try {
+                            $plan = app(\App\Services\ContainerAllocator::class)->deduct(
+                                (int) $data['warehouse_from_id'],
+                                (int) $item['product_id'],
+                                (int) $item['quantity'],
+                                !empty($item['sheets_per_box']) ? (int) $item['sheets_per_box'] : null
+                            );
+                        } catch (\RuntimeException $e) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . ": " . $e->getMessage())->withInput();
+                        }
 
-                    if (!empty($item['sheets_per_box'])) {
-                        $query->where('sheets_per_box', $item['sheets_per_box']);
+                        \Log::info('TRANSFER store - Descontado sin contenedor (reparto FIFO)', [
+                            'product_id' => $item['product_id'],
+                            'cajas_descontadas' => $item['quantity'],
+                            'reparto' => $plan,
+                        ]);
+                    } else {
+                        $query = DB::table('container_product')
+                            ->where('container_id', $item['container_id'])
+                            ->where('product_id', $item['product_id']);
+
+                        if (!empty($item['sheets_per_box'])) {
+                            $query->where('sheets_per_box', $item['sheets_per_box']);
+                        }
+
+                        $rowsAffected = $query->decrement('boxes', $item['quantity']);
+
+                        if ($rowsAffected === 0) {
+                            DB::rollBack();
+                            return back()->with('error', "Error al descontar del contenedor para el producto #" . ($index + 1))->withInput();
+                        }
+
+                        \Log::info('TRANSFER store - Descontado del contenedor', [
+                            'container_id' => $item['container_id'],
+                            'product_id' => $item['product_id'],
+                            'sheets_per_box' => $item['sheets_per_box'] ?? 'N/A',
+                            'cajas_descontadas' => $item['quantity'],
+                            'rows_affected' => $rowsAffected
+                        ]);
                     }
-
-                    $rowsAffected = $query->decrement('boxes', $item['quantity']);
-
-                    if ($rowsAffected === 0) {
-                        DB::rollBack();
-                        return back()->with('error', "Error al descontar del contenedor para el producto #" . ($index + 1))->withInput();
-                    }
-
-                    \Log::info('TRANSFER store - Descontado del contenedor', [
-                        'container_id' => $item['container_id'],
-                        'product_id' => $item['product_id'],
-                        'sheets_per_box' => $item['sheets_per_box'] ?? 'N/A',
-                        'cajas_descontadas' => $item['quantity'],
-                        'rows_affected' => $rowsAffected
-                    ]);
                 }
 
                 // PASO 2: Los productos son globales - el stock se calcula dinámicamente
@@ -548,7 +607,7 @@ class TransferOrderController extends Controller
             'warehouse_to_id' => 'required|exists:warehouses,id',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
-            'products.*.container_id' => 'required|exists:containers,id',
+            'products.*.container_id' => 'nullable|exists:containers,id',
             'products.*.quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:255',
             'use_external_driver' => 'nullable|boolean',
@@ -584,16 +643,32 @@ class TransferOrderController extends Controller
                     ->first();
 
                 // Si es desde bodegas que reciben contenedores, restaurar las cajas del contenedor
-                if ($prodAnterior && Warehouse::bodegaRecibeContenedores($almacenOrigenAnterior) && $oldProduct->pivot->container_id) {
-                    $query = DB::table('container_product')
-                        ->where('container_id', $oldProduct->pivot->container_id)
-                        ->where('product_id', $oldProduct->id);
+                if ($prodAnterior && Warehouse::bodegaRecibeContenedores($almacenOrigenAnterior)) {
+                    $sheets = (isset($oldProduct->pivot->sheets_per_box) && $oldProduct->pivot->sheets_per_box > 0)
+                        ? (int) $oldProduct->pivot->sheets_per_box
+                        : null;
 
-                    if (isset($oldProduct->pivot->sheets_per_box) && $oldProduct->pivot->sheets_per_box > 0) {
-                        $query->where('sheets_per_box', $oldProduct->pivot->sheets_per_box);
+                    if ($oldProduct->pivot->container_id) {
+                        $query = DB::table('container_product')
+                            ->where('container_id', $oldProduct->pivot->container_id)
+                            ->where('product_id', $oldProduct->id);
+
+                        if ($sheets !== null) {
+                            $query->where('sheets_per_box', $sheets);
+                        }
+
+                        $query->increment('boxes', $oldProduct->pivot->quantity);
+                    } else {
+                        // Movimiento registrado sin contenedor: reponer el total en
+                        // la bodega. Sin esto, editar una transferencia sin
+                        // contenedor descontaría dos veces (FR-020).
+                        app(\App\Services\ContainerAllocator::class)->restoreToWarehouse(
+                            (int) $almacenOrigenAnterior,
+                            (int) $oldProduct->id,
+                            (int) $oldProduct->pivot->quantity,
+                            $sheets
+                        );
                     }
-
-                    $query->increment('boxes', $oldProduct->pivot->quantity);
                 }
             }
 
@@ -610,27 +685,34 @@ class TransferOrderController extends Controller
                     return back()->with('error', "Producto #" . ($index + 1) . ": El producto no existe.")->withInput();
                 }
 
-                // Validar contenedor
-                $container = \App\Models\Container::find($productData['container_id']);
-                if (!$container) {
-                    DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
-                }
-
-                // Validar que el producto esté en el contenedor
+                // El contenedor es OPCIONAL (FR-018). Si el usuario no elige uno,
+                // el descuento se reparte en FIFO entre los contenedores de la
+                // bodega y el movimiento queda sin contenedor (FR-020, FR-024).
+                $chosenContainerId = !empty($productData['container_id']) ? (int) $productData['container_id'] : null;
                 $sheetsPerBox = $productData['sheets_per_box'] ?? 0;
-                $productInContainerQuery = $container->products()->where('products.id', $productData['product_id']);
 
-                // Si se especificó láminas por caja, filtrar por ello
-                if ($sheetsPerBox > 0) {
-                    $productInContainerQuery->wherePivot('sheets_per_box', $sheetsPerBox);
-                }
+                if ($chosenContainerId !== null) {
+                    // Validar contenedor
+                    $container = \App\Models\Container::find($chosenContainerId);
+                    if (!$container) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El contenedor no existe.")->withInput();
+                    }
 
-                $productInContainer = $productInContainerQuery->first();
+                    // Validar que el producto esté en el contenedor
+                    $productInContainerQuery = $container->products()->where('products.id', $productData['product_id']);
 
-                if (!$productInContainer) {
-                    DB::rollBack();
-                    return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado con esa cantidad de láminas.")->withInput();
+                    // Si se especificó láminas por caja, filtrar por ello
+                    if ($sheetsPerBox > 0) {
+                        $productInContainerQuery->wherePivot('sheets_per_box', $sheetsPerBox);
+                    }
+
+                    $productInContainer = $productInContainerQuery->first();
+
+                    if (!$productInContainer) {
+                        DB::rollBack();
+                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor seleccionado con esa cantidad de láminas.")->withInput();
+                    }
                 }
 
                 // Validar que desde bodegas que reciben contenedores solo se despachen Cajas
@@ -650,29 +732,56 @@ class TransferOrderController extends Controller
 
                 // Validar stock según el tipo de bodega
                 if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
-                    // Para bodegas que reciben contenedores, validar cajas en contenedor
-                    $pivotQuery = DB::table('container_product')
-                        ->join('containers', 'container_product.container_id', '=', 'containers.id')
-                        ->where('container_product.container_id', $productData['container_id'])
-                        ->where('container_product.product_id', $productData['product_id'])
-                        ->where('containers.warehouse_id', $data['warehouse_from_id']);
+                    if ($chosenContainerId === null) {
+                        // Sin contenedor elegido: validar contra el TOTAL del producto
+                        // en la bodega, sumando todos los contenedores (FR-020, FR-022).
+                        $allocator = app(\App\Services\ContainerAllocator::class);
+                        $available = $allocator->availableBoxes(
+                            (int) $data['warehouse_from_id'],
+                            (int) $productData['product_id'],
+                            $sheetsPerBox > 0 ? (int) $sheetsPerBox : null
+                        );
 
-                    if ($sheetsPerBox > 0) {
-                        $pivotQuery->where('container_product.sheets_per_box', $sheetsPerBox);
-                    }
+                        if ($available < $productData['quantity']) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en la bodega. Disponible: {$available} cajas.")->withInput();
+                        }
 
-                    $pivot = $pivotQuery->select('container_product.boxes', 'container_product.weight_per_box')
-                        ->lockForUpdate()
-                        ->first();
+                        // El peso por caja se toma de la primera fila disponible.
+                        $rows = $allocator->rows(
+                            (int) $data['warehouse_from_id'],
+                            (int) $productData['product_id'],
+                            $sheetsPerBox > 0 ? (int) $sheetsPerBox : null
+                        );
+                        $pivot = (object) [
+                            'boxes' => $available,
+                            'weight_per_box' => $rows ? ($rows[0]->weight_per_box ?? null) : null,
+                        ];
+                    } else {
+                        // Para bodegas que reciben contenedores, validar cajas en contenedor
+                        $pivotQuery = DB::table('container_product')
+                            ->join('containers', 'container_product.container_id', '=', 'containers.id')
+                            ->where('container_product.container_id', $chosenContainerId)
+                            ->where('container_product.product_id', $productData['product_id'])
+                            ->where('containers.warehouse_id', $data['warehouse_from_id']);
 
-                    if (!$pivot) {
-                        DB::rollBack();
-                        return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
-                    }
+                        if ($sheetsPerBox > 0) {
+                            $pivotQuery->where('container_product.sheets_per_box', $sheetsPerBox);
+                        }
 
-                    if ($pivot->boxes < $productData['quantity']) {
-                        DB::rollBack();
-                        return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                        $pivot = $pivotQuery->select('container_product.boxes', 'container_product.weight_per_box')
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$pivot) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . ": El producto no está asociado al contenedor o el contenedor no pertenece a esta bodega.")->withInput();
+                        }
+
+                        if ($pivot->boxes < $productData['quantity']) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . " ({$product->nombre}): No hay suficientes cajas en el contenedor. Disponible: {$pivot->boxes} cajas.")->withInput();
+                        }
                     }
                 } else {
                     // Para otras bodegas, calcular stock desde transferencias recibidas menos salidas
@@ -783,7 +892,9 @@ class TransferOrderController extends Controller
 
                 $productsToAttach[] = [
                     'product_id' => $productData['product_id'],
-                    'container_id' => $productData['container_id'],
+                    // null cuando el usuario no eligió contenedor: así la
+                    // trazabilidad lo muestra sin contenedor (FR-024).
+                    'container_id' => $chosenContainerId,
                     'quantity' => $productData['quantity'],
                     'unidades_a_descontar' => $unidadesADescontar,
                     'sheets_per_box' => $sheetsPerBox > 0 ? $sheetsPerBox : null,
@@ -815,19 +926,34 @@ class TransferOrderController extends Controller
             foreach ($productsToAttach as $index => $item) {
                 // PASO 1: Descontar del contenedor (solo si es desde bodegas que reciben contenedores)
                 if (Warehouse::bodegaRecibeContenedores($data['warehouse_from_id'])) {
-                    $query = DB::table('container_product')
-                        ->where('container_id', $item['container_id'])
-                        ->where('product_id', $item['product_id']);
+                    if ($item['container_id'] === null) {
+                        // Sin contenedor elegido: reparto FIFO (FR-020).
+                        try {
+                            app(\App\Services\ContainerAllocator::class)->deduct(
+                                (int) $data['warehouse_from_id'],
+                                (int) $item['product_id'],
+                                (int) $item['quantity'],
+                                !empty($item['sheets_per_box']) ? (int) $item['sheets_per_box'] : null
+                            );
+                        } catch (\RuntimeException $e) {
+                            DB::rollBack();
+                            return back()->with('error', "Producto #" . ($index + 1) . ": " . $e->getMessage())->withInput();
+                        }
+                    } else {
+                        $query = DB::table('container_product')
+                            ->where('container_id', $item['container_id'])
+                            ->where('product_id', $item['product_id']);
 
-                    if (!empty($item['sheets_per_box'])) {
-                        $query->where('sheets_per_box', $item['sheets_per_box']);
-                    }
+                        if (!empty($item['sheets_per_box'])) {
+                            $query->where('sheets_per_box', $item['sheets_per_box']);
+                        }
 
-                    $rowsAffected = $query->decrement('boxes', $item['quantity']);
+                        $rowsAffected = $query->decrement('boxes', $item['quantity']);
 
-                    if ($rowsAffected === 0) {
-                        DB::rollBack();
-                        return back()->with('error', "Error al descontar del contenedor para el producto #" . ($index + 1))->withInput();
+                        if ($rowsAffected === 0) {
+                            DB::rollBack();
+                            return back()->with('error', "Error al descontar del contenedor para el producto #" . ($index + 1))->withInput();
+                        }
                     }
                 }
 
@@ -894,16 +1020,31 @@ class TransferOrderController extends Controller
                     ->first();
 
                 // Si es desde bodegas que reciben contenedores, restaurar las cajas del contenedor
-                if ($prod && Warehouse::bodegaRecibeContenedores($transferOrder->warehouse_from_id) && $product->pivot->container_id) {
-                    $query = DB::table('container_product')
-                        ->where('container_id', $product->pivot->container_id)
-                        ->where('product_id', $product->id);
+                if ($prod && Warehouse::bodegaRecibeContenedores($transferOrder->warehouse_from_id)) {
+                    $sheets = (isset($product->pivot->sheets_per_box) && $product->pivot->sheets_per_box > 0)
+                        ? (int) $product->pivot->sheets_per_box
+                        : null;
 
-                    if (isset($product->pivot->sheets_per_box) && $product->pivot->sheets_per_box > 0) {
-                        $query->where('sheets_per_box', $product->pivot->sheets_per_box);
+                    if ($product->pivot->container_id) {
+                        $query = DB::table('container_product')
+                            ->where('container_id', $product->pivot->container_id)
+                            ->where('product_id', $product->id);
+
+                        if ($sheets !== null) {
+                            $query->where('sheets_per_box', $sheets);
+                        }
+
+                        $query->increment('boxes', $product->pivot->quantity);
+                    } else {
+                        // Movimiento sin contenedor: reponer el total en la bodega,
+                        // o el saldo se perdería al anular la transferencia.
+                        app(\App\Services\ContainerAllocator::class)->restoreToWarehouse(
+                            (int) $transferOrder->warehouse_from_id,
+                            (int) $product->id,
+                            (int) $product->pivot->quantity,
+                            $sheets
+                        );
                     }
-
-                    $query->increment('boxes', $product->pivot->quantity);
                 }
             }
 

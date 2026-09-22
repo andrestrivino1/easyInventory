@@ -644,9 +644,9 @@
                                     <div class="stock-info" id="stock-info-${productIndex}"></div>
                                 </div>
                                 <div>
-                                    <label for="products[${productIndex}][container_id]">Contenedor*</label>
-                                    <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" required ${!isEditable ? 'disabled' : ''}>
-                                        <option value="">Primero seleccione un producto</option>
+                                    <label for="products[${productIndex}][container_id]">Contenedor (opcional)</label>
+                                    <select name="products[${productIndex}][container_id]" id="container-select-${productIndex}" ${!isEditable ? 'disabled' : ''}>
+                                        <option value="">Sin contenedor específico</option>
                                     </select>
                                     ${!isEditable && selectedContainerId ? `<input type="hidden" name="products[${productIndex}][container_id]" value="${selectedContainerId}">` : ''}
                                 </div>

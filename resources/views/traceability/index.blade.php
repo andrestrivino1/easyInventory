@@ -269,7 +269,12 @@
                     <tr>
                         <td colspan="12" class="text-center text-muted py-4">
                             <i class="bi bi-search text-secondary" style="font-size:2.2em;"></i><br>
-                            <div class="mt-2">No se encontraron movimientos con los filtros seleccionados.</div>
+                            @if($selectedProductId || $selectedWarehouseId || $dateFrom || $dateTo)
+                                <div class="mt-2">No se encontraron movimientos con los filtros seleccionados.</div>
+                            @else
+                                <div class="mt-2">Aún no hay movimientos registrados.</div>
+                                <div class="small">Las entradas, transferencias y salidas que registre aparecerán aquí.</div>
+                            @endif
                         </td>
                     </tr>
                     @endforelse
