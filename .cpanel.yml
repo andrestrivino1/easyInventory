@@ -1,0 +1,51 @@
+---
+# Despliegue de cPanel para easyInventory.
+#
+# IMPORTANTE: la ruta del repositorio en el servidor
+# (/home/vidriosj/public_html/inventory) ES la raiz de Laravel; el .htaccess de
+# la raiz reescribe hacia public/. Por eso aqui NO se copia ni se sincroniza
+# ningun archivo: el propio "git pull" ya deja el codigo en su sitio. Estas
+# tareas solo hacen el trabajo POSTERIOR a la actualizacion.
+#
+# Si alguna vez se separa el repositorio de la carpeta publicada, habra que
+# anadir aqui las tareas de copia. Mientras sean la misma carpeta, copiar seria
+# copiar sobre si mismo.
+#
+# PHP_BIN: ruta del interprete PHP de linea de comandos. /usr/local/bin/php es
+# el de cPanel. Si el despliegue falla con "command not found" o con un error de
+# version, probar una de estas:
+#     /opt/cpanel/ea-php82/root/usr/bin/php
+#     /opt/cpanel/ea-php81/root/usr/bin/php
+#     /opt/cpanel/ea-php80/root/usr/bin/php
+# y comprobar la version con:  <ruta> -v
+#
+# No se ejecuta "composer install": vendor/ esta en .gitignore y vive en el
+# servidor. Solo hara falta si en el futuro se anade una dependencia nueva.
+
+deployment:
+  tasks:
+    - export DEPLOY_PATH=/home/vidriosj/public_html/inventory
+    - export PHP_BIN=/usr/local/bin/php
+
+    # 1. Limpiar la configuracion cacheada ANTES de migrar, para que artisan lea
+    #    las credenciales reales de .env y no una copia vieja.
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan config:clear
+
+    # 2. Aplicar migraciones pendientes.
+    #    --force es obligatorio en produccion: evita la confirmacion interactiva,
+    #    que en un despliegue automatico no puede responderse.
+    #    Las migraciones de esta funcionalidad estan guardadas con
+    #    Schema::hasTable()/hasColumn(), asi que repetirlas no rompe nada.
+    #    Si se prefiere NO migrar automaticamente, comentar la linea siguiente.
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan migrate --force
+
+    # 3. Limpiar el resto de cachés para que el codigo nuevo tome efecto.
+    #    cache:clear se deja como no fatal porque depende del driver de cache
+    #    configurado y su fallo no deberia tumbar un despliegue correcto.
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan cache:clear || true
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan view:clear
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan route:clear
+
+    # 4. Dejar constancia en el registro de despliegue de cPanel.
+    - cd "$DEPLOY_PATH" && "$PHP_BIN" artisan --version
+    - echo "Despliegue completado en $DEPLOY_PATH"
