@@ -693,43 +693,17 @@ class StockController extends Controller
                     }
                 }
 
-                // Calcular transferencias en tránsito o recibidas para descontar
-                // FIX: Incluir 'recibido' porque no generan salida automática
-                // FIX: Usar related_warehouse_ids para buscar transferencias de CUALQUIER bodega involucrada
-                // FIX: Usar related_warehouse_ids o container_ids para buscar transferencias
-                $warehouseIds = isset($productGroup->related_warehouse_ids) ? $productGroup->related_warehouse_ids->unique() : [$productGroup->container_warehouse_id];
-                $containerIds = isset($productGroup->container_ids) ? $productGroup->container_ids : collect();
-
-                $transfersInTransit = TransferOrder::whereIn('status', ['en_transito', 'recibido'])
-                    ->where(function ($q) use ($warehouseIds, $containerIds, $originalProduct) {
-                        $q->whereIn('warehouse_from_id', $warehouseIds)
-                            ->orWhereHas('products', function ($pq) use ($containerIds, $originalProduct) {
-                                $pq->where('products.id', $originalProduct->id)
-                                    ->whereIn('transfer_order_products.container_id', $containerIds);
-                            });
-                    })
-                    ->with([
-                        'products' => function ($query) use ($originalProduct) {
-                            $query->where('products.id', $originalProduct->id)->withPivot('quantity', 'sheets_per_box', 'container_id');
-                        }
-                    ])
-                    ->get();
-
-                $transitosDescontados = 0;
-                foreach ($transfersInTransit as $transfer) {
-                    $productInTransfer = $transfer->products->first();
-                    if ($productInTransfer) {
-                        $quantity = $productInTransfer->pivot->quantity;
-                        // Si es tipo caja, convertir a láminas
-                        if ($originalProduct->tipo_medida === 'caja' && $originalProduct->unidades_por_caja > 0) {
-                            $quantity = $quantity * $originalProduct->unidades_por_caja;
-                        }
-                        $transitosDescontados += $quantity;
-                    }
-                }
-
-                // Calcular stock final (descontar salidas y tránsitos del total unificado)
-                $stockFinal = max(0, $productGroup->stock_inicial_total - $salidasDescontadas - $transitosDescontados);
+                // NO se descuentan aquí las transferencias salientes (FR-025).
+                //
+                // stock_inicial_total se calcula sumando boxes × sheets_per_box de
+                // container_product, y ese saldo YA quedó descontado al crear la
+                // transferencia. Restarlas otra vez las contaba dos veces y hacía
+                // que la exportación mostrara MENOS stock que la pantalla, que
+                // nunca las restó. Ahora ambas rutas coinciden.
+                //
+                // Calcular stock final (descontar sólo las salidas, que no
+                // modifican container_product).
+                $stockFinal = max(0, $productGroup->stock_inicial_total - $salidasDescontadas);
                 $productGroup->laminas_en_contenedor = $stockFinal;
 
                 // Disminuir cajas_en_contenedor también acorde al nuevo stock en láminas
@@ -1971,33 +1945,39 @@ class StockController extends Controller
                     }
                 }
 
-                // Descontar transferencias salientes (en tránsito o recibidas)
-                // FIX: Incluir 'recibido' porque no generan salida automática
-                $transfersInTransit = TransferOrder::whereIn('status', ['en_transito', 'recibido'])
-                    ->where('warehouse_from_id', $warehouse->id)
-                    ->whereHas('products', function ($query) use ($product) {
-                        $query->where('products.id', $product->id);
-                    })
-                    ->with([
-                        'products' => function ($query) use ($product) {
-                            $query->where('products.id', $product->id)->withPivot('quantity', 'sheets_per_box');
-                        }
-                    ])
-                    ->get();
-
-                $transitoQty = 0;
-                foreach ($transfersInTransit as $transfer) {
-                    foreach ($transfer->products as $productInTransfer) {
-                        $quantity = $productInTransfer->pivot->quantity;
-                        // Si es tipo caja, convertir a láminas
-                        if ($product->tipo_medida === 'caja') {
-                            $sheetsPerBox = $productInTransfer->pivot->sheets_per_box ?? $product->unidades_por_caja;
-                            if ($sheetsPerBox > 0) {
-                                $quantity = $quantity * $sheetsPerBox;
+                // Descontar transferencias salientes (en tránsito o recibidas).
+                //
+                // SOLO para bodegas que NO reciben contenedores. En las que sí los
+                // reciben, el saldo base sale de container_product, y ese saldo YA
+                // se descontó al crear la transferencia
+                // (TransferOrderController, guardado por esta misma condición).
+                // Restarlas aquí de nuevo las contaba dos veces y dejaba el stock
+                // por debajo del real.
+                if (! in_array($warehouse->id, $bodegasQueRecibenContenedores)) {
+                    $transfersInTransit = TransferOrder::whereIn('status', ['en_transito', 'recibido'])
+                        ->where('warehouse_from_id', $warehouse->id)
+                        ->whereHas('products', function ($query) use ($product) {
+                            $query->where('products.id', $product->id);
+                        })
+                        ->with([
+                            'products' => function ($query) use ($product) {
+                                $query->where('products.id', $product->id)->withPivot('quantity', 'sheets_per_box');
                             }
+                        ])
+                        ->get();
+
+                    foreach ($transfersInTransit as $transfer) {
+                        foreach ($transfer->products as $productInTransfer) {
+                            $quantity = $productInTransfer->pivot->quantity;
+                            // Si es tipo caja, convertir a láminas
+                            if ($product->tipo_medida === 'caja') {
+                                $sheetsPerBox = $productInTransfer->pivot->sheets_per_box ?? $product->unidades_por_caja;
+                                if ($sheetsPerBox > 0) {
+                                    $quantity = $quantity * $sheetsPerBox;
+                                }
+                            }
+                            $stock -= $quantity;
                         }
-                        $stock -= $quantity;
-                        $transitoQty += $quantity;
                     }
                 }
 
