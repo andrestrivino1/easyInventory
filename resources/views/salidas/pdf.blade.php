@@ -400,7 +400,6 @@
         <thead>
             <tr>
                 <th>PRODUCTO</th>
-                <th>CONTENEDOR</th>
                 <th>CANTIDAD</th>
             </tr>
         </thead>
@@ -408,12 +407,9 @@
             @foreach($salida->products as $prod)
                 @php
                     $laminas = $prod->pivot->quantity;
-                    $containerId = $prod->pivot->container_id ?? null;
-                    $container = null;
 
-                    if ($containerId) {
-                        $container = \App\Models\Container::find($containerId);
-                    }
+                    // El contenedor ya no se muestra: las salidas descuentan del total
+                    // del producto en la bodega, sin importar de cual contenedor salga.
 
                     // Lógica original: Determinar si mostrar como cajas o láminas
                     if ($isBuenaventura && $prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
@@ -427,12 +423,11 @@
                 @endphp
                 <tr>
                     <td>{{ $prod->nombre }}@if($prod->medidas) - {{ $prod->medidas }}@endif</td>
-                    <td style="text-align: center;">{{ $container ? $container->reference : '-' }}</td>
                     <td style="text-align: center; font-weight: bold;">{{ number_format($cantidadMostrar, 0) }} {{ $unidadMostrar }}</td>
                 </tr>
             @endforeach
             <tr class="total-row">
-                <td colspan="2" style="text-align: right; padding-right: 15px;"><strong>TOTAL</strong></td>
+                <td style="text-align: right; padding-right: 15px;"><strong>TOTAL</strong></td>
                 <td style="text-align: center;"><strong>{{ number_format($totalCantidad, 0) }}</strong></td>
             </tr>
         </tbody>

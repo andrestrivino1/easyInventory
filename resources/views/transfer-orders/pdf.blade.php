@@ -420,8 +420,7 @@
     <table class="products-table" style="width: 96.5%; margin-left: 20px; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px;">
         <thead>
             <tr>
-                <th style="width: 11%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: left;">PRODUCTO</th>
-                <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CONTENEDOR</th>
+                <th style="width: 19%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: left;">PRODUCTO</th>
                 <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">CAJAS</th>
                 <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">UNIDADES</th>
                 <th style="width: 8%; background: #edf5ff; border: 1px solid #ccc; padding: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; text-align: center;">PESO (KG)</th>
@@ -431,16 +430,13 @@
         @foreach($transferOrder->products as $prod)
             @php
                 $cantidadIngresada = $prod->pivot->quantity;
-                $containerId = $prod->pivot->container_id ?? null;
                 $weightPerBox = $prod->pivot->weight_per_box ?? 0;
                 $rowWeight = $cantidadIngresada * $weightPerBox;
                 $totalTransferWeight = ($totalTransferWeight ?? 0) + $rowWeight;
-                $container = null;
-                
-                if ($containerId) {
-                    $container = \App\Models\Container::find($containerId);
-                }
-                
+
+                // El contenedor ya no se muestra: las transferencias descuentan del
+                // total del producto en la bodega, sin importar de cual contenedor salga.
+
                 if ($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0) {
                     $cajas = $cantidadIngresada;
                     $unidades = $cantidadIngresada * $prod->unidades_por_caja;
@@ -450,8 +446,7 @@
                 }
             @endphp
             <tr>
-                <td style="width: 5%; border: 1px solid #ccc; padding: 3px; font-size: 9px;">{{ $prod->nombre }}@if($prod->medidas) - {{ $prod->medidas }}@endif</td>
-                <td style="width: 8%; border: 1px solid #ccc; padding: 3px; font-size: 9px; text-align: center;">{{ $container ? $container->reference : '-' }}</td>
+                <td style="width: 19%; border: 1px solid #ccc; padding: 3px; font-size: 9px;">{{ $prod->nombre }}@if($prod->medidas) - {{ $prod->medidas }}@endif</td>
                 <td style="width: 8%; border: 1px solid #ccc; padding: 3px; font-size: 9px; text-align: center;">
                     @if($prod->tipo_medida === 'caja' && $prod->unidades_por_caja > 0)
                         {{ $cajas }}
@@ -464,7 +459,7 @@
             </tr>
         @endforeach
             <tr class="total-row">
-                <td colspan="4" style="text-align: right; border: 1px solid #ccc; padding: 4px;">TOTAL PESO ESTIMADO (KG):</td>
+                <td colspan="3" style="text-align: right; border: 1px solid #ccc; padding: 4px;">TOTAL PESO ESTIMADO (KG):</td>
                 <td style="text-align: center; border: 1px solid #ccc; padding: 4px;">{{ number_format($totalTransferWeight ?? 0, 2) }}</td>
             </tr>
         </tbody>
