@@ -180,7 +180,6 @@
                             <th>Estado</th>
                             <th>Fecha</th>
                             <th>Producto</th>
-                            <th>Contenedor</th>
                             <th>Conductor</th>
                             <th>Cédula</th>
                             <th>Placa</th>
@@ -195,17 +194,9 @@
                                 $isFirstProduct = true;
                             @endphp
                             @foreach($products as $index => $prod)
-                                @php
-                                    $containerId = $prod->pivot->container_id ?? null;
-                                    $container = null;
-                                    if ($containerId) {
-                                        if (isset($containers) && $containers->has($containerId)) {
-                                            $container = $containers->get($containerId);
-                                        } else {
-                                            $container = \App\Models\Container::find($containerId);
-                                        }
-                                    }
-                                @endphp
+                                {{-- El contenedor ya no se muestra: las transferencias descuentan
+                                     del total del producto en la bodega, sin importar de cual
+                                     contenedor salga. --}}
                                 <tr>
                                     @if($isFirstProduct)
                                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">{{ $transfer->order_number }}
@@ -249,13 +240,6 @@
                                                 {{ $prod->tipo_medida === 'caja' ? 'cajas' : 'unidades' }})
                                             @endif
                                         </span>
-                                    </td>
-                                    <td>
-                                        @if($container)
-                                            <strong>{{ $container->reference }}</strong>
-                                        @else
-                                            <span style="color: #999; font-style: italic;">-</span>
-                                        @endif
                                     </td>
                                     @if($isFirstProduct)
                                         <td rowspan="{{ $productCount }}" style="vertical-align: middle;">
@@ -322,7 +306,7 @@
                             @endforeach
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-muted py-5">
+                                <td colspan="10" class="text-center text-muted py-5">
                                     <i class="bi bi-arrow-left-right text-secondary" style="font-size:2.2em;"></i><br>
                                     <div class="mt-2">No existen transferencias registradas.</div>
                                 </td>
